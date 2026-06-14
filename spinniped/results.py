@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 
 
 class Results:
-    def __init_(self):
+    def __init__(self):
         """Initialize results container.
 
         Notes

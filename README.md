@@ -53,7 +53,6 @@ python examples/01_simple_shaft_modal.py
 
 ## Notes & To-Do
 
-- The file `spinniped/results.py` contains an initializer named `__init_` (single underscore) which appears to be a typo; consider renaming it to `__init__` so instances initialize correctly.
 
 ## Contributing
 
