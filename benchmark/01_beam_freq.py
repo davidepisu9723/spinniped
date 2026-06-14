@@ -4,13 +4,44 @@ Benchmarking the natural frequencies of a simple shaft against analytical soluti
 import numpy as np
 
 def simply_supported_beam(E, I, L, rho, A, m):
+    """Analytical natural frequency for an m-th mode simply-supported beam.
 
+    Parameters
+    ----------
+    E : float
+        Young's modulus (Pa).
+    I : float
+        Second moment of area (m^4).
+    L : float
+        Beam length (m).
+    rho : float
+        Material density (kg/m^3).
+    A : float
+        Cross-sectional area (m^2).
+    m : int
+        Mode number (1-based).
+
+    Returns
+    -------
+    f : float
+        Natural frequency in Hz for the specified mode.
+    """
     k = {1: 9.87, 2: 39.48, 3: 88.82, 4: 156.96}  # First four mode constants for simply supported beam
     f = k[m]/(2*np.pi) * np.sqrt(E*I/(rho*A*L**4))
     return f
 
 def fix_ends_beam(E, I, L, rho, A, m):
+    """Analytical natural frequency for an m-th mode fixed-ends beam.
 
+    Parameters
+    ----------
+    E, I, L, rho, A, m : see ``simply_supported_beam``.
+
+    Returns
+    -------
+    f : float
+        Natural frequency in Hz for the specified mode.
+    """
     k = {1: 22.4, 2: 61.7, 3: 120.9, 4: 200.1}  # First four mode constants for fixed ends beam
     f = k[m]/(2*np.pi) * np.sqrt(E*I/(rho*A*L**4))
     return f

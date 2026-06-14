@@ -4,12 +4,41 @@ import matplotlib.pyplot as plt
 
 class Results:
     def __init_(self):
+        """Initialize results container.
+
+        Notes
+        -----
+        This method appears to be a misspelled initializer (`__init_`)
+        and may not be called when instantiating `Results`. It sets
+        placeholders for eigen-data used by plotting routines.
+        """
         self.eigenvalues = None
         self.eigenvectors = None
         self.free_dofs = None
         self.nn = None
 
     def plot_mode_shapes(self, eigenvectors, eigenvalues, free_dofs, nn, list_of_modes=None):
+        """Plot mode shapes extracted from eigenvectors.
+
+        Parameters
+        ----------
+        eigenvectors : ndarray
+            Matrix of eigenvectors (columns are modes).
+        eigenvalues : ndarray
+            Array of eigenvalues corresponding to modes.
+        free_dofs : array_like
+            Indices of free degrees of freedom in the global system.
+        nn : int
+            Number of nodes in the model.
+        list_of_modes : sequence, optional
+            Specific mode indices to plot. If ``None``, the first
+            up to five modes are plotted.
+
+        Notes
+        -----
+        Only the x-direction displacements (every 4th DOF) are
+        extracted and plotted for each selected mode.
+        """
         # Global dof array
         u = np.zeros(4*nn)
 

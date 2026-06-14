@@ -5,20 +5,60 @@ from mpl_toolkits.mplot3d import Axes3D
 
 class Rotor:
     def __init__(self):
+        """Create an empty rotor assembly.
 
+        Attributes
+        ----------
+        ListOfElements : list
+            Elements added to the rotor.
+        ListOfNodes : list
+            Nodes added to the rotor.
+        node_map : dict
+            Mapping from node id to `Node` instance for fast lookup.
+        """
         self.ListOfElements = []
         self.ListOfNodes = []  # Initialize nodes attribute
         self.node_map = {}
 
     def add_element(self, element):
-        # Add element
+        """Add an element to the rotor.
+
+        Parameters
+        ----------
+        element : object
+            Element object (e.g., `ShaftElement`) to append.
+        """
         self.ListOfElements.append(element)
     
     def add_node(self, node):
+        """Add a node to the rotor and update the node map.
+
+        Parameters
+        ----------
+        node : Node
+            Node instance to add.
+        """
         self.ListOfNodes.append(node)
         self.node_map[node.id] = node
 
     def _get_node(self, node_id):
+        """Return a node by id or positional index.
+
+        Parameters
+        ----------
+        node_id : int
+            Node identifier or integer index.
+
+        Returns
+        -------
+        Node
+            The requested node instance.
+
+        Raises
+        ------
+        IndexError
+            If the node id/index cannot be found.
+        """
         if node_id in self.node_map:
             return self.node_map[node_id]
         if 0 <= node_id < len(self.ListOfNodes):
@@ -26,17 +66,22 @@ class Rotor:
         raise IndexError(f"Node id {node_id} not found in rotor")
 
     def _create_cylinder(self, p1, p2, radius, num_points=30):
-        """
-        Create cylinder surfaces (side and end caps) between two points.
-        
-        Args:
-            p1: Starting point (x1, y1, z1)
-            p2: Ending point (x2, y2, z2)
-            radius: Cylinder radius
-            num_points: Number of points around the circumference
-            
-        Returns:
-            List of (X, Y, Z) arrays for surface plotting
+        """Create surface grids for a solid cylinder between two points.
+
+        Parameters
+        ----------
+        p1, p2 : array_like
+            3D coordinates for the cylinder start and end points.
+        radius : float
+            Cylinder radius.
+        num_points : int, optional
+            Number of discretization points around the circumference.
+
+        Returns
+        -------
+        surfaces : list of tuples
+            Each tuple is (X, Y, Z) arrays suitable for plotting with
+            :func:`mpl_toolkits.mplot3d.axes3d.plot_surface`.
         """
         # Direction vector
         d = p2 - p1
@@ -123,8 +168,12 @@ class Rotor:
         return surfaces
 
     def plot(self):
-        """
-        3D plot of the rotor geometry with solid cylinders representing each shaft element.
+        """Display a 3D plot of the rotor assembly.
+
+        Notes
+        -----
+        Each shaft element is represented as a solid cylinder between
+        its two nodes. Nodes are plotted as red points.
         """
         fig = plt.figure(figsize=(12, 8))
         ax = fig.add_subplot(111, projection='3d')

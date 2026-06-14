@@ -3,6 +3,19 @@ import numpy as np
 class Solver:
     
     def __init__(self):
+        """Initialize a solver instance for rotor finite element analysis.
+
+        Attributes
+        ----------
+        K_global, M_global : ndarray
+            Global stiffness and mass matrices (assembled later).
+        ListOfElements : list
+            Elements to be assembled into global matrices.
+        fixed_dofs, free_dofs : list
+            Lists of constrained and free global DOF indices.
+        K_ff, M_ff : ndarray
+            Reduced matrices after applying boundary conditions.
+        """
         self.K_global = None
         self.M_global = None
         self.ListOfElements = []
@@ -14,6 +27,14 @@ class Solver:
         self.M_ff = None
     
     def assemble_global_matrices(self):
+        """Assemble global stiffness and mass matrices from elements.
+
+        Notes
+        -----
+        Assumes each element provides `.K` and `.M` attributes for
+        its element matrices and that element nodes are numbered
+        consecutively. Global DOF ordering uses 4 DOFs per node.
+        """
         # Now assemble the global stiffness and mass matrices
         ne = len(self.ListOfElements)
         nn = ne + 1
@@ -31,7 +52,18 @@ class Solver:
 
 
     def apply_boundary_conditions(self, fixed_dofs):
+        """Apply boundary conditions by specifying fixed DOF indices.
 
+        Parameters
+        ----------
+        fixed_dofs : sequence of int
+            Global DOF indices to be constrained.
+
+        Effects
+        -------
+        Updates `fixed_dofs` and `free_dofs`, and computes reduced
+        matrices `K_ff` and `M_ff` for the free DOFs.
+        """
         # Initialize all DOFs
         all_dofs = set(range(self.K_global.shape[0]))
 
@@ -44,11 +76,27 @@ class Solver:
         self.M_ff = self.M_global[np.ix_(self.free_dofs, self.free_dofs)]
 
     def add_rotor(self, rotor):
+        """Ingest elements from a `Rotor` instance into the solver.
+
+        Parameters
+        ----------
+        rotor : Rotor
+            Rotor instance whose elements will be added to the solver.
+        """
         # Add rotor's elements to the solver's list of elements
         self.ListOfElements.extend(rotor.ListOfElements)
         
 
     def constrain_nodes(self, constrained_nodes, constrained_dofs_per_node=None):
+        """Convenience to constrain whole nodes by specifying node ids.
+
+        Parameters
+        ----------
+        constrained_nodes : sequence of int
+            Node indices to constrain.
+        constrained_dofs_per_node : sequence of int, optional
+            DOF indices per node to fix (default all 4 DOFs: [0,1,2,3]).
+        """
         # Constrain specified nodes by fixing their degrees of freedom
         if constrained_dofs_per_node is None:
             constrained_dofs_per_node = [0, 1, 2, 3]  # Fix all dofs by default
@@ -60,6 +108,16 @@ class Solver:
         self.apply_boundary_conditions(constrained_dofs)
 
     def solve_eigenproblem(self):
+        """Solve the generalized eigenvalue problem K_ff x = lambda M_ff x.
+
+        Returns
+        -------
+        eigenvalues : ndarray
+            Array of eigenvalues.
+        eigenvectors : ndarray
+            Matrix whose columns are eigenvectors corresponding to
+            `eigenvalues`.
+        """
         # Solve the eigenvalue problem  
         from scipy.linalg import eigh
         eigenvalues, eigenvectors = eigh(self.K_ff, self.M_ff)

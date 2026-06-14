@@ -11,7 +11,32 @@ class ShaftElement:
                  L: float,
                  n1: int,
                  n2: int):
-        
+        """Create a shaft element and precompute properties.
+
+        Parameters
+        ----------
+        n : int
+            Element identifier.
+        E : float
+            Young's modulus (Pa).
+        nu : float
+            Poisson's ratio.
+        rho : float
+            Material density (kg/m^3).
+        d : float
+            Outer diameter (m).
+        L : float
+            Element length (m).
+        n1 : int
+            Node index at element start.
+        n2 : int
+            Node index at element end.
+
+        Notes
+        -----
+        Computes cross-sectional area, second moment of area, shear
+        correction factor and element mass/stiffness matrices.
+        """
         self.n = n
         self.E = E
         self.nu = nu
@@ -36,7 +61,14 @@ class ShaftElement:
         self.K = self.K()   
     
     def K_timosh(self):
-        """Returns the stiffness matrix of the shaft element."""
+        """Stiffness matrix using Timoshenko beam theory.
+
+        Returns
+        -------
+        K : ndarray, shape (8, 8)
+            Element stiffness matrix ordered as
+            [x1, y1, tx1, ty1, x2, y2, tx2, ty2].
+        """
 
 
         # Compute stiffness matrix for timoshenko beam theory
@@ -64,7 +96,14 @@ class ShaftElement:
         return K
     
     def K_euler(self):
-        """Returns the stiffness matrix of the shaft element."""
+        """Stiffness matrix using Euler-Bernoulli beam theory.
+
+        Returns
+        -------
+        K : ndarray, shape (8, 8)
+            Element stiffness matrix ordered as
+            [x1, y1, tx1, ty1, x2, y2, tx2, ty2].
+        """
 
 
         # Compute stiffness matrix for timoshenko beam theory
@@ -92,12 +131,27 @@ class ShaftElement:
         return K
     
     def K(self):
-        """Returns the stiffness matrix of the shaft element."""
-        #The order of the dofs is [x_1, y_1, tx_1, ty_1, x_2, y_2, tx_2, ty_2]
+        """Select and return the element stiffness matrix.
+
+        Returns
+        -------
+        K : ndarray, shape (8, 8)
+            Element stiffness matrix (Timoshenko by default).
+
+        Notes
+        -----
+        The ordering of DOFs is [x_1, y_1, tx_1, ty_1, x_2, y_2, tx_2, ty_2].
+        """
         return self.K_timosh()
     
     def printK(self):
-        """Prints the stiffness matrix of the shaft element."""
+        """Print the element stiffness matrix to standard output.
+
+        Notes
+        -----
+        Prints entries in scientific notation with three decimal
+        places for each matrix entry.
+        """
         K = self.K
         print("Stiffness matrix K:")
         for i in range(K.shape[0]):
@@ -106,8 +160,15 @@ class ShaftElement:
             print()
 
     def M_trans(self):
-        """Returns the mass matrix of the shaft element."""
-        #The order of the dofs is [x_1, y_1, tx_1, ty_1, x_2, y_2, tx_2, ty_2]
+        """Translational consistent mass matrix for the element.
+
+        Returns
+        -------
+        M_trans : ndarray, shape (8, 8)
+            Consistent translational mass matrix ordered as
+            [x1, y1, tx1, ty1, x2, y2, tx2, ty2].
+        """
+        # The order of the dofs is [x_1, y_1, tx_1, ty_1, x_2, y_2, tx_2, ty_2]
 
         m1 = 312.0 + 588.0 * self.phi + 280.0 * self.phi**2
         m2 = (44.0 + 77.0 * self.phi + 35.0 * self.phi**2) * self.L
@@ -133,8 +194,14 @@ class ShaftElement:
         return M_trans
 
     def M_rot(self):
+        """Rotational inertia contribution to the element mass matrix.
 
-        """Returns the mass matrix of the shaft element."""
+        Returns
+        -------
+        M_rot : ndarray, shape (8, 8)
+            Rotational mass terms used in rotordynamics. Currently
+            this contribution is computed but not added by default.
+        """
         m7 = 36.0
         m8 = (3.0 - 15.0 * self.phi * self.phi) * self.L
         m9 = (4.0 + 5.0 * self.phi + 10.0 * self.phi**2) * self.L**2
@@ -157,11 +224,24 @@ class ShaftElement:
         return M_rot
 
     def M(self):
-        """Returns the mass matrix of the shaft element."""
+        """Return the element mass matrix used in analyses.
+
+        Returns
+        -------
+        M : ndarray, shape (8, 8)
+            Element mass matrix. Currently only the translational
+            contribution is returned (rotational inertia omitted).
+        """
         return self.M_trans()# + self.M_rot()    
     
     def printM(self):
-        """Prints the mass matrix of the shaft element."""
+        """Print the element mass matrix to standard output.
+
+        Notes
+        -----
+        Prints entries in scientific notation with three decimal
+        places for each matrix entry.
+        """
         M = self.M
         print("Mass matrix M:")
         for i in range(M.shape[0]):
