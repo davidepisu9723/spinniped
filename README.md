@@ -1,6 +1,10 @@
 # Spinniped
 
-A minimal rotor/shaft finite-element toolbox for modal analysis.
+<p align="center">
+  <img src="logo/spinniped-logo.png" width="240" alt="Spinniped logo">
+</p>
+
+A minimal rotor/shaft finite-element toolbox for modal analysis, but with less dependecies as possible.
 
 ## Overview
 
@@ -54,11 +58,6 @@ python examples/01_simple_shaft_modal.py
 ## Contributing
 
 Feel free to open pull requests or issues. For quick testing, run the example scripts and verify plots render.
+My goal is to keep the dependecies at minimal level. When adding features, do not add dependecies unless they are strictly ncessary. Numpy, Scipy and Matplotlib are probably enuough for any purpose for which this package was created.
 
 ---
-
-This README is intentionally minimal. If you want, I can:
-
-- add a `requirements.txt` or `pyproject.toml` file,
-- add a short unit test that runs the example, or
-- fix the `Results.__init_` typo and verify behavior.
