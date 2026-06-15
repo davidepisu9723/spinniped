@@ -49,10 +49,10 @@ def fix_ends_beam(E, I, L, rho, A, m):
 
 for m in range(1,5):
 
-    E = 2.1e11
+    E = 2.0e11
     nu = 0.3
     rho = 7850
-    d = 0.05
+    d = 0.01
     L = 1.0
 
     A = np.pi / 4.0 * d**2

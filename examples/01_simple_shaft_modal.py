@@ -7,7 +7,7 @@ sys.path.append('./')  # Add parent directory to path to import spinniped
 from spinniped import element
 from spinniped import node
 
-ne = 4000
+ne = 21
 nn = ne + 1
 L = 1.0
 ele = []
@@ -20,10 +20,10 @@ for i in range(nn):
 for e in range(ne):
     ele.append(element.ShaftElement(
         n=e,
-        E=2.1e11,
+        E=2.0e11,
         nu=0.3,
         rho=7850,
-        d=0.05,
+        d=0.01,
         L=L/ne,
         n1=e,
         n2=e+1
@@ -53,7 +53,7 @@ s.constrain_nodes([0, nn-1],constrained_dofs_per_node=[0,1])  # Constrain the fi
 eigenvalues, eigenvectors = s.solve_eigenproblem()
 
 print(eigenvalues)
-for m in range(min(len(eigenvalues),5)):
+for m in range(min(len(eigenvalues),18)):
     print(f"Frequency: {np.sqrt(eigenvalues[m])/(2*np.pi):.2f}")
 
 from spinniped import results
