@@ -48,7 +48,7 @@ class ShaftElement:
         self.etype = etype
 
         if self.slenderness < 0.:
-            raise ValueError(f"Warning: Element {n} has low slenderness ratio ({self.slenderness:.2f}). Consider using a different element type for better accuracy.")
+            raise ValueError(f"Warning: Element {eid} has low slenderness ratio ({self.slenderness:.2f}). Consider using a different element type for better accuracy.")
 
         self.n1 = n1
         self.n2 = n2    
