@@ -19,7 +19,7 @@ for i in range(nn):
 
 for e in range(ne):
     ele.append(element.ShaftElement(
-        n=e,
+        eid=e,
         E=2.0e11,
         nu=0.3,
         rho=7850,
@@ -29,6 +29,19 @@ for e in range(ne):
         n2=e+1
     ))
 
+ele.append(element.BallBearingElement(
+    eid=e+1,
+    n1=0,
+    kxx=1e12,
+    kyy=1e12
+))
+
+ele.append(element.BallBearingElement(
+    eid=e+1,
+    n1=nn-1,
+    kxx=1e12,
+    kyy=1e12
+))
 
 # Create a rotor and add elements to it
 from spinniped import rotor
@@ -52,7 +65,6 @@ s.constrain_nodes([0, nn-1],constrained_dofs_per_node=[0,1])  # Constrain the fi
 
 eigenvalues, eigenvectors = s.solve_eigenproblem()
 
-print(eigenvalues)
 for m in range(min(len(eigenvalues),18)):
     print(f"Frequency: {np.sqrt(eigenvalues[m])/(2*np.pi):.2f}")
 

@@ -181,21 +181,23 @@ class Rotor:
         
         # Plot each element as a solid cylinder
         for e in self.ListOfElements:
-            # Each shaft element is represented by a cylinder between its two nodes
-            radius = e.d / 2.0  # radius
-            
-            # Get coordinates of node 1 and node 2
-            n1 = self._get_node(e.n1)
-            n2 = self._get_node(e.n2)
-            p1 = n1.coordinates
-            p2 = n2.coordinates
-            
-            # Create cylinder surfaces (side and end caps)
-            surfaces = self._create_cylinder(p1, p2, radius, num_points=20)
-            
-            # Plot all surfaces (side and end caps)
-            for X, Y, Z in surfaces:
-                ax.plot_surface(X, Y, Z, alpha=0.8, color='steelblue', edgecolor='none')
+
+            if e.type == "shaft":
+                # Each shaft element is represented by a cylinder between its two nodes
+                radius = e.d / 2.0  # radius
+                
+                # Get coordinates of node 1 and node 2
+                n1 = self._get_node(e.n1)
+                n2 = self._get_node(e.n2)
+                p1 = n1.coordinates
+                p2 = n2.coordinates
+                
+                # Create cylinder surfaces (side and end caps)
+                surfaces = self._create_cylinder(p1, p2, radius, num_points=20)
+                
+                # Plot all surfaces (side and end caps)
+                for X, Y, Z in surfaces:
+                    ax.plot_surface(X, Y, Z, alpha=0.8, color='steelblue', edgecolor='none')
         
         # Plot nodes as points
         for node in self.ListOfNodes:

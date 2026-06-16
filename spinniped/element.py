@@ -3,19 +3,20 @@ import numpy as np
 class ShaftElement:
     
     def __init__(self, 
-                 n: int, 
+                 eid: int, 
                  E: float,
                  nu: float,
                  rho: float,
                  d: float,
                  L: float,
                  n1: int,
-                 n2: int):
+                 n2: int,
+                 etype: str = "shaft"):
         """Create a shaft element and precompute properties.
 
         Parameters
         ----------
-        n : int
+        eid : int
             Element identifier.
         E : float
             Young's modulus (Pa).
@@ -37,13 +38,14 @@ class ShaftElement:
         Computes cross-sectional area, second moment of area, shear
         correction factor and element mass/stiffness matrices.
         """
-        self.n = n
+        self.eid = eid
         self.E = E
         self.nu = nu
         self.rho = rho
         self.d = d
         self.L = L
         self.slenderness = L/d
+        self.etype = etype
 
         if self.slenderness < 0.:
             raise ValueError(f"Warning: Element {n} has low slenderness ratio ({self.slenderness:.2f}). Consider using a different element type for better accuracy.")
@@ -248,3 +250,29 @@ class ShaftElement:
             for j in range(M.shape[1]):
                 print(f"{M[i, j]:.3e}", end=" ")
             print()
+
+
+
+class BallBearingElement:
+
+    def __init__(self, 
+                eid: int, 
+                n1: int,
+                n2: int | None = None,
+                kxx: float = 0.0,
+                kyy: float = 0.0,
+                kxy: float = 0.0,
+                kyx: float = 0.0,
+                cxx: float = 0.0,
+                cyy: float = 0.0,
+                cxy: float = 0.0,
+                cyx: float = 0.0,
+                etype: str = "ball-bearing"
+                ):
+    
+        self.eid = eid
+        self.n1 = n1
+        self.K = np.array([[kxx, kxy],[kyx, kyy]])
+        self.C = np.array([[cxx, cxy],[cyx, cyy]])
+        self.etype = etype
+    

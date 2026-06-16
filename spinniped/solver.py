@@ -19,6 +19,8 @@ class Solver:
         self.K_global = None
         self.M_global = None
         self.ListOfElements = []
+        self.ListOfNodes = []
+
 
         self.fixed_dofs = []
         self.free_dofs = []
@@ -37,21 +39,29 @@ class Solver:
         """
         # Now assemble the global stiffness and mass matrices
         ne = len(self.ListOfElements)
-        nn = ne + 1
+        nn = len(self.ListOfNodes)
         self.K_global = np.zeros((4*nn, 4*nn))
         self.M_global = np.zeros((4*nn, 4*nn))
 
-        for e in range(ne):
-            K_e = self.ListOfElements[e].K
-            M_e = self.ListOfElements[e].M
-            n1 = self.ListOfElements[e].n1
-            n2 = self.ListOfElements[e].n2
-            dof_indices = [4*n1, 4*n1+1, 4*n1+2, 4*n1+3, 4*n2, 4*n2+1, 4*n2+2, 4*n2+3]
-            self.K_global[np.ix_(dof_indices, dof_indices)] += K_e
-            self.M_global[np.ix_(dof_indices, dof_indices)] += M_e
+        for e,elem in enumerate(self.ListOfElements):
+
+            if elem.etype == "shaft":   
+                K_e = elem.K
+                M_e = elem.M
+                n1 = elem.n1
+                n2 = elem.n2
+                dof_indices = [4*n1, 4*n1+1, 4*n1+2, 4*n1+3, 4*n2, 4*n2+1, 4*n2+2, 4*n2+3]
+                self.K_global[np.ix_(dof_indices, dof_indices)] += K_e
+                self.M_global[np.ix_(dof_indices, dof_indices)] += M_e
+            elif elem.etype == "ball-bearing":
+                K_e = elem.K
+                n1 = elem.n1
+                dof_indices = [4*n1, 4*n1+1]
+                self.K_global[np.ix_(dof_indices, dof_indices)] += K_e
 
 
-    def apply_boundary_conditions(self, fixed_dofs):
+
+    def apply_boundary_conditions(self, fixed_dofs: list | None = None):
         """Apply boundary conditions by specifying fixed DOF indices.
 
         Parameters
@@ -64,14 +74,19 @@ class Solver:
         Updates `fixed_dofs` and `free_dofs`, and computes reduced
         matrices `K_ff` and `M_ff` for the free DOFs.
         """
+
         # Initialize all DOFs
         all_dofs = set(range(self.K_global.shape[0]))
 
         # Apply boundary conditions (fix specified dofs)
         # Maintain unique, sorted lists
-        self.fixed_dofs = sorted(set(self.fixed_dofs) | set(fixed_dofs))
-        self.free_dofs = sorted(all_dofs - set(self.fixed_dofs))
+        if fixed_dofs is None:
+            self.fixed_dofs = sorted(set(self.fixed_dofs))
+        else:
+            self.fixed_dofs = sorted(set(self.fixed_dofs) | set(fixed_dofs))
         
+        self.free_dofs = sorted(all_dofs - set(self.fixed_dofs))
+
         self.K_ff = self.K_global[np.ix_(self.free_dofs, self.free_dofs)]   
         self.M_ff = self.M_global[np.ix_(self.free_dofs, self.free_dofs)]
 
@@ -85,6 +100,8 @@ class Solver:
         """
         # Add rotor's elements to the solver's list of elements
         self.ListOfElements.extend(rotor.ListOfElements)
+        self.ListOfNodes.extend(rotor.ListOfNodes)
+
         
 
     def constrain_nodes(self, constrained_nodes, constrained_dofs_per_node=None):
@@ -118,6 +135,9 @@ class Solver:
             Matrix whose columns are eigenvectors corresponding to
             `eigenvalues`.
         """
+        # Before calling the solver, evalutate K_ff and M_ff in case the user defined no constrained node (i.e. he's just using bearings)
+        self.apply_boundary_conditions()
+
         # Solve the eigenvalue problem  
         from scipy.linalg import eigh
         eigenvalues, eigenvectors = eigh(self.K_ff, self.M_ff)
