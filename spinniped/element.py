@@ -267,6 +267,9 @@ class BallBearingElement:
                 cyy: float = 0.0,
                 cxy: float = 0.0,
                 cyx: float = 0.0,
+                di: float = 0.0,
+                do: float = 0.0,
+                L: float = 0.0,
                 etype: str = "ball-bearing"
                 ):
     
@@ -274,5 +277,8 @@ class BallBearingElement:
         self.n1 = n1
         self.K = np.array([[kxx, kxy],[kyx, kyy]])
         self.C = np.array([[cxx, cxy],[cyx, cyy]])
+        self.di = di
+        self.do = do
+        self.L = L
         self.etype = etype
     
