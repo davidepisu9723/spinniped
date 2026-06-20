@@ -20,7 +20,7 @@ Core modules:
 
 ## Requirements
 
-- Python 3.8+
+- Python 3.13
 - NumPy
 - SciPy
 - Matplotlib
