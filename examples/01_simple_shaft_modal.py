@@ -11,11 +11,11 @@ ne = 21
 nn = ne + 1
 L = 1.0
 ele = []
-gid = []
+meshgrid = node.Grid()
 
 # Create nodes once and connect each element sequentially
 for i in range(nn):
-    gid.append(node.Node(i, x=0.0, y=0.0, z=i * L / ne))
+    meshgrid.add_node(z = i*L/ne)
 
 for e in range(ne):
     ele.append(element.ShaftElement(
@@ -25,23 +25,9 @@ for e in range(ne):
         rho=7850,
         d=0.01,
         L=L/ne,
-        n1=e,
-        n2=e+1
+        n1=meshgrid.Nodes['id'][e],
+        n2=meshgrid.Nodes['id'][e+1]
     ))
-
-ele.append(element.BallBearingElement(
-    eid=e+1,
-    n1=0,
-    kxx=1e12,
-    kyy=1e12
-))
-
-ele.append(element.BallBearingElement(
-    eid=e+1,
-    n1=nn-1,
-    kxx=1e12,
-    kyy=1e12
-))
 
 # Create a rotor and add elements to it
 from spinniped import rotor
@@ -49,10 +35,9 @@ r = rotor.Rotor()
 for e in ele:
     r.add_element(e)    
 
-for g in gid:
-    r.add_node(g)
+r.add_meshgrid(meshgrid)
 
-#r.plot()
+r.plot()
 
 # Create a solver and add the rotor to it
 from spinniped import solver
