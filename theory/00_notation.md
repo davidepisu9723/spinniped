@@ -143,22 +143,20 @@ If the internal compact node index is $a$, the corresponding global degrees of f
 
 $$
 \begin{aligned}
-\operatorname{dof}(x_a) &= 4a \\
-\operatorname{dof}(y_a) &= 4a + 1 \\
-\operatorname{dof}(\theta_{x_a}) &= 4a + 2 \\
-\operatorname{dof}(\theta_{y_a}) &= 4a + 3
+dof(x_a) &= 4a \\
+dof(y_a) &= 4a + 1 \\
+dof(\theta_{x_a}) &= 4a + 2 \\
+dof(\theta_{y_a}) &= 4a + 3
 \end{aligned}
 $$
 
 Therefore, for an element connecting compact node indices $a$ and $b$, the global assembly index vector is:
 
-$$
-\mathbf{i}_e =
+$$\mathbf{i}_e =
 \begin{bmatrix}
 4a & 4a+1 & 4a+2 & 4a+3 &
 4b & 4b+1 & 4b+2 & 4b+3
-\end{bmatrix}
-$$
+\end{bmatrix}$$
 
 Node IDs stored in the mesh do not have to be identical to compact node indices. If node IDs are arbitrary or non-contiguous, the assembler must use a node-to-index map.
 
@@ -251,13 +249,7 @@ Typical disc parameters are:
 
 A bearing or support element located at node $i$ can be represented by a nodal stiffness and damping relation:
 
-$$
-\mathbf{f}_b =
--
-\mathbf{K}_b \mathbf{q}_i
--
-\mathbf{C}_b \dot{\mathbf{q}}_i
-$$
+$$\mathbf{f}_b = - \mathbf{K}_b \mathbf{q}_i - \mathbf{C}_b \dot{\mathbf{q}}_i $$
 
 For a simple isotropic bearing acting only on translations:
 
