@@ -195,15 +195,7 @@ $$
 
 The standard second-order rotor dynamic equation is written as:
 
-$$
-\mathbf{M}\ddot{\mathbf{q}}
-+
-\left( \mathbf{C} + \Omega \mathbf{G} \right)\dot{\mathbf{q}}
-+
-\mathbf{K}\mathbf{q}
-=
-\mathbf{f}
-$$
+$$\mathbf{M}\ddot{\mathbf{q}} + \left( \mathbf{C} + \Omega \mathbf{G} \right)\dot{\mathbf{q}} + \mathbf{K}\mathbf{q} = \mathbf{f}$$
 
 where:
 
