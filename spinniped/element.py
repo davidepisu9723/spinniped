@@ -1,4 +1,5 @@
 import numpy as np
+from spinniped import dtypes
 
 class ShaftElement:
     
@@ -48,103 +49,172 @@ class ShaftElement:
         self.etype = etype
 
         if self.slenderness < 0.:
-            raise ValueError(f"Warning: Element {eid} has low slenderness ratio ({self.slenderness:.2f}). Consider using a different element type for better accuracy.")
+            raise ValueError(f"Element {eid} has low slenderness ratio ({self.slenderness:.2f}). Consider using a different element type for better accuracy.")
 
         self.n1 = n1
         self.n2 = n2    
 
         self.A = np.pi / 4.0 * d**2
         self.I = np.pi / 64.0 * d**4
+        self.J = np.pi / 32.0 * d**4
+
         self.G = E / (2.0 * (1.0 + nu))
         self.kappa = 6*(1+nu) / (7 + 6*nu)
         self.phi = 12.0 * E * self.I / (self.kappa * self.G * self.A * self.L**2)
 
-        self.M = self.M()
-        self.K = self.K()   
+        self.M = self._M()
+        self.K = self._K()   
     
-    def K_timosh(self):
+    def _K_timosh(self):
         """Stiffness matrix using Timoshenko beam theory.
 
         Returns
         -------
-        K : ndarray, shape (8, 8)
+        K : ndarray, shape (12, 12)
             Element stiffness matrix ordered as
-            [x1, y1, tx1, ty1, x2, y2, tx2, ty2].
+            [x_0, y_0, z_0, tx_0, ty_0, tz_0, x_1, y_1, z_1, tx_1, ty_1, tz_1].
+            [0    1    2    3     4     5     6    7    8    9     10    11 ] 
         """
-
+        E = self.E
+        G = self.G
+        A = self.A
+        L = self.L
+        phi = self.phi
+        I = self.I
+        J = self.J
 
         # Compute stiffness matrix for timoshenko beam theory
-        # For now just use 8 degrees of freedom (4 per node) [x_1, y_1, tx_1, ty_1, x_2, y_2, tx_2, ty_2]
-        K = np.zeros((8, 8))
+        K = np.zeros((12, 12), dtype=np.float64)
 
+        # Axial stiffness matrix 
+        K_ax = E*A /L * np.array([
+            [1.0, -1.0],
+            [-1.0, 1.0]
+        ], dtype=np.float64)
+        K[np.ix_([2,8],[2,8])] = K_ax
+
+
+        k0 = E * I / (L**3 * (1.0 + phi))
         k1 = 12.0
-        k2 = 6.0 * self.L
-        k3 = (4.0 + self.phi) * self.L**2
-        k4 = (2.0 - self.phi) * self.L**2
+        k2 = 6.0 * L
+        k3 = (4.0 + phi) * L**2
+        k4 = (2.0 - phi) * L**2
+        # Stiffness matrix for bending in x direction
+        K_bend_x =  k0 * np.array([
+        [ k1,    k2,    -k1,    k2],
+        [ k2,    k3,    -k2,    k4],
+        [-k1,   -k2,     k1,   -k2],
+        [ k2,    k4,    -k2,    k3],
+        ], dtype=np.float64) 
 
-        K = self.E * self.I / (self.L**3 * (1.0 + self.phi)) * np.array(
-            [
-                [ k1, 0.0,  k2, 0.0, -k1, 0.0,  k2, 0.0],
-                [0.0,  k1, 0.0,  k2, 0.0, -k1, 0.0,  k2],
-                [ k2, 0.0,  k3, 0.0, -k2, 0.0,  k4, 0.0],
-                [0.0,  k2, 0.0,  k3, 0.0, -k2, 0.0,  k4],
-                [-k1, 0.0, -k2, 0.0,  k1, 0.0, -k2, 0.0],
-                [0.0, -k1, 0.0, -k2, 0.0,  k1, 0.0, -k2],
-                [ k2, 0.0,  k4, 0.0, -k2, 0.0,  k3, 0.0],
-                [0.0,  k2, 0.0,  k4, 0.0, -k2, 0.0,  k3],
-            ],
-            dtype=float,
-        )
+        # Stiffness matrix for bending in y direction. The sign of rotational term is inverted. You can find more details of this the documentation
+        K_bend_y = k0 * np.array([
+        [ k1,   -k2,    -k1,    -k2],
+        [-k2,    k3,     k2,     k4],
+        [-k1,    k2,     k1,     k2],
+        [-k2,    k4,     k2,     k3],
+        ], dtype=np.float64) 
+        
+        # Bending stiffness matrix (for bending in x direction)
+        K[np.ix_([0,4,6,10],[0,4,6,10])] = K_bend_x
+        # Bending stiffness matrix (for bending in y direction)
+        K[np.ix_([1,3,7,9],[1,3,7,9])] = K_bend_y
+
+        # Torsional stiffness
+        K_tors =  (G * J / L) * np.array([
+        [1.0, -1.0],
+        [-1.0, 1.0]
+        ], dtype=np.float64)
+        K[np.ix_([5,11],[5,11])] = K_tors
+
         return K
     
-    def K_euler(self):
+    
+    def _K_euler(self):
         """Stiffness matrix using Euler-Bernoulli beam theory.
 
         Returns
         -------
-        K : ndarray, shape (8, 8)
+        K : ndarray, shape (12, 12)
             Element stiffness matrix ordered as
-            [x1, y1, tx1, ty1, x2, y2, tx2, ty2].
+            [x_0, y_0, z_0, tx_0, ty_0, tz_0, x_1, y_1, z_1, tx_1, ty_1, tz_1].
+            [0    1    2    3     4     5     6    7    8    9     10    11 ] 
         """
 
+        # Compute stiffness matrix for Euler-Bernoulli beam theory
+        K = np.zeros((12, 12))
 
-        # Compute stiffness matrix for timoshenko beam theory
-        # For now just use 8 degrees of freedom (4 per node) [x_1, y_1, tx_1, ty_1, x_2, y_2, tx_2, ty_2]
-        K = np.zeros((8, 8))
+        E = self.E
+        G = self.G
+        A = self.A
+        L = self.L
+        I = self.I
+        J = self.J
 
+        # Compute stiffness matrix for euler-bernoulli beam theory
+        K = np.zeros((12, 12), dtype=np.float64)
+
+        # Axial stiffness matrix 
+        K_ax = E*A /L * np.array([
+            [1.0, -1.0],
+            [-1.0, 1.0]
+        ], dtype=np.float64)
+        K[np.ix_([2,8],[2,8])] = K_ax
+
+
+        k0 = E * I / (L**3)
         k1 = 12.0
-        k2 = 6.0 * self.L
-        k3 = 4.0 * self.L**2
-        k4 = 2.0 * self.L**2
+        k2 = 6.0 * L
+        k3 = 4.0 * L**2
+        k4 = 2.0 * L**2
+        # Stiffness matrix for bending in x direction
+        K_bend_x =  k0 * np.array([
+        [ k1,    k2,    -k1,    k2],
+        [ k2,    k3,    -k2,    k4],
+        [-k1,   -k2,     k1,   -k2],
+        [ k2,    k4,    -k2,    k3],
+        ], dtype=np.float64) 
 
-        K = self.E * self.I / self.L**3 * np.array(
-            [
-                [ k1, 0.0,  k2, 0.0, -k1, 0.0,  k2, 0.0],
-                [0.0,  k1, 0.0,  k2, 0.0, -k1, 0.0,  k2],
-                [ k2, 0.0,  k3, 0.0, -k2, 0.0,  k4, 0.0],
-                [0.0,  k2, 0.0,  k3, 0.0, -k2, 0.0,  k4],
-                [-k1, 0.0, -k2, 0.0,  k1, 0.0, -k2, 0.0],
-                [0.0, -k1, 0.0, -k2, 0.0,  k1, 0.0, -k2],
-                [ k2, 0.0,  k4, 0.0, -k2, 0.0,  k3, 0.0],
-                [0.0,  k2, 0.0,  k4, 0.0, -k2, 0.0,  k3],
-            ],
-            dtype=float,
-        )
+        # Stiffness matrix for bending in y direction. The sign of rotational term is inverted. You can find more details of this the documentation
+        K_bend_y = k0 * np.array([
+        [ k1,   -k2,    -k1,    -k2],
+        [-k2,    k3,     k2,     k4],
+        [-k1,    k2,     k1,     k2],
+        [-k2,    k4,     k2,     k3],
+        ], dtype=np.float64) 
+        
+        # Bending stiffness matrix (for bending in x direction)
+        K[np.ix_([0,4,6,10],[0,4,6,10])] = K_bend_x
+        # Bending stiffness matrix (for bending in y direction)
+        K[np.ix_([1,3,7,9],[1,3,7,9])] = K_bend_y
+
+        # Torsional stiffness
+        K_tors =  (G * J / L) * np.array([
+        [1.0, -1.0],
+        [-1.0, 1.0]
+        ], dtype=np.float64)
+        K[np.ix_([5,11],[5,11])] = K_tors
+
         return K
     
-    def K(self):
+    def _K(self, theory: int = 0):
         """Select and return the element stiffness matrix.
 
         Returns
         -------
-        K : ndarray, shape (8, 8)
+        K : ndarray, shape (12, 12)
             Element stiffness matrix (Timoshenko by default).
 
         Notes
         -----
-        The ordering of DOFs is [x_1, y_1, tx_1, ty_1, x_2, y_2, tx_2, ty_2].
+        The ordering of DOFs is [x_0, y_0, z_0, tx_0, ty_0, tz_0, x_1, y_1, z_1, tx_1, ty_1, tz_1].
         """
-        return self.K_timosh()
+        if theory == 0:
+            return self._K_timosh()
+        elif theory == 1:
+            return self._K_euler()
+        else:
+            raise NotImplementedError(f"Method {theory} is not implemented. Use 0 for Timoshenko, 1 for Euler-Bernoulli")
     
     def printK(self):
         """Print the element stiffness matrix to standard output.
@@ -161,80 +231,296 @@ class ShaftElement:
                 print(f"{K[i, j]:.3e}", end=" ")
             print()
 
-    def M_trans(self):
-        """Translational consistent mass matrix for the element.
+    def _M_trans_timosh(self):
+        """Translational mass matrix for the element.
 
         Returns
         -------
-        M_trans : ndarray, shape (8, 8)
+        M_trans : ndarray, shape (12, 12)
             Consistent translational mass matrix ordered as
-            [x1, y1, tx1, ty1, x2, y2, tx2, ty2].
+            [x_0, y_0, z_0, tx_0, ty_0, tz_0, x_1, y_1, z_1, tx_1, ty_1, tz_1].
         """
-        # The order of the dofs is [x_1, y_1, tx_1, ty_1, x_2, y_2, tx_2, ty_2]
 
-        m1 = 312.0 + 588.0 * self.phi + 280.0 * self.phi**2
-        m2 = (44.0 + 77.0 * self.phi + 35.0 * self.phi**2) * self.L
-        m3 = 108.0 + 252.0 * self.phi + 140.0 * self.phi**2
-        m4 = -(26.0 + 63.0 * self.phi + 35.0 * self.phi**2) * self.L
-        m5 = (8.0 + 14.0 * self.phi + 7.0 * self.phi**2) * self.L**2
-        m6 = -(6.0 + 14.0 * self.phi + 7.0 * self.phi**2) * self.L**2
+        rho = self.rho 
+        A = self.A 
+        L = self.L
+        J = self.J
+        phi = self.phi
 
-        M_trans = self.rho * self.A * self.L / (840.0 * (1.0 + self.phi)**2) * np.array(
+        M_trans = np.zeros((12, 12), dtype=np.float64)
+
+        M_ax = rho * A * L / 6 * np.array([
+            [2,     1],
+            [1,     2]
+        ], dtype = np.float64)
+        M_trans[np.ix_([2,8],[2,8])] = M_ax
+
+
+        M_tors = rho * J * L / 6 * np.array([
+            [2,     1],
+            [1,     2]
+        ], dtype = np.float64)
+        M_trans[np.ix_([5,11],[5,11])] = M_tors
+
+        m1 = 312.0 + 588.0 * phi + 280.0 * phi**2
+        m2 = (44.0 + 77.0 * phi + 35.0 * phi**2) * L
+        m3 = 108.0 + 252.0 * phi + 140.0 * phi**2
+        m4 = -(26.0 + 63.0 * phi + 35.0 * phi**2) * L
+        m5 = (8.0 + 14.0 * phi + 7.0 * phi**2) * L**2
+        m6 = -(6.0 + 14.0 * phi + 7.0 * phi**2) * L**2
+
+        M_bendx = rho * A * L / (840.0 * (1.0 + phi)**2) * np.array(
             [
-                [ m1, 0.0,  m2, 0.0,  m3, 0.0,  m4, 0.0],
-                [0.0,  m1, 0.0,  m2, 0.0,  m3, 0.0,  m4],
-                [ m2, 0.0,  m5, 0.0, -m4, 0.0,  m6, 0.0],
-                [0.0,  m2, 0.0,  m5, 0.0, -m4, 0.0,  m6],
-                [ m3, 0.0, -m4, 0.0,  m1, 0.0, -m2, 0.0],
-                [0.0,  m3, 0.0, -m4, 0.0,  m1, 0.0, -m2],
-                [ m4, 0.0,  m6, 0.0, -m2, 0.0,  m5, 0.0],
-                [0.0,  m4, 0.0,  m6, 0.0, -m2, 0.0,  m5],
+                [m1,  m2,  m3,  m4],
+                [m2,  m5, -m4,  m6],
+                [m3, -m4,  m1, -m2],
+                [m4,  m6, -m2,  m5],
             ],
-            dtype=float,
+            dtype=np.float64,
         )
+
+        M_bendy = rho * A * L / (840.0 * (1.0 + phi)**2) * np.array(
+            [
+                [ m1, -m2,  m3, -m4],
+                [-m2,  m5,  m4,  m6],
+                [ m3,  m4,  m1,  m2],
+                [-m4,  m6,  m2,  m5],
+            ],
+            dtype=np.float64,
+        )
+        # Bending stiffness matrix (for bending in x direction)
+        M_trans[np.ix_([0,4,6,10],[0,4,6,10])] = M_bendx
+        # Bending stiffness matrix (for bending in y direction)
+        M_trans[np.ix_([1,3,7,9],[1,3,7,9])] = M_bendy
 
         return M_trans
 
-    def M_rot(self):
+    def _M_trans_euler(self):
+        """Translational mass matrix using Euler-Bernoulli beam theory.
+
+        Returns
+        -------
+        M_trans : ndarray, shape (12, 12)
+            Consistent translational mass matrix ordered as
+            [x_0, y_0, z_0, tx_0, ty_0, tz_0, x_1, y_1, z_1, tx_1, ty_1, tz_1].
+
+        Notes
+        -----
+        This matrix contains:
+        - axial inertia;
+        - torsional inertia;
+        - bending translational inertia in the x-z plane;
+        - bending translational inertia in the y-z plane.
+
+        It does not contain bending rotary inertia. That contribution is
+        computed separately by M_rot_euler().
+        """
+
+        rho = self.rho
+        A = self.A
+        L = self.L
+        J = self.J
+
+        M_trans = np.zeros((12, 12), dtype=np.float64)
+
+        # Axial consistent mass matrix
+        # DOF order: [z_0, z_1]
+        M_ax = rho * A * L / 6.0 * np.array([
+            [2.0, 1.0],
+            [1.0, 2.0],
+        ], dtype=np.float64)
+        M_trans[np.ix_([2, 8], [2, 8])] = M_ax
+
+        # Torsional consistent inertia matrix
+        # DOF order: [tz_0, tz_1]
+        #
+        # This is kept inside M_trans because torsional modes need this
+        # inertia even when bending rotary inertia is disabled.
+        M_tors = rho * J * L / 6.0 * np.array([
+            [2.0, 1.0],
+            [1.0, 2.0],
+        ], dtype=np.float64)
+        M_trans[np.ix_([5, 11], [5, 11])] = M_tors
+
+        # Euler-Bernoulli bending translational inertia
+        m0 = rho * A * L / 420.0
+
+        m1 = 156.0
+        m2 = 22.0 * L
+        m3 = 54.0
+        m4 = -13.0 * L
+        m5 = 4.0 * L**2
+        m6 = -3.0 * L**2
+
+        # Bending translational inertia in x-z plane
+        # DOF order: [x_0, ty_0, x_1, ty_1]
+        M_bendx = m0 * np.array([
+            [m1,  m2,  m3,  m4],
+            [m2,  m5, -m4,  m6],
+            [m3, -m4,  m1, -m2],
+            [m4,  m6, -m2,  m5],
+        ], dtype=np.float64)
+
+        # Bending translational inertia in y-z plane
+        # DOF order: [y_0, tx_0, y_1, tx_1]
+        #
+        # Sign convention is already corrected because:
+        #
+        #     dy/dz = -tx
+        #
+        M_bendy = m0 * np.array([
+            [ m1, -m2,  m3, -m4],
+            [-m2,  m5,  m4,  m6],
+            [ m3,  m4,  m1,  m2],
+            [-m4,  m6,  m2,  m5],
+        ], dtype=np.float64)
+
+        # Bending mass matrix for bending in x direction
+        M_trans[np.ix_([0, 4, 6, 10], [0, 4, 6, 10])] = M_bendx
+
+        # Bending mass matrix for bending in y direction
+        M_trans[np.ix_([1, 3, 7, 9], [1, 3, 7, 9])] = M_bendy
+
+        return M_trans
+
+    def _M_rot_timosh(self):
         """Rotational inertia contribution to the element mass matrix.
 
         Returns
         -------
-        M_rot : ndarray, shape (8, 8)
+        M_rot : ndarray, shape (12, 12)
             Rotational mass terms used in rotordynamics. Currently
             this contribution is computed but not added by default.
         """
-        m7 = 36.0
-        m8 = (3.0 - 15.0 * self.phi * self.phi) * self.L
-        m9 = (4.0 + 5.0 * self.phi + 10.0 * self.phi**2) * self.L**2
-        m10 = (-1.0 - 5.0 * self.phi + 5.0 * self.phi**2) * self.L**2
 
-        M_rot = self.rho * self.I / (30.0 * self.L * (1.0 + self.phi)**2) * np.array(
-        [
-            [ m7, 0.0,  m8, 0.0, -m7, 0.0,  m8, 0.0],
-            [0.0,  m7, 0.0,  m8, 0.0, -m7, 0.0,  m8],
-            [ m8, 0.0,  m9, 0.0, -m8, 0.0,  m10, 0.0],
-            [0.0,  m8, 0.0,  m9, 0.0, -m8, 0.0,  m10],
-            [-m7, 0.0, -m8, 0.0,  m7, 0.0, -m8, 0.0],
-            [0.0, -m7, 0.0, -m8, 0.0,  m7, 0.0, -m8],
-            [ m8, 0.0,  m10, 0.0, -m8, 0.0,  m9, 0.0],
-            [0.0,  m8, 0.0,  m10, 0.0, -m8, 0.0,  m9],
-        ],
-        dtype=float,
+        M_rot = np.zeros((12,12),dtype = np.float64)
+
+        rho = self.rho
+        L = self.L
+        I = self.I
+        phi = self.phi
+
+        m0 = rho * I / (30.0 * L * (1.0 + phi)**2) 
+        m7 = 36.0
+        m8 = (3.0 - 15.0 * phi) * L
+        m9 = (4.0 + 5.0 * phi + 10.0 * phi**2) * L**2
+        m10 = (-1.0 - 5.0 * phi + 5.0 * phi**2) * L**2
+
+        M_rot_x = m0 * np.array(
+            [
+                [ m7,  m8, -m7,  m8],
+                [ m8,  m9, -m8,  m10],
+                [-m7, -m8,  m7, -m8],
+                [ m8,  m10, -m8,  m9],
+            ],
+            dtype=np.float64,
         )
+
+        M_rot_y = m0 * np.array(
+            [
+                [ m7, -m8, -m7, -m8],
+                [-m8,  m9,  m8,  m10],
+                [-m7,  m8,  m7,  m8],
+                [-m8,  m10, m8,  m9],
+            ],
+            dtype=np.float64,
+        )
+
+
+        M_rot[np.ix_([0, 4, 6, 10],[0, 4, 6, 10])] = M_rot_x
+        M_rot[np.ix_([1, 3, 7, 9],[1, 3, 7, 9])] = M_rot_y
+
+        return M_rot
+    
+    def _M_rot_euler(self):
+        """Rotary inertia contribution using Euler-Bernoulli kinematics.
+
+        Returns
+        -------
+        M_rot : ndarray, shape (12, 12)
+            Bending rotary inertia contribution ordered as
+            [x_0, y_0, z_0, tx_0, ty_0, tz_0, x_1, y_1, z_1, tx_1, ty_1, tz_1].
+
+        Notes
+        -----
+        Strict Euler-Bernoulli theory neglects shear deformation. If this
+        matrix is added, the mass model includes rotary inertia and becomes
+        closer to a Rayleigh-beam-type inertia model.
+
+        This matrix does not contain torsional inertia. Torsional inertia is
+        already included in M_trans_euler().
+        """
+
+        M_rot = np.zeros((12, 12), dtype=np.float64)
+
+        rho = self.rho
+        L = self.L
+        I = self.I
+
+        m0 = rho * I / (30.0 * L)
+
+        m7 = 36.0
+        m8 = 3.0 * L
+        m9 = 4.0 * L**2
+        m10 = -1.0 * L**2
+
+        # Rotary inertia contribution for x-z bending
+        # DOF order: [x_0, ty_0, x_1, ty_1]
+        M_rot_x = m0 * np.array([
+            [ m7,  m8, -m7,  m8],
+            [ m8,  m9, -m8,  m10],
+            [-m7, -m8,  m7, -m8],
+            [ m8,  m10, -m8,  m9],
+        ], dtype=np.float64)
+
+        # Rotary inertia contribution for y-z bending
+        # DOF order: [y_0, tx_0, y_1, tx_1]
+        #
+        # Sign convention is already corrected because:
+        #
+        #     dy/dz = -tx
+        #
+        M_rot_y = m0 * np.array([
+            [ m7, -m8, -m7, -m8],
+            [-m8,  m9,  m8,  m10],
+            [-m7,  m8,  m7,  m8],
+            [-m8,  m10, m8,  m9],
+        ], dtype=np.float64)
+
+        M_rot[np.ix_([0, 4, 6, 10], [0, 4, 6, 10])] = M_rot_x
+        M_rot[np.ix_([1, 3, 7, 9], [1, 3, 7, 9])] = M_rot_y
 
         return M_rot
 
-    def M(self):
+    def _M(self, theory: int = 0, rotary_inertia: bool = True):
         """Return the element mass matrix used in analyses.
 
         Returns
         -------
-        M : ndarray, shape (8, 8)
+        M : ndarray, shape (12, 12)
             Element mass matrix. Currently only the translational
             contribution is returned (rotational inertia omitted).
         """
-        return self.M_trans()# + self.M_rot()    
+        if theory == 0:
+            M_trans = self._M_trans_timosh()
+        elif theory == 1:
+            M_trans = self._M_trans_euler()
+        else:
+            raise NotImplementedError(f"Method {theory} is not implemented. Use 0 for Timoshenko, 1 for Euler-Bernoulli")
+        
+        # If no inertial effect is required, return the current translational mass matrix
+        if not rotary_inertia:
+            return M_trans
+        
+        # Otherwise, compute the rotary inertia mass matrix and sum it to the M_trans       
+        if theory == 0:
+            M_rot = self._M_rot_timosh()
+        elif theory == 1:
+            M_rot = self._M_rot_euler()
+        else:
+            raise NotImplementedError(f"Method {theory} is not implemented. Use 0 for Timoshenko, 1 for Euler-Bernoulli")
+
+        return M_trans + M_rot    
     
     def printM(self):
         """Print the element mass matrix to standard output.

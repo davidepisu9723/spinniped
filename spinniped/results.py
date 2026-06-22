@@ -40,7 +40,7 @@ class Results:
         extracted and plotted for each selected mode.
         """
         # Global dof array
-        u = np.zeros(4*nn)
+        u = np.zeros(6*nn)
 
         plt.figure(figsize=(10, 6))
         if list_of_modes is None:
@@ -51,7 +51,7 @@ class Results:
         for m in modes_to_plot:  # Plot x dir modes only
             # Get only x displacements for plotting
             u[free_dofs] = eigenvectors[:, m]
-            mode_shape = u[::4]  # Extract x displacements (every 4th entry corresponds to x displacement)
+            mode_shape = u[::6]  # Extract x displacements (every 4th entry corresponds to x displacement)
             plt.plot(mode_shape, label=f'Mode {m+1} ({np.sqrt(eigenvalues[m])/(2*np.pi):.2f} Hz)')
         plt.xlabel('Node')
         plt.ylabel('Displacement (m)')

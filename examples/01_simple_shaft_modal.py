@@ -45,7 +45,7 @@ s = solver.Solver()
 s.add_rotor(r)
 
 s.assemble_global_matrices()
-s.constrain_nodes([0, nn-1],constrained_dofs_per_node=[0,1])  # Constrain the first node
+s.constrain_nodes([0, nn-1],constrained_dofs_per_node=[0,1,2,5])  # Constrain the first node
 #s.constrain_nodes([nn-1],constrained_dofs_per_node=[0,1])  # Constrain last node
 
 eigenvalues, eigenvectors = s.solve_eigenproblem()

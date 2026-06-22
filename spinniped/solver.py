@@ -156,12 +156,12 @@ class Solver:
         nn = self.meshgrid.Nodes.shape[0]
 
         # Allocate the global stiffness matrix.
-        # Matrix size is 4 DOFs per node.
-        self.K_global = np.zeros((4 * nn, 4 * nn))
+        # Matrix size is 6 DOFs per node.
+        self.K_global = np.zeros((6 * nn, 6 * nn))
 
         # Allocate the global mass matrix.
         # Matrix size is 4 DOFs per node.
-        self.M_global = np.zeros((4 * nn, 4 * nn))
+        self.M_global = np.zeros((6 * nn, 6 * nn))
 
         # Loop over all elements to assemble their contributions.
         for e, elem in enumerate(self.ListOfElements):
@@ -184,14 +184,18 @@ class Solver:
                 # Build the list of global DOF indices for the two-node element.
                 # Each node has 4 DOFs, so a shaft element has 8 DOFs.
                 dof_indices = [
-                    4 * n1,
-                    4 * n1 + 1,
-                    4 * n1 + 2,
-                    4 * n1 + 3,
-                    4 * n2,
-                    4 * n2 + 1,
-                    4 * n2 + 2,
-                    4 * n2 + 3,
+                    6 * n1,
+                    6 * n1 + 1,
+                    6 * n1 + 2,
+                    6 * n1 + 3,
+                    6 * n1 + 4,
+                    6 * n1 + 5,
+                    6 * n2,
+                    6 * n2 + 1,
+                    6 * n2 + 2,
+                    6 * n2 + 3,
+                    6 * n2 + 4,
+                    6 * n2 + 5
                 ]
 
                 # Add the local stiffness matrix into the global stiffness matrix.
@@ -211,8 +215,8 @@ class Solver:
 
                 # Bearings currently act only on the first two DOFs of the node.
                 dof_indices = [
-                    4 * n1,
-                    4 * n1 + 1,
+                    6 * n1,
+                    6 * n1 + 1,
                 ]
 
                 # Add the bearing stiffness matrix into the global stiffness matrix.
@@ -345,7 +349,7 @@ class Solver:
         if constrained_dofs_per_node is None:
 
             # Default: fix all 4 DOFs of each selected node.
-            constrained_dofs_per_node = [0, 1, 2, 3]
+            constrained_dofs_per_node = [0, 1, 2, 3, 4, 5]
 
         # List that will store the global DOF indices to constrain.
         constrained_dofs = []
@@ -355,7 +359,7 @@ class Solver:
 
             # Convert local DOF indices into global DOF indices.
             constrained_dofs.extend([
-                4 * node + dof
+                6 * node + dof
                 for dof in constrained_dofs_per_node
             ])
 
