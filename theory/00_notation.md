@@ -37,15 +37,17 @@ If a different rotation axis is used, the element matrices must either be formul
 
 ## 2. Nodal degrees of freedom
 
-Each shaft node has four mechanical degrees of freedom:
+Each shaft node has six mechanical degrees of freedom:
 
 $$
 \mathbf{q}_i =
 \begin{bmatrix}
  x_i \\
  y_i \\
+ z_i \\
  \theta_{x_i} \\
- \theta_{y_i}
+ \theta_{y_i} \\
+ \theta_{z_i}
 \end{bmatrix}
 $$
 
@@ -55,15 +57,17 @@ where:
 |---|---:|---|
 | $x_i$ | `x` | transverse displacement of node $i$ along the global $x$ direction |
 | $y_i$ | `y` | transverse displacement of node $i$ along the global $y$ direction |
+| $z_i$ | `z` | transverse displacement of node $i$ along the global $z$ direction |
 | $\theta_{x_i}$ | `tx` | small rotation of node $i$ about the global $x$ axis |
 | $\theta_{y_i}$ | `ty` | small rotation of node $i$ about the global $y$ axis |
+| $\theta_{z_i}$ | `tz` | small rotation of node $i$ about the global $z$ axis |
 
 The nodal unknown vector is therefore ordered as:
 
 $$
 \mathbf{q}_i =
 \begin{bmatrix}
- x_i & y_i & \theta_{x_i} & \theta_{y_i}
+ x_i & y_i & z_i & \theta_{x_i} & \theta_{y_i} & \theta_{z_i}
 \end{bmatrix}^T
 $$
 
@@ -71,19 +75,23 @@ $$
 
 ## 3. Two-node element degree-of-freedom ordering
 
-For a two-node shaft element connecting node 1 and node 2, Spinniped uses the local element vector:
+For a two-node shaft element connecting node 0 and node 1, Spinniped uses the local element vector:
 
 $$
 \mathbf{q}_e =
 \begin{bmatrix}
+ x_0 \\
+ y_0 \\
+ z_0 \\
+ \theta_{x_0} \\
+ \theta_{y_0} \\
+ \theta_{z_0} \\
  x_1 \\
  y_1 \\
+ z_1 \\
  \theta_{x_1} \\
  \theta_{y_1} \\
- x_2 \\
- y_2 \\
- \theta_{x_2} \\
- \theta_{y_2}
+ \theta_{z_1}
 \end{bmatrix}
 $$
 
@@ -92,18 +100,18 @@ Equivalently:
 $$
 \mathbf{q}_e =
 \begin{bmatrix}
- x_1 & y_1 & \theta_{x_1} & \theta_{y_1} &
- x_2 & y_2 & \theta_{x_2} & \theta_{y_2}
+ x_0 & y_0 & z_0 & \theta_{x_0} & \theta_{y_0} & \theta_{z_0} &
+ x_1 & y_1 & z_1 & \theta_{x_1} & \theta_{y_1} & \theta_{z_1}
 \end{bmatrix}^T
 $$
 
 In code notation, the order is:
 
 ```text
-x1, y1, tx1, ty1, x2, y2, tx2, ty2
+x0, y0, z0, tx0, ty0, tz0, x1, y1, z1, tx1, ty1, tz1
 ```
 
-This is the reference ordering for all $8 \times 8$ shaft element matrices in Spinniped.
+This is the reference ordering for all $12 \times 12$ shaft element matrices in Spinniped.
 
 ---
 
@@ -113,14 +121,19 @@ Using zero-based Python indexing, the local element degrees of freedom are:
 
 | Local index | DOF |
 |---:|---|
-| 0 | $x_1$ |
-| 1 | $y_1$ |
-| 2 | $\theta_{x_1}$ |
-| 3 | $\theta_{y_1}$ |
-| 4 | $x_2$ |
-| 5 | $y_2$ |
-| 6 | $\theta_{x_2}$ |
-| 7 | $\theta_{y_2}$ |
+| 0 | $x_0$ |
+| 1 | $y_0$ |
+| 2 | $z_0$ |
+| 3 | $\theta_{x_0}$ |
+| 4 | $\theta_{y_0}$ |
+| 5 | $\theta_{z_0}$ |
+| 6 | $x_1$ |
+| 7 | $y_1$ |
+| 8 | $z_1$ |
+| 9 | $\theta_{x_1}$ |
+| 10 | $\theta_{y_1}$ |
+| 11 | $\theta_{z_1}$ |
+
 
 Any matrix written in a different ordering must be permuted before being used in Spinniped.
 
@@ -128,34 +141,36 @@ For example, a matrix written in the common plane-separated ordering
 
 $$
 \begin{bmatrix}
- x_1 & \theta_{y_1} & x_2 & \theta_{y_2} &
- y_1 & \theta_{x_1} & y_2 & \theta_{x_2}
+ x_0 & \theta_{y_0} & x_1 & \theta_{y_1} &
+ y_0 & \theta_{x_0} & y_1 & \theta_{x_1}
 \end{bmatrix}^T
 $$
 
-is not directly compatible with Spinniped's element convention.
+is not directly compatible with Spinniped's element convention. This is quite important: many matrices presented in textbooks and papers use this kind of dof ordering. Do not panick: you'll just have to permute the terms of the original matrix to match Spinniped's convention.
 
 ---
 
 ## 5. Global degree-of-freedom numbering
 
-If the internal compact node index is $a$, the corresponding global degrees of freedom are:
+If the internal compact node index is $p$, the corresponding global degrees of freedom are:
 
 $$
 \begin{aligned}
-dof(x_a) &= 4a \\
-dof(y_a) &= 4a + 1 \\
-dof(\theta_{x_a}) &= 4a + 2 \\
-dof(\theta_{y_a}) &= 4a + 3
+x_{p} &= 6 p \\
+y_{p} &= 6 p + 1 \\
+z_{p} &= 6 p + 2 \\
+\theta_{x_p} &= 6 p + 3 \\
+\theta_{y_p} &= 6 p + 4 \\
+\theta_{z_p} &= 6 p + 5 \\
 \end{aligned}
 $$
 
-Therefore, for an element connecting compact node indices $a$ and $b$, the global assembly index vector is:
+Therefore, for an element connecting compact node indices $p$ and $q$, the global assembly index vector is:
 
 $$\mathbf{i}_e =
 \begin{bmatrix}
-4a & 4a+1 & 4a+2 & 4a+3 &
-4b & 4b+1 & 4b+2 & 4b+3
+6p & 6p+1 & 6p+2 & 6p+3 & 6p+6 & 6p+5 &
+6q & 6q+1 & 6q+2 & 6q+3 & 6q+4 & 6q+5
 \end{bmatrix}$$
 
 Node IDs stored in the mesh do not have to be identical to compact node indices. If node IDs are arbitrary or non-contiguous, the assembler must use a node-to-index map.
@@ -217,6 +232,7 @@ Depending on the formulation, the factor $\Omega$ may already be included inside
 | $\rho$ | mass density | kg/m$^3$ |
 | $I_x$ | second moment of area about the $x$ axis | m$^4$ |
 | $I_y$ | second moment of area about the $y$ axis | m$^4$ |
+| $I_z$ | second moment of area about the $z$ axis | m$^4$ |
 | $I_p$ | polar second moment of area | m$^4$ |
 | $J$ | torsional constant or polar inertia symbol, depending on context | m$^4$ or kg m$^2$ |
 | $\Omega$ | rotor spin speed | rad/s |
@@ -224,6 +240,7 @@ Depending on the formulation, the factor $\Omega$ may already be included inside
 | $f$ | frequency | Hz |
 
 When $J$ is used, the document must explicitly state whether it represents a geometric torsional constant or a mass polar moment of inertia.
+In many axisymmetric element types, the second moments of area are simply called $I_x = I_y = I$ and $I_z = J$. 
 
 ---
 
@@ -245,7 +262,7 @@ Typical disc parameters are:
 | $m_d$ | disc mass |
 | $I_{d,x}$ | disc diametral mass moment of inertia about $x$ |
 | $I_{d,y}$ | disc diametral mass moment of inertia about $y$ |
-| $I_{d,p}$ | disc polar mass moment of inertia about the spin axis |
+| $I_{d,z}$ or $I_{d,p}$| disc polar mass moment of inertia about the spin axis, usually $z$ |
 
 A bearing or support element located at node $i$ can be represented by a nodal stiffness and damping relation:
 
@@ -258,12 +275,14 @@ $$
 \begin{bmatrix}
  k_{xx} & 0 & 0 & 0 \\
  0 & k_{yy} & 0 & 0 \\
+ 0 & 0 & k_{zz} & 0 \\
+ 0 & 0 & 0 & 0 \\
  0 & 0 & 0 & 0 \\
  0 & 0 & 0 & 0
 \end{bmatrix}
 $$
 
-with $k_{xx} = k_{yy}$ for an isotropic support.
+with $k_{xx} = k_{yy}$ for an isotropic support. 
 
 ---
 
@@ -313,19 +332,17 @@ Every element matrix in the theory notes must declare its degree-of-freedom orde
 For Spinniped shaft elements, the required order is always:
 
 $$
-\boxed{
 \mathbf{q}_e =
 \begin{bmatrix}
- x_1 & y_1 & \theta_{x_1} & \theta_{y_1} &
- x_2 & y_2 & \theta_{x_2} & \theta_{y_2}
+ x_0 & y_0 & z_0 & \theta_{x_0} & \theta_{y_0} & \theta_{z_0} &
+ x_1 & y_1 & z_1 & \theta_{x_1} & \theta_{y_1} & \theta_{z_1}
 \end{bmatrix}^T
-}
 $$
 
 In code notation:
 
 ```text
-x1, y1, tx1, ty1, x2, y2, tx2, ty2
+x0, y0, z0, tx0, ty0, tz0, x1, y1, z1, tx2, ty2, tz2
 ```
 
 This convention takes precedence over external textbook or paper conventions.

@@ -43,7 +43,7 @@ python examples/01_simple_shaft_modal.py
 
 ## Conventions
 
-- Degrees of freedom (DOFs): the project uses 4 DOFs per node by default. Element DOF ordering typically follows `[x1, y1, tx1, ty1, x2, y2, tx2, ty2]`.
+- Degrees of freedom (DOFs): the project uses 6 DOFs per node by default. Element DOF ordering typically follows `[x0, y0, z0, tx0, ty0, tz0, x1, y1, z1, tx1, ty1, tz1]`.
 - Stiffness and mass matrix shapes are documented in the function docstrings in the source files.
 
 ## Examples and Benchmarks

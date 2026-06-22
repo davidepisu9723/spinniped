@@ -72,8 +72,8 @@ class ShaftElement:
         -------
         K : ndarray, shape (12, 12)
             Element stiffness matrix ordered as
-            [x_0, y_0, z_0, tx_0, ty_0, tz_0, x_1, y_1, z_1, tx_1, ty_1, tz_1].
-            [0    1    2    3     4     5     6    7    8    9     10    11 ] 
+            [x0, y0, z0, tx0, ty0, tz0, x1, y1, z1, tx1, ty1, tz1].
+
         """
         E = self.E
         G = self.G
@@ -86,20 +86,29 @@ class ShaftElement:
         # Compute stiffness matrix for timoshenko beam theory
         K = np.zeros((12, 12), dtype=np.float64)
 
-        # Axial stiffness matrix 
+        # Axial consistent stiffness matrix
+        # DOF order: [z0, z1]
         K_ax = E*A /L * np.array([
             [1.0, -1.0],
             [-1.0, 1.0]
         ], dtype=np.float64)
-        K[np.ix_([2,8],[2,8])] = K_ax
 
+        # Torsional consistent stiffness matrix
+        # DOF order: [tz0, tz1]
+        K_tors =  (G * J / L) * np.array([
+        [1.0, -1.0],
+        [-1.0, 1.0]
+        ], dtype=np.float64)
 
+        # Terms of bending stiffness matrices
         k0 = E * I / (L**3 * (1.0 + phi))
         k1 = 12.0
         k2 = 6.0 * L
         k3 = (4.0 + phi) * L**2
         k4 = (2.0 - phi) * L**2
-        # Stiffness matrix for bending in x direction
+
+        # Bending stiffness matrix in x-z plane
+        # DOF order: [y0, tx0, y1, tx1]
         K_bend_x =  k0 * np.array([
         [ k1,    k2,    -k1,    k2],
         [ k2,    k3,    -k2,    k4],
@@ -107,25 +116,25 @@ class ShaftElement:
         [ k2,    k4,    -k2,    k3],
         ], dtype=np.float64) 
 
-        # Stiffness matrix for bending in y direction. The sign of rotational term is inverted. You can find more details of this the documentation
+        # Bending stiffness matrix in y-z plane
+        # DOF order: [y0, tx0, y1, tx1]
+        #
+        # Sign convention is already corrected because:
+        #
+        #     dy/dz = -tx
+        #
         K_bend_y = k0 * np.array([
         [ k1,   -k2,    -k1,    -k2],
         [-k2,    k3,     k2,     k4],
         [-k1,    k2,     k1,     k2],
         [-k2,    k4,     k2,     k3],
         ], dtype=np.float64) 
-        
-        # Bending stiffness matrix (for bending in x direction)
-        K[np.ix_([0,4,6,10],[0,4,6,10])] = K_bend_x
-        # Bending stiffness matrix (for bending in y direction)
-        K[np.ix_([1,3,7,9],[1,3,7,9])] = K_bend_y
 
-        # Torsional stiffness
-        K_tors =  (G * J / L) * np.array([
-        [1.0, -1.0],
-        [-1.0, 1.0]
-        ], dtype=np.float64)
+        # Insert matrices permuting dofs according to Spinniped's convention 
+        K[np.ix_([2,8],[2,8])] = K_ax
         K[np.ix_([5,11],[5,11])] = K_tors
+        K[np.ix_([0,4,6,10],[0,4,6,10])] = K_bend_x
+        K[np.ix_([1,3,7,9],[1,3,7,9])] = K_bend_y
 
         return K
     
@@ -137,8 +146,8 @@ class ShaftElement:
         -------
         K : ndarray, shape (12, 12)
             Element stiffness matrix ordered as
-            [x_0, y_0, z_0, tx_0, ty_0, tz_0, x_1, y_1, z_1, tx_1, ty_1, tz_1].
-            [0    1    2    3     4     5     6    7    8    9     10    11 ] 
+            [x0, y0, z0, tx0, ty0, tz0, x1, y1, z1, tx1, ty1, tz1].
+
         """
 
         # Compute stiffness matrix for Euler-Bernoulli beam theory
@@ -154,20 +163,29 @@ class ShaftElement:
         # Compute stiffness matrix for euler-bernoulli beam theory
         K = np.zeros((12, 12), dtype=np.float64)
 
-        # Axial stiffness matrix 
+        # Axial consistent stiffness matrix
+        # DOF order: [z0, z1]
         K_ax = E*A /L * np.array([
             [1.0, -1.0],
             [-1.0, 1.0]
         ], dtype=np.float64)
-        K[np.ix_([2,8],[2,8])] = K_ax
 
+        # Torsional consistent stiffness matrix
+        # DOF order: [tz0, tz1]        
+        K_tors =  (G * J / L) * np.array([
+        [1.0, -1.0],
+        [-1.0, 1.0]
+        ], dtype=np.float64)
 
+        # Terms of bending stiffness matrices
         k0 = E * I / (L**3)
         k1 = 12.0
         k2 = 6.0 * L
         k3 = 4.0 * L**2
         k4 = 2.0 * L**2
-        # Stiffness matrix for bending in x direction
+
+        # Bending stiffness matrix in x-z plane
+        # DOF order: [y0, tx0, y1, tx1]
         K_bend_x =  k0 * np.array([
         [ k1,    k2,    -k1,    k2],
         [ k2,    k3,    -k2,    k4],
@@ -175,25 +193,25 @@ class ShaftElement:
         [ k2,    k4,    -k2,    k3],
         ], dtype=np.float64) 
 
-        # Stiffness matrix for bending in y direction. The sign of rotational term is inverted. You can find more details of this the documentation
+        # Bending stiffness matrix in y-z plane
+        # DOF order: [y0, tx0, y1, tx1]
+        #
+        # Sign convention is already corrected because:
+        #
+        #     dy/dz = -tx
+        #
         K_bend_y = k0 * np.array([
         [ k1,   -k2,    -k1,    -k2],
         [-k2,    k3,     k2,     k4],
         [-k1,    k2,     k1,     k2],
         [-k2,    k4,     k2,     k3],
         ], dtype=np.float64) 
-        
-        # Bending stiffness matrix (for bending in x direction)
-        K[np.ix_([0,4,6,10],[0,4,6,10])] = K_bend_x
-        # Bending stiffness matrix (for bending in y direction)
-        K[np.ix_([1,3,7,9],[1,3,7,9])] = K_bend_y
-
-        # Torsional stiffness
-        K_tors =  (G * J / L) * np.array([
-        [1.0, -1.0],
-        [-1.0, 1.0]
-        ], dtype=np.float64)
+    
+        # Insert matrices permuting dofs according to Spinniped's convention 
+        K[np.ix_([2,8],[2,8])] = K_ax
         K[np.ix_([5,11],[5,11])] = K_tors
+        K[np.ix_([0,4,6,10],[0,4,6,10])] = K_bend_x
+        K[np.ix_([1,3,7,9],[1,3,7,9])] = K_bend_y
 
         return K
     
@@ -207,7 +225,9 @@ class ShaftElement:
 
         Notes
         -----
-        The ordering of DOFs is [x_0, y_0, z_0, tx_0, ty_0, tz_0, x_1, y_1, z_1, tx_1, ty_1, tz_1].
+        The ordering of DOFs is 
+        [x0, y0, z0, tx0, ty0, tz0, x1, y1, z1, tx1, ty1, tz1].
+
         """
         if theory == 0:
             return self._K_timosh()
@@ -238,7 +258,7 @@ class ShaftElement:
         -------
         M_trans : ndarray, shape (12, 12)
             Consistent translational mass matrix ordered as
-            [x_0, y_0, z_0, tx_0, ty_0, tz_0, x_1, y_1, z_1, tx_1, ty_1, tz_1].
+            [x0, y0, z0, tx0, ty0, tz0, x1, y1, z1, tx1, ty1, tz1].
         """
 
         rho = self.rho 
@@ -249,19 +269,24 @@ class ShaftElement:
 
         M_trans = np.zeros((12, 12), dtype=np.float64)
 
+        # Axial consistent mass matrix
+        # DOF order: [z0, z1]
         M_ax = rho * A * L / 6 * np.array([
             [2,     1],
             [1,     2]
         ], dtype = np.float64)
-        M_trans[np.ix_([2,8],[2,8])] = M_ax
 
-
+        # Torsional consistent inertia matrix
+        # DOF order: [tz0, tz1]
+        #
+        # This is kept inside M_trans because torsional modes need this
+        # inertia even when bending rotary inertia is disabled.
         M_tors = rho * J * L / 6 * np.array([
             [2,     1],
             [1,     2]
         ], dtype = np.float64)
-        M_trans[np.ix_([5,11],[5,11])] = M_tors
 
+        # Terms of bending translational matrices
         m1 = 312.0 + 588.0 * phi + 280.0 * phi**2
         m2 = (44.0 + 77.0 * phi + 35.0 * phi**2) * L
         m3 = 108.0 + 252.0 * phi + 140.0 * phi**2
@@ -269,6 +294,8 @@ class ShaftElement:
         m5 = (8.0 + 14.0 * phi + 7.0 * phi**2) * L**2
         m6 = -(6.0 + 14.0 * phi + 7.0 * phi**2) * L**2
 
+        # Bending translational inertia in x-z plane
+        # DOF order: [y0, tx0, y1, tx1]
         M_bendx = rho * A * L / (840.0 * (1.0 + phi)**2) * np.array(
             [
                 [m1,  m2,  m3,  m4],
@@ -279,6 +306,13 @@ class ShaftElement:
             dtype=np.float64,
         )
 
+        # Bending translational inertia in y-z plane
+        # DOF order: [y0, tx0, y1, tx1]
+        #
+        # Sign convention is already corrected because:
+        #
+        #     dy/dz = -tx
+        #
         M_bendy = rho * A * L / (840.0 * (1.0 + phi)**2) * np.array(
             [
                 [ m1, -m2,  m3, -m4],
@@ -288,9 +322,12 @@ class ShaftElement:
             ],
             dtype=np.float64,
         )
-        # Bending stiffness matrix (for bending in x direction)
+
+
+        # Insert matrices permuting dofs according to Spinniped's convention
+        M_trans[np.ix_([2,8],[2,8])] = M_ax        
+        M_trans[np.ix_([5,11],[5,11])] = M_tors
         M_trans[np.ix_([0,4,6,10],[0,4,6,10])] = M_bendx
-        # Bending stiffness matrix (for bending in y direction)
         M_trans[np.ix_([1,3,7,9],[1,3,7,9])] = M_bendy
 
         return M_trans
@@ -302,7 +339,7 @@ class ShaftElement:
         -------
         M_trans : ndarray, shape (12, 12)
             Consistent translational mass matrix ordered as
-            [x_0, y_0, z_0, tx_0, ty_0, tz_0, x_1, y_1, z_1, tx_1, ty_1, tz_1].
+            [x0, y0, z0, tx0, ty0, tz0, x1, y1, z1, tx1, ty1, tz1].
 
         Notes
         -----
@@ -324,15 +361,14 @@ class ShaftElement:
         M_trans = np.zeros((12, 12), dtype=np.float64)
 
         # Axial consistent mass matrix
-        # DOF order: [z_0, z_1]
+        # DOF order: [z0, z1]
         M_ax = rho * A * L / 6.0 * np.array([
             [2.0, 1.0],
             [1.0, 2.0],
         ], dtype=np.float64)
-        M_trans[np.ix_([2, 8], [2, 8])] = M_ax
 
         # Torsional consistent inertia matrix
-        # DOF order: [tz_0, tz_1]
+        # DOF order: [tz0, tz1]
         #
         # This is kept inside M_trans because torsional modes need this
         # inertia even when bending rotary inertia is disabled.
@@ -340,7 +376,6 @@ class ShaftElement:
             [2.0, 1.0],
             [1.0, 2.0],
         ], dtype=np.float64)
-        M_trans[np.ix_([5, 11], [5, 11])] = M_tors
 
         # Euler-Bernoulli bending translational inertia
         m0 = rho * A * L / 420.0
@@ -353,7 +388,7 @@ class ShaftElement:
         m6 = -3.0 * L**2
 
         # Bending translational inertia in x-z plane
-        # DOF order: [x_0, ty_0, x_1, ty_1]
+        # DOF order: [x0, ty0, x1, ty1]
         M_bendx = m0 * np.array([
             [m1,  m2,  m3,  m4],
             [m2,  m5, -m4,  m6],
@@ -362,7 +397,7 @@ class ShaftElement:
         ], dtype=np.float64)
 
         # Bending translational inertia in y-z plane
-        # DOF order: [y_0, tx_0, y_1, tx_1]
+        # DOF order: [y0, tx0, y1, tx1]
         #
         # Sign convention is already corrected because:
         #
@@ -375,10 +410,10 @@ class ShaftElement:
             [-m4,  m6,  m2,  m5],
         ], dtype=np.float64)
 
-        # Bending mass matrix for bending in x direction
+        # Insert matrices permuting dofs according to Spinniped's convention
+        M_trans[np.ix_([2, 8], [2, 8])] = M_ax
+        M_trans[np.ix_([5, 11], [5, 11])] = M_tors
         M_trans[np.ix_([0, 4, 6, 10], [0, 4, 6, 10])] = M_bendx
-
-        # Bending mass matrix for bending in y direction
         M_trans[np.ix_([1, 3, 7, 9], [1, 3, 7, 9])] = M_bendy
 
         return M_trans
@@ -406,6 +441,8 @@ class ShaftElement:
         m9 = (4.0 + 5.0 * phi + 10.0 * phi**2) * L**2
         m10 = (-1.0 - 5.0 * phi + 5.0 * phi**2) * L**2
 
+        # Rotary inertia contribution for x-z bending
+        # DOF order: [x0, ty0, x1, ty1]
         M_rot_x = m0 * np.array(
             [
                 [ m7,  m8, -m7,  m8],
@@ -416,6 +453,13 @@ class ShaftElement:
             dtype=np.float64,
         )
 
+        # Rotary inertia contribution for y-z bending
+        # DOF order: [y0, tx0, y1, tx1]
+        #
+        # Sign convention is already corrected because:
+        #
+        #     dy/dz = -tx
+        #
         M_rot_y = m0 * np.array(
             [
                 [ m7, -m8, -m7, -m8],
@@ -426,7 +470,7 @@ class ShaftElement:
             dtype=np.float64,
         )
 
-
+        # Insert matrices permuting dofs according to Spinniped's convention
         M_rot[np.ix_([0, 4, 6, 10],[0, 4, 6, 10])] = M_rot_x
         M_rot[np.ix_([1, 3, 7, 9],[1, 3, 7, 9])] = M_rot_y
 
@@ -439,7 +483,7 @@ class ShaftElement:
         -------
         M_rot : ndarray, shape (12, 12)
             Bending rotary inertia contribution ordered as
-            [x_0, y_0, z_0, tx_0, ty_0, tz_0, x_1, y_1, z_1, tx_1, ty_1, tz_1].
+            [x0, y0, z0, tx0, ty0, tz0, x1, y1, z1, tx1, ty1, tz1].
 
         Notes
         -----
@@ -465,7 +509,7 @@ class ShaftElement:
         m10 = -1.0 * L**2
 
         # Rotary inertia contribution for x-z bending
-        # DOF order: [x_0, ty_0, x_1, ty_1]
+        # DOF order: [x0, ty0, x1, ty1]
         M_rot_x = m0 * np.array([
             [ m7,  m8, -m7,  m8],
             [ m8,  m9, -m8,  m10],
@@ -474,7 +518,7 @@ class ShaftElement:
         ], dtype=np.float64)
 
         # Rotary inertia contribution for y-z bending
-        # DOF order: [y_0, tx_0, y_1, tx_1]
+        # DOF order: [y0, tx0, y1, tx1]
         #
         # Sign convention is already corrected because:
         #
