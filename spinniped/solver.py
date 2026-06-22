@@ -176,26 +176,26 @@ class Solver:
                 M_e = elem.M
 
                 # Convert the first user node ID to an internal node index.
-                n1 = self._get_internal_id(elem.n1)
+                p = self._get_internal_id(elem.n1)
 
                 # Convert the second user node ID to an internal node index.
-                n2 = self._get_internal_id(elem.n2)
+                q = self._get_internal_id(elem.n2)
 
                 # Build the list of global DOF indices for the two-node element.
                 # Each node has 4 DOFs, so a shaft element has 8 DOFs.
                 dof_indices = [
-                    6 * n1,
-                    6 * n1 + 1,
-                    6 * n1 + 2,
-                    6 * n1 + 3,
-                    6 * n1 + 4,
-                    6 * n1 + 5,
-                    6 * n2,
-                    6 * n2 + 1,
-                    6 * n2 + 2,
-                    6 * n2 + 3,
-                    6 * n2 + 4,
-                    6 * n2 + 5
+                    6 * p,
+                    6 * p + 1,
+                    6 * p + 2,
+                    6 * p + 3,
+                    6 * p + 4,
+                    6 * p + 5,
+                    6 * q,
+                    6 * q + 1,
+                    6 * q + 2,
+                    6 * q + 3,
+                    6 * q + 4,
+                    6 * q + 5
                 ]
 
                 # Add the local stiffness matrix into the global stiffness matrix.
@@ -211,12 +211,12 @@ class Solver:
                 K_e = elem.K
 
                 # Convert the bearing node ID to an internal node index.
-                n1 = self._get_internal_id(elem.n1)
+                p = self._get_internal_id(elem.n1)
 
                 # Bearings currently act only on the first two DOFs of the node.
                 dof_indices = [
-                    6 * n1,
-                    6 * n1 + 1,
+                    6 * p,
+                    6 * p + 1,
                 ]
 
                 # Add the bearing stiffness matrix into the global stiffness matrix.

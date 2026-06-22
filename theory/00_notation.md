@@ -169,7 +169,7 @@ Therefore, for an element connecting compact node indices $p$ and $q$, the globa
 
 $$\mathbf{i}_e =
 \begin{bmatrix}
-6p & 6p+1 & 6p+2 & 6p+3 & 6p+6 & 6p+5 &
+6p & 6p+1 & 6p+2 & 6p+3 & 6p+4 & 6p+5 &
 6q & 6q+1 & 6q+2 & 6q+3 & 6q+4 & 6q+5
 \end{bmatrix}$$
 

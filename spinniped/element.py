@@ -108,7 +108,7 @@ class ShaftElement:
         k4 = (2.0 - phi) * L**2
 
         # Bending stiffness matrix in x-z plane
-        # DOF order: [y0, tx0, y1, tx1]
+        # DOF order: [x0, ty0, x1, ty1]
         K_bend_x =  k0 * np.array([
         [ k1,    k2,    -k1,    k2],
         [ k2,    k3,    -k2,    k4],
@@ -185,7 +185,7 @@ class ShaftElement:
         k4 = 2.0 * L**2
 
         # Bending stiffness matrix in x-z plane
-        # DOF order: [y0, tx0, y1, tx1]
+        # DOF order: [x0, ty0, x1, ty1]
         K_bend_x =  k0 * np.array([
         [ k1,    k2,    -k1,    k2],
         [ k2,    k3,    -k2,    k4],
@@ -216,7 +216,15 @@ class ShaftElement:
         return K
     
     def _K(self, theory: int = 0):
-        """Select and return the element stiffness matrix.
+        """
+        Select and return the element stiffness matrix.
+
+        Parameters
+        ----------
+        theory : int
+            Flag that selects the assiomatic theroy for beam element:
+            0 -> Timoshenko beam theory, includes shear deformation effects.
+            1 -> Euler-Bernoulli beam theory, does NOT include shear deformation effects.
 
         Returns
         -------
@@ -231,10 +239,10 @@ class ShaftElement:
         """
         if theory == 0:
             return self._K_timosh()
-        elif theory == 1:
+        elif theory in [1,2]:
             return self._K_euler()
         else:
-            raise NotImplementedError(f"Method {theory} is not implemented. Use 0 for Timoshenko, 1 for Euler-Bernoulli")
+            raise NotImplementedError(f"Method {theory} is not implemented. Use 0 for Timoshenko, 1 for Euler-Bernoulli, 2 for Rayleigh")
     
     def printK(self):
         """Print the element stiffness matrix to standard output.
@@ -539,11 +547,19 @@ class ShaftElement:
     def _M(self, theory: int = 0, rotary_inertia: bool = True):
         """Return the element mass matrix used in analyses.
 
+        Parameters
+        ----------
+        theory : int
+            Flag that selects the assiomatic theroy for beam element:
+            0 -> Timoshenko beam theory, includes rotary inertia effects.
+            1 -> Euler-Bernoulli beam theory, usually does NOT include rotary inertia effects, unless specified by user
+        rotary_intertia : bool
+            Flag that activates (or deactivates) rotary inertia effects (relevant for high-frequency bending modes).
+
         Returns
         -------
         M : ndarray, shape (12, 12)
-            Element mass matrix. Currently only the translational
-            contribution is returned (rotational inertia omitted).
+            Element mass matrix. 
         """
         if theory == 0:
             M_trans = self._M_trans_timosh()
