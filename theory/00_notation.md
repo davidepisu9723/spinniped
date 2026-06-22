@@ -251,7 +251,7 @@ A concentrated disc element located at node $i$ uses the same nodal vector:
 $$
 \mathbf{q}_i =
 \begin{bmatrix}
- x_i & y_i & \theta_{x_i} & \theta_{y_i}
+ x_i & y_i & z_i & \theta_{x_i} & \theta_{y_i} & \theta_{z_i}
 \end{bmatrix}^T
 $$
 
@@ -273,12 +273,12 @@ For a simple isotropic bearing acting only on translations:
 $$
 \mathbf{K}_b =
 \begin{bmatrix}
- k_{xx} & 0 & 0 & 0 \\
- 0 & k_{yy} & 0 & 0 \\
- 0 & 0 & k_{zz} & 0 \\
- 0 & 0 & 0 & 0 \\
- 0 & 0 & 0 & 0 \\
- 0 & 0 & 0 & 0
+ k_{xx} & 0         & 0         & 0 & 0 & 0 \\
+ 0      & k_{yy}    & 0         & 0 & 0 & 0 \\
+ 0      & 0         & k_{zz}    & 0 & 0 & 0 \\
+ 0      & 0         & 0         & 0 & 0 & 0 \\
+ 0      & 0         & 0         & 0 & 0 & 0 \\
+ 0      & 0         & 0         & 0 & 0 & 0 \\
 \end{bmatrix}
 $$
 
@@ -342,7 +342,7 @@ $$
 In code notation:
 
 ```text
-x0, y0, z0, tx0, ty0, tz0, x1, y1, z1, tx2, ty2, tz2
+x0, y0, z0, tx0, ty0, tz0, x1, y1, z1, tx1, ty1, tz1
 ```
 
 This convention takes precedence over external textbook or paper conventions.
