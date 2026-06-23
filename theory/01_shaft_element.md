@@ -741,7 +741,7 @@ for element in elements:
 
 ### 15.2 Sparse triplet pseudocode
 
-For large rotors, sparse assembly is preferred.
+For large rotors, sparse assembly is preferred. This method is currently not implemented. 
 The same operation can be performed by collecting row indices, column indices, and values:
 
 ```text

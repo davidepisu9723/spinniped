@@ -53,6 +53,13 @@ python examples/01_simple_shaft_modal.py
 
 ## Notes & To-Do
 
+The package is currently under construction, so it supports just a small subset of features. 
+
+### Supported element types
+| Type | Description | Application |
+| --- | --- | --- |
+| `ShaftElement` | Axialsymmetric two-nodes beam element with filled circular section. Timoshenko and Euler-Bernoulli formulations available | Standard element for modelling mechanical shafts |
+| `BallBearing` | Bearing-to-ground support element with customable stiffness and damping matrices. Optional geometric parameters for plots. | Standard element for modelling ball bearing supports |
 
 ## Contributing
 
