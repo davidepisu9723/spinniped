@@ -1,7 +1,7 @@
 # Spinniped
 
 <p align="center">
-  <img src="logo/spinniped-logo.png" width="240" alt="Spinniped logo">
+  <img src="https://raw.githubusercontent.com/davidepisu9723/spinniped/master/logo/spinniped-logo.png" width="240" alt="Spinniped logo">
 </p>
 
 A minimal rotordynamics finite-element toolbox for preliminary design and academic purposes.
@@ -28,16 +28,17 @@ A user needs only the following libraries to run Spinniped.
 - SciPy
 - Matplotlib
 
-Install with pip:
+Once a release is published on PyPI, install it with:
 
 ```bash
-python -m pip install numpy scipy matplotlib
+python -m pip install spinniped
 ```
 
-If you are a developer, before pushing you branch you should perform some checks to make sure your contribute is valid. Therefore, install `pytest`.
+Until then, clone the repository and create an editable development
+installation with the test dependencies:
 
 ```bash
-python -m pip install pytest
+python -m pip install -e ".[test]"
 ```
 
 ## Quick Usage

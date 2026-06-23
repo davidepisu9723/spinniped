@@ -1,9 +1,7 @@
 
 import numpy as np
 import matplotlib.pyplot as plt
-import sys
 
-sys.path.append('./')  # Add parent directory to path to import spinniped
 from spinniped import element
 from spinniped import node
 

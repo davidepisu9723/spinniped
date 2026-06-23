@@ -1,0 +1,52 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "spinniped"
+version = "0.1.0"
+description = "A minimal finite-element toolbox for rotor and shaft dynamics"
+readme = "README.md"
+requires-python = ">=3.13"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [
+    { name = "Davide Pisu" },
+]
+keywords = [
+    "finite-element-method",
+    "rotordynamics",
+    "structural-dynamics",
+    "shaft",
+    "modal-analysis",
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Education",
+    "Intended Audience :: Science/Research",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Scientific/Engineering",
+]
+dependencies = [
+    "numpy",
+    "scipy",
+    "matplotlib",
+]
+
+[project.optional-dependencies]
+test = [
+    "pytest",
+]
+
+[project.urls]
+Homepage = "https://github.com/davidepisu9723/spinniped"
+Repository = "https://github.com/davidepisu9723/spinniped"
+Issues = "https://github.com/davidepisu9723/spinniped/issues"
+
+[tool.setuptools.packages.find]
+include = ["spinniped*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

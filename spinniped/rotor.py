@@ -5,12 +5,6 @@ import matplotlib.pyplot as plt
 # This import may be required by some Matplotlib versions to enable 3D axes.
 from mpl_toolkits.mplot3d import Axes3D
 
-import sys
-
-# Add the current project root to the Python import path.
-# This allows importing local modules such as `spinniped`.
-sys.path.append('./')
-
 # Import custom structured dtypes used by the project.
 from spinniped import dtypes
 
