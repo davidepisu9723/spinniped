@@ -4,11 +4,13 @@
   <img src="logo/spinniped-logo.png" width="240" alt="Spinniped logo">
 </p>
 
-A minimal rotor/shaft finite-element toolbox for modal analysis, but with less dependecies as possible.
+A minimal rotordynamics finite-element toolbox for preliminary design and academic purposes.
+
+---
 
 ## Overview
 
-This small package provides simple classes and helpers to build rotor models, assemble global matrices, solve eigenproblems, and plot mode shapes.
+This small package provides simple classes and helpers to build rotor models and solve dynamics/rotordynamics problems.
 
 Core modules:
 
@@ -19,6 +21,7 @@ Core modules:
 - `spinniped.results` — plotting utilities for mode shapes.
 
 ## Requirements
+A user needs only the following libraries to run Spinniped.
 
 - Python 3.13
 - NumPy
@@ -31,7 +34,11 @@ Install with pip:
 python -m pip install numpy scipy matplotlib
 ```
 
-If you prefer a single requirements file, create one with the packages above.
+If you are a developer, before pushing you branch you should perform some checks to make sure your contribute is valid. Therefore, install `pytest`.
+
+```bash
+python -m pip install pytest
+```
 
 ## Quick Usage
 
@@ -51,6 +58,14 @@ python examples/01_simple_shaft_modal.py
 - Example scripts: `examples/01_simple_shaft_modal.py` — a runnable demo of modal analysis.
 - Benchmarks: `benchmark/01_beam_freq.py` contains analytical references for verification.
 
+## Testing and Verification
+
+Spinniped is checked through element-level tests, assembly tests, analytical
+benchmarks, and mesh-convergence studies.
+
+See [Testing and Verification](tests/README.md) for commands, assumptions,
+boundary conditions, tolerances, and guidance for adding new tests.
+
 ## Notes & To-Do
 
 The package is currently under construction, so it supports just a small subset of features. 
@@ -61,9 +76,26 @@ The package is currently under construction, so it supports just a small subset 
 | `ShaftElement` | Axialsymmetric two-nodes beam element with filled circular section. Timoshenko and Euler-Bernoulli formulations available | Standard element for modelling mechanical shafts |
 | `BallBearing` | Bearing-to-ground support element with customable stiffness and damping matrices. Optional geometric parameters for plots. | Standard element for modelling ball bearing supports |
 
+### To-Do
+
+1. Implement rotordynamic equation solver. Therefore:
+  - Define gyroscopic matrices for each element type (in `spinniped.element.py`)
+  - Implement complex eignevalue solve sequence for rotordynamics problems (in `spinniped.solver.py`)
+  - Implement plotting to visualize mode shapes (in `spinniped.results.py`)
+  - Implement campbell diagrams (in `spinniped.results.py`)
+
+
 ## Contributing
 
-Feel free to open pull requests or issues. For quick testing, run the example scripts and verify plots render.
-My goal is to keep the dependecies at minimal level. When adding features, do not add dependecies unless they are strictly ncessary. Numpy, Scipy and Matplotlib are probably enuough for any purpose for which this package was created.
+Feel free to open pull requests or issues.
+
+My goal is to keep the dependecies at minimal level. When adding features, do not add dependecies unless they are strictly necessary. Numpy, Scipy and Matplotlib are probably enuough for any purpose for which this package was created. Pytest is also necessary to make sure your contribution does not negatively effect the behavior of the library. 
+
+If you implement a new element type, formulation, solver, or assembly
+procedure, add appropriate tests and run:
+
+```bash
+python -m pytest
+```
 
 ---
