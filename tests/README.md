@@ -56,11 +56,11 @@ The reference shaft is a uniform, filled circular shaft with:
 
 | Quantity | Symbol | Value |
 | --- | ---: | ---: |
-| Young's modulus | \(E\) | \(2.0 \times 10^{11}\ \mathrm{Pa}\) |
-| Poisson's ratio | \(\nu\) | \(0.3\) |
-| Density | \(\rho\) | \(7850\ \mathrm{kg/m^3}\) |
-| Diameter | \(d\) | \(0.01\ \mathrm{m}\) |
-| Total length | \(L\) | \(1.0\ \mathrm{m}\) |
+| Young's modulus | $E$ |  $2.0 \times 10^{11}\ \mathrm{Pa} $ |
+| Poisson's ratio | $\nu$ | $0.3$ |
+| Density | $\rho$ | $7850\ \mathrm{kg/m^3}$ |
+| Diameter | $d$ | $0.01\ \mathrm{m}$ |
+| Total length | $L$ | $1.0\ \mathrm{m}$ |
 
 The section properties are:
 
