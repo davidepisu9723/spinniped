@@ -60,6 +60,10 @@ $$
 
 This explains why the $x$-$z$ and $y$-$z$ bending matrices have the same physical content but different signs in the displacement-rotation coupling terms.
 
+<p align="center">
+  <img src="img/dydz_convention.png" width="600" alt="dydz-convention">
+</p>
+
 ---
 
 ## 2. Geometric and material quantities
