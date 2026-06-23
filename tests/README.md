@@ -64,11 +64,11 @@ The reference shaft is a uniform, filled circular shaft with:
 
 The section properties are:
 
-\[
+$$
 A = \frac{\pi d^2}{4},
 \qquad
 I = \frac{\pi d^4}{64}.
-\]
+$$
 
 ### Element-Matrix Tests
 
@@ -94,19 +94,19 @@ examined directly. It verifies:
 - accumulation of two elements at a shared node;
 - absence of coupling between unconnected nodes;
 - mapping of non-consecutive user node IDs;
-- insertion of bearing stiffness into the intended \(x,y\) DOFs;
+- insertion of bearing stiffness into the intended $x,y$ DOFs;
 - removal and deduplication of constrained DOFs;
 - rejection of elements that reference unknown nodes.
 
 The bearing test uses distinct stiffness values:
 
-\[
+$$
 K_b =
 \begin{bmatrix}
 11 & 12 \\
 13 & 14
 \end{bmatrix}.
-\]
+$$
 
 Distinct entries make transposition and DOF-permutation errors visible.
 
@@ -115,12 +115,12 @@ Distinct entries make transposition and DOF-permutation errors visible.
 `test_analytical_benchmarks.py` compares the first four bending frequencies of
 a uniform simply supported shaft with the Euler-Bernoulli analytical solution:
 
-\[
+$$
 f_m =
 \frac{m^2\pi}{2L^2}
 \sqrt{\frac{EI}{\rho A}},
 \qquad m = 1,2,\ldots
-\]
+$$
 
 The numerical benchmark uses Euler-Bernoulli stiffness and translational mass
 without bending rotary inertia, matching the assumptions of the analytical
@@ -141,18 +141,18 @@ the boundary conditions are:
 
 Bending rotations remain free at both supports.
 
-Because the shaft has a circular section, its \(x\)- and \(y\)-bending
+Because the shaft has a circular section, its $x$- and $y$-bending
 frequencies are equal and occur in pairs. The benchmark selects one frequency
 from each pair before comparing it with the analytical solution.
 
 With 16 elements, the relative error of each of the first four bending modes
-must remain below \(0.1\%\):
+must remain below $0.1\%$:
 
-\[
+$$
 \varepsilon_m =
 \frac{\left|f_{m,\mathrm{num}}-f_{m,\mathrm{ana}}\right|}
 {f_{m,\mathrm{ana}}}.
-\]
+$$
 
 ### Mesh Convergence
 
@@ -167,9 +167,9 @@ conditions, and total length remain constant.
 
 The tests require:
 
-- every mesh to predict the first frequency within \(1\%\);
+- every mesh to predict the first frequency within $1\%$;
 - the 16-element result to be more accurate than the 2-element result;
-- the final relative error to be below \(0.01\%\).
+- the final relative error to be below $0.01\%$.
 
 The convergence test does not demand a strictly decreasing error at every
 refinement step, avoiding unnecessary sensitivity to numerical noise.
