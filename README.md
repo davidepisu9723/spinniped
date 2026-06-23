@@ -35,11 +35,18 @@ python -m pip install spinniped
 ```
 
 Until then, clone the repository and create an editable development
-installation with the test dependencies:
+installation:
 
 ```bash
-python -m pip install -e ".[test]"
+cd your/local/clone/repo
+python -m pip install -e .
 ```
+
+To remove Spinniped from your environment:
+```bash
+python -m pip uninstall spinniped
+```
+
 
 ## Quick Usage
 
@@ -48,6 +55,13 @@ You can run the provided example script to try the library:
 ```bash
 python examples/01_simple_shaft_modal.py
 ```
+
+If you get this error
+
+```python
+ModuleNotFoundError: No module named 'spinniped'
+```
+you may have not yet created a local editable installation. Please read [Requirements](#requirements): creating an editable installation of the package solves this issue. Once the package will be published on PyPI this will not be necessary enymore. 
 
 ## Conventions
 
