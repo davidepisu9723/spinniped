@@ -1,15 +1,43 @@
 """Declarative, NASTRAN-like records used to define a Spinniped model.
 
 All record fields contain only Python scalars, tuples, lists, dictionaries, or
-``None``.  A numeric field may be replaced by a distribution dictionary such
-as ``{"distribution": "normal", "mean": 1.0, "std": 0.1}``.
+``None``. A numeric field may reference a registered random distribution with
+``(distribution_id,)`` or one multivariate component with
+``(distribution_id, component)``.
 """
 
 from dataclasses import dataclass, field
 from typing import TypeAlias
 
 
-Parameter: TypeAlias = int | float | dict[str, object]
+RandomReference: TypeAlias = tuple[int] | tuple[int, int]
+Parameter: TypeAlias = int | float | RandomReference
+
+
+@dataclass(frozen=True, slots=True)
+class RandomDistribution:
+    """Define a named scalar or multivariate random distribution.
+
+    Parameters
+    ----------
+    id : int
+        Unique integer used by parameter references.
+    name : str
+        Unique, human-readable distribution name.
+    distribution : {"normal", "uniform", "multivariate_normal"}
+        Probability distribution family.
+    parameters : dict
+        Distribution parameters. Normal variables require ``mean`` and
+        ``stdv``; uniform variables require ``low`` and ``high``;
+        multivariate normal variables require ``mean``, ``stdv``, and
+        ``correlation``.
+    """
+
+    # IDs make references compact, while names keep reports understandable.
+    id: int
+    name: str
+    distribution: str
+    parameters: dict[str, object]
 
 
 @dataclass(frozen=True, slots=True)
@@ -20,7 +48,7 @@ class Grid:
     ----------
     id : int
         Unique grid identifier.
-    x, y, z : int, float, or dict, optional
+    x, y, z : int, float, or tuple, optional
         Coordinates in the selected input coordinate system.
     coordinate_system : int, optional
         ID of the coordinate system in which coordinates are expressed.
@@ -29,7 +57,7 @@ class Grid:
     # Grid IDs are referenced by element connectivity records.
     id: int
 
-    # Coordinates may be deterministic scalars or distribution dictionaries.
+    # Coordinates may be deterministic scalars or distribution references.
     x: Parameter = 0.0
     y: Parameter = 0.0
     z: Parameter = 0.0
@@ -69,11 +97,11 @@ class Material:
     ----------
     id : int
         Unique material identifier.
-    density : int, float, or dict
+    density : int, float, or tuple
         Mass density.
-    young_modulus : int, float, or dict
+    young_modulus : int, float, or tuple
         Young's modulus.
-    poisson_ratio : int, float, or dict
+    poisson_ratio : int, float, or tuple
         Poisson's ratio.
     """
 
@@ -94,13 +122,13 @@ class ShaftProperty:
         Unique property identifier.
     material : int
         Referenced :class:`Material` ID.
-    outer_diameter, inner_diameter : int, float, or dict
+    outer_diameter, inner_diameter : int, float, or tuple
         Annular section diameters.
     theory : {"timoshenko", "euler"}, optional
         Beam theory used by shaft kernels.
     rotary_inertia : bool, optional
         Include bending rotary inertia and shaft gyroscopic terms.
-    damping : int, float, or dict, optional
+    damping : int, float, or tuple, optional
         Mass-proportional damping coefficient.
     """
 
@@ -122,9 +150,9 @@ class BearingProperty:
     ----------
     id : int
         Unique property identifier.
-    kxx, kyy, kzz, kxy, kyx : int, float, or dict, optional
+    kxx, kyy, kzz, kxy, kyx : int, float, or tuple, optional
         Direct and cross-coupled stiffness coefficients.
-    cxx, cyy, czz, cxy, cyx : int, float, or dict, optional
+    cxx, cyy, czz, cxy, cyx : int, float, or tuple, optional
         Direct and cross-coupled viscous damping coefficients.
     """
 
@@ -150,13 +178,13 @@ class DiskProperty:
     ----------
     id : int
         Unique property identifier.
-    mass : int, float, or dict
+    mass : int, float, or tuple
         Translational mass.
-    diametral_inertia : int, float, or dict, optional
+    diametral_inertia : int, float, or tuple, optional
         Mass moment about either transverse local axis.
-    polar_inertia : int, float, or dict, optional
+    polar_inertia : int, float, or tuple, optional
         Mass moment about the local spin axis.
-    damping : int, float, or dict, optional
+    damping : int, float, or tuple, optional
         Mass-proportional damping coefficient.
     """
 
@@ -266,6 +294,8 @@ class ModelDefinition:
         Shaft, bearing, and disk property records.
     elements : list of element records, optional
         Shaft, bearing, and disk connectivity records.
+    distributions : list of RandomDistribution, optional
+        Registered probability distributions referenced by numeric fields.
     spin_axis : tuple, optional
         Global rotor spin direction. The builder normalizes this vector.
     """
@@ -276,4 +306,5 @@ class ModelDefinition:
     materials: list[Material] = field(default_factory=list)
     properties: list[Property] = field(default_factory=list)
     elements: list[Element] = field(default_factory=list)
+    distributions: list[RandomDistribution] = field(default_factory=list)
     spin_axis: tuple[Parameter, Parameter, Parameter] = (0.0, 0.0, 1.0)

@@ -12,6 +12,7 @@ from spinniped import (
     Material,
     ModelBuilder,
     ModelDefinition,
+    RandomDistribution,
     ShaftElement,
     ShaftProperty,
     Solver,
@@ -20,25 +21,30 @@ from spinniped import (
 
 
 def _rotor_definition(*, random=False):
-    diameter = (
-        {"distribution": "normal", "mean": 0.01, "std": 0.0001}
+    diameter = (1,) if random else 0.01
+    density = (2,) if random else 7850.0
+    bearing_stiffness = (3,) if random else 1.0e8
+    disk_mass = (4,) if random else 2.0
+    distributions = (
+        [
+            RandomDistribution(
+                1, "shaft diameter", "normal", {"mean": 0.01, "stdv": 0.0001}
+            ),
+            RandomDistribution(
+                2, "steel density", "uniform", {"low": 7800.0, "high": 7900.0}
+            ),
+            RandomDistribution(
+                3,
+                "bearing stiffness",
+                "normal",
+                {"mean": 1.0e8, "stdv": 1.0e6},
+            ),
+            RandomDistribution(
+                4, "disk mass", "normal", {"mean": 2.0, "stdv": 0.02}
+            ),
+        ]
         if random
-        else 0.01
-    )
-    density = (
-        {"distribution": "uniform", "low": 7800.0, "high": 7900.0}
-        if random
-        else 7850.0
-    )
-    bearing_stiffness = (
-        {"distribution": "normal", "mean": 1.0e8, "std": 1.0e6}
-        if random
-        else 1.0e8
-    )
-    disk_mass = (
-        {"distribution": "normal", "mean": 2.0, "std": 0.02}
-        if random
-        else 2.0
+        else []
     )
     return ModelDefinition(
         grids=[Grid(1, z=0.0), Grid(2, z=0.5), Grid(3, z=1.0)],
@@ -79,6 +85,7 @@ def _rotor_definition(*, random=False):
             BearingElement(4, 3, 2),
             DiskElement(5, 2, 3),
         ],
+        distributions=distributions,
     )
 
 
@@ -142,39 +149,98 @@ def test_stochastic_build_produces_reproducible_model_realizations():
 @pytest.mark.parametrize(
     ("distribution", "message"),
     [
-        ({"distribution": "normal", "mean": 1.0}, "requires 'mean' and 'std'"),
+        (RandomDistribution(1, "bad", "normal", {"mean": 1.0}), "requires only"),
         (
-            {"distribution": "normal", "mean": 1.0, "std": -0.1},
+            RandomDistribution(
+                1, "bad", "normal", {"mean": 1.0, "stdv": -0.1}
+            ),
             "cannot be negative",
         ),
         (
-            {"distribution": "uniform", "low": 2.0, "high": 1.0},
+            RandomDistribution(
+                1, "bad", "uniform", {"low": 2.0, "high": 1.0}
+            ),
             "high >= low",
         ),
         (
-            {"distribution": "triangular", "low": 0.0, "high": 1.0},
+            RandomDistribution(
+                1, "bad", "triangular", {"low": 0.0, "high": 1.0}
+            ),
             "Unsupported distribution",
         ),
         (
-            {"distribution": "normal", "mean": np.nan, "std": 0.1},
-            "parameters must be finite",
+            RandomDistribution(
+                1, "bad", "normal", {"mean": np.nan, "stdv": 0.1}
+            ),
+            "finite values",
         ),
         (
-            {
-                "distribution": "normal",
-                "mean": 1.0,
-                "std": 0.1,
-                "units": "m",
-            },
-            "Unknown normal-distribution fields",
+            RandomDistribution(
+                1,
+                "bad",
+                "normal",
+                {"mean": 1.0, "stdv": 0.1, "units": "m"},
+            ),
+            "requires only",
         ),
     ],
 )
 def test_invalid_distribution_specifications_are_rejected(distribution, message):
     definition = _rotor_definition()
     definition.properties[0] = ShaftProperty(
-        1, material=1, outer_diameter=distribution
+        1, material=1, outer_diameter=(1,)
     )
+    definition.distributions.append(distribution)
+
+    with pytest.raises(ValueError, match=message):
+        ModelBuilder().build(definition)
+
+
+def test_multivariate_components_preserve_requested_correlation():
+    definition = _rotor_definition()
+    definition.properties[1] = BearingProperty(2, kxx=(17, 0), kyy=(17, 1))
+    definition.distributions.append(
+        RandomDistribution(
+            17,
+            "correlated bearing stiffness",
+            "multivariate_normal",
+            {
+                "mean": [1.0e8, 1.2e8],
+                "stdv": [1.0e7, 2.0e7],
+                "correlation": [[1.0, 0.8], [0.8, 1.0]],
+            },
+        )
+    )
+
+    model = ModelBuilder().build(
+        definition, deterministic=False, samples=2_000, seed=42
+    )
+    kxx = [sample.properties[1].kxx for sample in model.definitions]
+    kyy = [sample.properties[1].kyy for sample in model.definitions]
+
+    assert np.corrcoef(kxx, kyy)[0, 1] == pytest.approx(0.8, abs=0.04)
+
+
+def test_repeated_scalar_reference_reuses_the_same_sample():
+    model = ModelBuilder().build(
+        _rotor_definition(random=True), deterministic=False, samples=10, seed=4
+    )
+
+    for definition in model.definitions:
+        bearing = definition.properties[1]
+        assert bearing.kxx == bearing.kyy
+
+
+@pytest.mark.parametrize(
+    ("reference", "message"),
+    [
+        ((99,), "unknown distribution ID"),
+        ((1, 1), "out of range"),
+    ],
+)
+def test_invalid_distribution_references_are_rejected(reference, message):
+    definition = _rotor_definition(random=True)
+    definition.properties[0] = ShaftProperty(1, 1, reference)
 
     with pytest.raises(ValueError, match=message):
         ModelBuilder().build(definition)

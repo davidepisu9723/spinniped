@@ -127,6 +127,8 @@ and unified `Solver.solve` entry point. They verify:
 - deterministic resolution of normal means and uniform midpoints;
 - equivalence between a distribution-at-mean model and explicit mean values;
 - reproducible seeded Monte Carlo realizations;
+- exact reuse of scalar distribution references;
+- multivariate normal sampling with the requested component correlation;
 - variation between stochastic matrix samples and storage of resolved
   definitions;
 - validation of incomplete, negative-deviation, reversed-bound, and unknown
@@ -242,7 +244,7 @@ confidence.
 ## Verification boundaries
 
 The suite verifies the current dense, linear rotor model and plain Monte Carlo
-sampling. It does not yet constitute validation for correlated random fields,
+sampling. It does not yet constitute validation for spatial random fields,
 nonlinear dynamics, Campbell branch tracking through mode crossings, sparse
 assembly, or every possible bearing and coordinate-system orientation. Add
 focused verification before relying on a new formulation in those regimes.

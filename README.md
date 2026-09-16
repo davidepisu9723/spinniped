@@ -59,6 +59,7 @@ from spinniped import (
     Grid,
     Material,
     ModelDefinition,
+    RandomDistribution,
     ShaftElement,
     ShaftProperty,
 )
@@ -73,11 +74,7 @@ definition = ModelDefinition(
         Material(
             id=1,
             density=7850.0,
-            young_modulus={
-                "distribution": "normal",
-                "mean": 210e9,
-                "std": 5e9,
-            },
+            young_modulus=(1,),
             poisson_ratio=0.3,
         ),
     ],
@@ -85,11 +82,7 @@ definition = ModelDefinition(
         ShaftProperty(
             id=1,
             material=1,
-            outer_diameter={
-                "distribution": "uniform",
-                "low": 0.019,
-                "high": 0.021,
-            },
+            outer_diameter=(2,),
             theory="timoshenko",
         ),
         BearingProperty(
@@ -113,6 +106,20 @@ definition = ModelDefinition(
         BearingElement(4, grid=3, property=2),
         DiskElement(5, grid=2, property=3),
     ],
+    distributions=[
+        RandomDistribution(
+            id=1,
+            name="steel Young modulus",
+            distribution="normal",
+            parameters={"mean": 210e9, "stdv": 5e9},
+        ),
+        RandomDistribution(
+            id=2,
+            name="shaft diameter",
+            distribution="uniform",
+            parameters={"low": 0.019, "high": 0.021},
+        ),
+    ],
     spin_axis=(0.0, 0.0, 1.0),
 )
 ```
@@ -133,6 +140,7 @@ and theory notes use SI.
 | `ShaftElement` | `id`; end references `grid_a`, `grid_b`; shaft `property` reference |
 | `BearingElement` | `id`; first `grid`; bearing `property`; optional `grid_b`; property `coordinate_system` |
 | `DiskElement` | `id`; nodal `grid`; disk `property`; property `coordinate_system` |
+| `RandomDistribution` | unique `id`; unique `name`; `distribution`; family-specific `parameters` |
 
 `ShaftProperty.theory` accepts `"timoshenko"` (the default) and `"euler"`.
 Bending rotary inertia is enabled by default. Shaft and disk `damping` values
@@ -140,10 +148,10 @@ are coefficients in the mass-proportional relation
 $\mathbf{C}=\alpha\mathbf{M}$. Bearing coefficients default to zero and occupy
 the translational x-y-z block.
 
-`ModelDefinition` groups five lists named `grids`, `coordinate_systems`,
-`materials`, `properties`, and `elements`; each defaults to an empty list. Its
-`spin_axis` field is the global spin direction and defaults to `(0.0, 0.0,
-1.0)`.
+`ModelDefinition` groups the `grids`, `coordinate_systems`, `materials`,
+`properties`, `elements`, and `distributions` lists; each defaults to an empty
+list. Its `spin_axis` field is the global spin direction and defaults to
+`(0.0, 0.0, 1.0)`.
 
 IDs must be unique positive integers within each record category. A shaft
 element must reference a `ShaftProperty`, a bearing element a
@@ -210,39 +218,49 @@ value later supplies the angular-speed magnitude in rad/s.
 
 ## Random parameters
 
-Any physical field typed as a model parameter may be replaced by a distribution
-dictionary; identifiers and reference fields remain integers. The initial
-implementation supports independent normal and uniform variables:
+Random distributions are registered once in ``ModelDefinition.distributions``.
+Each distribution has a unique integer ``id``, a unique descriptive ``name``,
+a family, and its parameters:
 
 ```python
-normal_E = {
-    "distribution": "normal",
-    "mean": 210e9,
-    "std": 5e9,
-}
-
-uniform_diameter = {
-    "distribution": "uniform",
-    "low": 0.019,
-    "high": 0.021,
-}
+RandomDistribution(
+    id=17,
+    name="bearing stiffness",
+    distribution="normal",
+    parameters={"mean": 1.0e8, "stdv": 1.0e6},
+)
 ```
 
-For convenience, omitting `"distribution"` selects a normal distribution, so
-`{"mean": 210e9, "std": 5e9}` is also valid. `"stdv"` is accepted as an
-alias for `"std"`. Using the explicit distribution name is recommended because
-it remains unambiguous as more distributions are added.
+Any numeric model parameter can reference this scalar distribution with a
+one-item tuple. Reusing the reference reuses exactly the same draw:
 
-Distribution schemas are strict: unknown keys are rejected, `"std"` and
-`"stdv"` cannot both be present, and every parameter must be finite. Normal
-standard deviation must be nonnegative; a uniform interval requires
-`high >= low`.
+```python
+BearingProperty(id=1, kxx=(17,), kyy=(17,))
+```
 
-A distribution belongs to the record field in which it is declared. A sampled
-property or material value is consequently shared by every element that
-references that record. Separate distribution dictionaries in separate fields
-are sampled independently; correlated variables and random fields are not yet
-supported.
+Correlated variables use one multivariate distribution and select components
+with ``(distribution_id, component_index)``:
+
+```python
+RandomDistribution(
+    id=18,
+    name="correlated bearing stiffness",
+    distribution="multivariate_normal",
+    parameters={
+        "mean": [1.0e8, 1.2e8],
+        "stdv": [1.0e7, 2.0e7],
+        "correlation": [[1.0, 0.8], [0.8, 1.0]],
+    },
+)
+
+BearingProperty(id=1, kxx=(18, 0), kyy=(18, 1))
+```
+
+The supported families are ``"normal"``, ``"uniform"``, and
+``"multivariate_normal"``. Schemas are strict, all parameters must be finite,
+standard deviations must be nonnegative, and correlation matrices must be
+symmetric and positive semidefinite with a unit diagonal. Distribution IDs and
+names must both be unique.
 
 Resolved records and numerical inputs are validated for type, shape, finite
 values, references, and physical bounds. For example, shaft length, density,
@@ -515,8 +533,10 @@ assumptions, and guidance for adding verification cases.
 ## Current limitations
 
 - Global matrices are dense.
-- Random variables are sampled independently with plain Monte Carlo sampling.
-- Normal and uniform distributions are the only supported distributions.
+- Sampling currently uses plain Monte Carlo rather than variance-reduction
+  methods such as Latin hypercube sampling.
+- Correlation is supported within a multivariate normal distribution, but not
+  between separate distribution records.
 - Analyses return numerical dictionaries; plotting and result-object APIs are
   not currently provided.
 

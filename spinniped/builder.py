@@ -14,6 +14,7 @@ from .records import (
     Grid,
     Material,
     ModelDefinition,
+    RandomDistribution,
     ShaftElement,
     ShaftProperty,
 )
@@ -197,148 +198,245 @@ class BuiltModel:
         return self.gyroscopic
 
 
-def _distribution_value(spec, rng, deterministic):
-    """Resolve one distribution dictionary to one scalar value.
-
-    Parameters
-    ----------
-    spec : dict
-        Normal or uniform distribution specification.
-    rng : numpy.random.Generator
-        Random generator used for stochastic construction.
-    deterministic : bool
-        Return the distribution mean instead of drawing when true.
-
-    Returns
-    -------
-    float
-        Resolved deterministic or sampled scalar.
-
-    Raises
-    ------
-    ValueError
-        If the distribution name, fields, or parameters are invalid.
-    """
-    # Missing names default to the initially supported normal distribution.
-    distribution_name = str(spec.get("distribution", "normal")).lower()
-
-    # Resolve a normal distribution from mean and standard deviation.
-    if distribution_name == "normal":
-        allowed_fields = {"distribution", "mean", "std", "stdv"}
-        unknown_fields = set(spec) - allowed_fields
-        if unknown_fields:
-            raise ValueError(
-                f"Unknown normal-distribution fields: {sorted(unknown_fields)}"
-            )
-
-        # Support both common spellings, but never both simultaneously.
-        if "std" in spec and "stdv" in spec:
-            raise ValueError("Use either 'std' or 'stdv', not both")
-        deviation = spec.get("std", spec.get("stdv"))
-
-        # Both moments are required for a normal distribution.
-        if "mean" not in spec or deviation is None:
-            raise ValueError(
-                "A normal distribution requires 'mean' and 'std' (or 'stdv')"
-            )
-
-        # Convert pure-Python values to validated floating-point scalars.
-        mean = float(spec["mean"])
-        standard_deviation = float(deviation)
-        if not np.isfinite([mean, standard_deviation]).all():
-            raise ValueError("Distribution parameters must be finite")
-        if standard_deviation < 0:
-            raise ValueError("Distribution standard deviation cannot be negative")
-
-        # Deterministic models use the mean; ensembles draw one realization.
-        value = (
-            mean
-            if deterministic
-            else float(rng.normal(mean, standard_deviation))
-        )
-
-        # Extremely large parameters can still overflow during a random draw.
-        if not np.isfinite(value):
-            raise ValueError("Distribution produced a non-finite value")
-        return value
-
-    # Resolve a uniform distribution from its lower and upper bounds.
-    if distribution_name == "uniform":
-        allowed_fields = {"distribution", "low", "high"}
-        unknown_fields = set(spec) - allowed_fields
-        if unknown_fields:
-            raise ValueError(
-                f"Unknown uniform-distribution fields: {sorted(unknown_fields)}"
-            )
-
-        # Both bounds are mandatory.
-        if "low" not in spec or "high" not in spec:
-            raise ValueError("A uniform distribution requires 'low' and 'high'")
-
-        # Convert and validate the interval.
-        lower_bound = float(spec["low"])
-        upper_bound = float(spec["high"])
-        if not np.isfinite([lower_bound, upper_bound]).all():
-            raise ValueError("Distribution parameters must be finite")
-        if upper_bound < lower_bound:
-            raise ValueError("Uniform distribution requires high >= low")
-
-        # The interval midpoint is the deterministic expected value.
-        if deterministic:
-            return (lower_bound + upper_bound) / 2.0
-        return float(rng.uniform(lower_bound, upper_bound))
-
-    # Reject future distribution names until their semantics are implemented.
-    raise ValueError(f"Unsupported distribution {distribution_name!r}")
-
-
-def _resolve(value, rng, deterministic, path="model"):
-    """Recursively replace every distribution with a scalar realization.
+def _finite_array(value, label, *, dimensions):
+    """Convert distribution parameters to a finite floating-point array.
 
     Parameters
     ----------
     value : object
-        Dataclass, list, tuple, distribution dictionary, or scalar.
+        Scalar or sequence to convert.
+    label : str
+        Parameter name used in validation messages.
+    dimensions : tuple of int
+        Permitted numbers of array dimensions.
+
+    Returns
+    -------
+    numpy.ndarray
+        Validated floating-point array.
+
+    Raises
+    ------
+    TypeError
+        If the parameter cannot be converted to floating point.
+    ValueError
+        If its shape or contents are invalid.
+    """
+    # Normalize scalars and sequences before checking their common properties.
+    try:
+        array = np.asarray(value, dtype=float)
+    except (TypeError, ValueError) as error:
+        raise TypeError(f"{label} must contain only numeric values") from error
+    if array.ndim not in dimensions:
+        raise ValueError(f"{label} has an invalid shape")
+    if not np.isfinite(array).all():
+        raise ValueError(f"{label} must contain only finite values")
+    return array
+
+
+def _sample_distribution(specification, rng, deterministic):
+    """Generate one scalar or vector realization from a distribution.
+
+    Parameters
+    ----------
+    specification : RandomDistribution
+        Distribution record to validate and sample.
     rng : numpy.random.Generator
-        Random generator used for stochastic values.
+        Random generator used for stochastic construction.
     deterministic : bool
-        Resolve distributions to their means when true.
+        Return expected values instead of random draws when true.
+
+    Returns
+    -------
+    tuple of float
+        One value for a scalar distribution or one value per component.
+
+    Raises
+    ------
+    TypeError
+        If the distribution record or parameters have invalid types.
+    ValueError
+        If the distribution definition is incomplete or inconsistent.
+    """
+    if not isinstance(specification, RandomDistribution):
+        raise TypeError("distributions must contain RandomDistribution records")
+    if not isinstance(specification.name, str) or not specification.name.strip():
+        raise ValueError("Distribution names must be non-empty strings")
+    if not isinstance(specification.distribution, str):
+        raise TypeError("Distribution type must be a string")
+    if not isinstance(specification.parameters, dict):
+        raise TypeError("Distribution parameters must be a dictionary")
+
+    # Family names are case-insensitive, while parameter names remain strict.
+    distribution_name = specification.distribution.lower()
+    parameters = specification.parameters
+
+    # A scalar normal distribution produces exactly one component.
+    if distribution_name == "normal":
+        if set(parameters) != {"mean", "stdv"}:
+            raise ValueError("A normal distribution requires only 'mean' and 'stdv'")
+        mean = _finite_array(parameters["mean"], "mean", dimensions=(0,))
+        deviation = _finite_array(parameters["stdv"], "stdv", dimensions=(0,))
+        if deviation < 0:
+            raise ValueError("Distribution standard deviation cannot be negative")
+        draw = mean if deterministic else rng.normal(mean, deviation)
+
+    # A scalar uniform distribution is represented by its two bounds.
+    elif distribution_name == "uniform":
+        if set(parameters) != {"low", "high"}:
+            raise ValueError("A uniform distribution requires only 'low' and 'high'")
+        lower = _finite_array(parameters["low"], "low", dimensions=(0,))
+        upper = _finite_array(parameters["high"], "high", dimensions=(0,))
+        if upper < lower:
+            raise ValueError("Uniform distribution requires high >= low")
+        draw = (lower + upper) / 2.0 if deterministic else rng.uniform(lower, upper)
+
+    # A multivariate normal jointly generates all correlated components.
+    elif distribution_name == "multivariate_normal":
+        required = {"mean", "stdv", "correlation"}
+        if set(parameters) != required:
+            raise ValueError(
+                "A multivariate normal distribution requires only "
+                "'mean', 'stdv', and 'correlation'"
+            )
+        mean = _finite_array(parameters["mean"], "mean", dimensions=(1,))
+        deviation = _finite_array(parameters["stdv"], "stdv", dimensions=(1,))
+        correlation = _finite_array(
+            parameters["correlation"], "correlation", dimensions=(2,)
+        )
+        component_count = mean.size
+        if component_count == 0:
+            raise ValueError("A multivariate distribution needs at least one component")
+        if deviation.shape != mean.shape:
+            raise ValueError("mean and stdv must have the same length")
+        if correlation.shape != (component_count, component_count):
+            raise ValueError("correlation shape must match the number of components")
+        if np.any(deviation < 0):
+            raise ValueError("Distribution standard deviations cannot be negative")
+        if not np.allclose(correlation, correlation.T):
+            raise ValueError("correlation must be symmetric")
+        if not np.allclose(np.diag(correlation), 1.0):
+            raise ValueError("correlation diagonal entries must equal one")
+        if np.any(np.abs(correlation) > 1.0):
+            raise ValueError("correlation coefficients must lie between -1 and 1")
+        if np.linalg.eigvalsh(correlation).min() < -1e-12:
+            raise ValueError("correlation must be positive semidefinite")
+        # Convert standard deviations and correlation into covariance units.
+        covariance = np.outer(deviation, deviation) * correlation
+        draw = mean if deterministic else rng.multivariate_normal(mean, covariance)
+
+    else:
+        raise ValueError(f"Unsupported distribution {distribution_name!r}")
+
+    # Internally, scalar and vector distributions share one tuple representation.
+    values = np.atleast_1d(draw).astype(float)
+    if not np.isfinite(values).all():
+        raise ValueError("Distribution produced a non-finite value")
+    return tuple(values.tolist())
+
+
+def _sample_distributions(distributions, rng, deterministic):
+    """Validate and sample every registered distribution exactly once.
+
+    Parameters
+    ----------
+    distributions : list of RandomDistribution
+        Model-level distribution registry.
+    rng : numpy.random.Generator
+        Random generator used for stochastic construction.
+    deterministic : bool
+        Return expected values instead of random draws when true.
+
+    Returns
+    -------
+    dict
+        Mapping from distribution ID to its sampled component tuple.
+    """
+    sampled = {}
+    names = set()
+    for specification in distributions:
+        # Registry entries must be explicit public distribution records.
+        if not isinstance(specification, RandomDistribution):
+            raise TypeError("distributions must contain RandomDistribution records")
+        if isinstance(specification.id, bool) or not isinstance(specification.id, int):
+            raise TypeError("Distribution IDs must be integers")
+        if specification.id <= 0:
+            raise ValueError("Distribution IDs must be positive")
+        if specification.id in sampled:
+            raise ValueError(f"Duplicate distribution ID {specification.id}")
+        if specification.name in names:
+            raise ValueError(f"Duplicate distribution name {specification.name!r}")
+        # Store one joint draw; every reference will read from this same tuple.
+        sampled[specification.id] = _sample_distribution(
+            specification, rng, deterministic
+        )
+        names.add(specification.name)
+    return sampled
+
+
+def _resolve(value, sampled_distributions, path="model"):
+    """Recursively replace distribution references with sampled values.
+
+    Parameters
+    ----------
+    value : object
+        Dataclass, list, tuple, distribution reference, or scalar.
+    sampled_distributions : dict
+        Values indexed by registered distribution ID.
     path : str, optional
         Human-readable location used in validation errors.
 
     Returns
     -------
     object
-        Value with the same structure and no distribution dictionaries.
+        Value with the same structure and no distribution references.
     """
-    # Distribution dictionaries are terminal parameter specifications.
-    if isinstance(value, dict):
-        try:
-            return _distribution_value(value, rng, deterministic)
-        except (TypeError, ValueError) as error:
-            raise type(error)(f"{path}: {error}") from error
-
-    # Preserve tuples while resolving each positional component.
+    # One- and two-integer tuples are scalar and component references.
     if isinstance(value, tuple):
+        is_reference = len(value) in (1, 2) and all(
+            isinstance(item, int) and not isinstance(item, bool) for item in value
+        )
+        if is_reference:
+            distribution_id = value[0]
+            if distribution_id not in sampled_distributions:
+                raise ValueError(
+                    f"{path}: unknown distribution ID {distribution_id}"
+                )
+            values = sampled_distributions[distribution_id]
+            component = 0 if len(value) == 1 else value[1]
+            if len(value) == 1 and len(values) != 1:
+                raise ValueError(
+                    f"{path}: multivariate distribution {distribution_id} "
+                    "requires a component index"
+                )
+            if component < 0 or component >= len(values):
+                raise ValueError(
+                    f"{path}: component {component} is out of range for "
+                    f"distribution {distribution_id}"
+                )
+            return values[component]
         return tuple(
-            _resolve(item, rng, deterministic, f"{path}[{index}]")
+            _resolve(item, sampled_distributions, f"{path}[{index}]")
             for index, item in enumerate(value)
         )
 
     # Preserve lists while resolving every record or value they contain.
     if isinstance(value, list):
         return [
-            _resolve(item, rng, deterministic, f"{path}[{index}]")
+            _resolve(item, sampled_distributions, f"{path}[{index}]")
             for index, item in enumerate(value)
         ]
+
+    # Distribution records describe the registry and are not model parameters.
+    if isinstance(value, RandomDistribution):
+        return value
 
     # Reconstruct frozen dataclasses with resolved fields.
     if is_dataclass(value):
         resolved_fields = {
             field.name: _resolve(
                 getattr(value, field.name),
-                rng,
-                deterministic,
+                sampled_distributions,
                 f"{path}.{field.name}",
             )
             for field in fields(value)
@@ -603,7 +701,7 @@ def _assemble(definition):
     Parameters
     ----------
     definition : ModelDefinition
-        Deterministic definition containing no distribution dictionaries.
+        Deterministic definition containing no distribution references.
 
     Returns
     -------
@@ -1021,7 +1119,7 @@ class ModelBuilder:
         ):
             raise ValueError("samples must be a positive integer")
 
-        # One generator supplies reproducible independent parameter draws.
+        # One generator supplies reproducible scalar and multivariate draws.
         random_generator = np.random.default_rng(seed)
 
         # Accumulate resolved records, matrices, and coordinates by sample.
@@ -1031,11 +1129,17 @@ class ModelBuilder:
 
         for sample_index in range(samples):
             try:
-                # Replace every distribution with one scalar realization.
-                resolved_definition = _resolve(
-                    definition,
+                # Generate each registered distribution once for this sample.
+                sampled_distributions = _sample_distributions(
+                    definition.distributions,
                     random_generator,
                     deterministic,
+                )
+
+                # Replace every tuple reference with its generated component.
+                resolved_definition = _resolve(
+                    definition,
+                    sampled_distributions,
                 )
 
                 # Assemble one complete deterministic numerical model.
