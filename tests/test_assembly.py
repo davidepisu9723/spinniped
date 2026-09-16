@@ -24,6 +24,22 @@ from spinniped.stiffness import bearing_stiffness, shaft_stiffness
 
 
 def _shaft_records(properties, *, grid_ids=(1, 2), length=None):
+    """Return records for one straight reference shaft element.
+
+    Parameters
+    ----------
+    properties : ShaftProperties
+        Reference material and section values.
+    grid_ids : tuple of int, optional
+        IDs assigned to the two endpoint grids.
+    length : float or None, optional
+        Element length. ``None`` uses the reference length.
+
+    Returns
+    -------
+    ModelDefinition
+        Declarative one-element shaft model.
+    """
     p = properties
     length = p.length if length is None else length
     definition = ModelDefinition(
@@ -44,6 +60,20 @@ def _shaft_records(properties, *, grid_ids=(1, 2), length=None):
 
 
 def _local_shaft_matrices(properties, length):
+    """Return local shaft matrices for the supplied reference data.
+
+    Parameters
+    ----------
+    properties : ShaftProperties
+        Reference material and section values.
+    length : float
+        Shaft-element length.
+
+    Returns
+    -------
+    tuple of numpy.ndarray
+        Stiffness, mass, damping, and gyroscopic matrices.
+    """
     p = properties
     common = {
         "length": length,
@@ -64,6 +94,7 @@ def _local_shaft_matrices(properties, length):
 
 
 def test_one_element_global_matrices_equal_local_kernels(shaft_properties):
+    """Verify direct assembly of one globally aligned shaft element."""
     definition = _shaft_records(shaft_properties)
     model = ModelBuilder().build(definition)
     local_stiffness, local_mass = _local_shaft_matrices(
@@ -77,6 +108,7 @@ def test_one_element_global_matrices_equal_local_kernels(shaft_properties):
 
 
 def test_two_elements_accumulate_at_shared_grid(shaft_properties):
+    """Verify matrix contributions accumulate at a shared grid."""
     p = shaft_properties
     element_length = p.length / 2.0
     definition = _shaft_records(p, length=element_length)
@@ -101,6 +133,7 @@ def test_two_elements_accumulate_at_shared_grid(shaft_properties):
 
 
 def test_nonconsecutive_grid_ids_are_mapped_by_record_order(shaft_properties):
+    """Verify arbitrary grid IDs map to contiguous matrix blocks."""
     definition = _shaft_records(shaft_properties, grid_ids=(10, 70))
     model = ModelBuilder().build(definition)
     local_stiffness, local_mass = _local_shaft_matrices(
@@ -115,6 +148,7 @@ def test_nonconsecutive_grid_ids_are_mapped_by_record_order(shaft_properties):
 def test_shaft_gyroscopic_assembly_is_invariant_to_endpoint_order(
     shaft_properties,
 ):
+    """Verify endpoint reversal preserves global gyroscopic behavior."""
     forward_definition = _shaft_records(shaft_properties)
     forward_definition = replace(
         forward_definition,
@@ -136,6 +170,7 @@ def test_shaft_gyroscopic_assembly_is_invariant_to_endpoint_order(
 
 
 def test_bearing_terms_are_inserted_at_referenced_grid():
+    """Verify grounded-bearing terms occupy the selected nodal block."""
     definition = ModelDefinition(
         grids=[Grid(10), Grid(30), Grid(70)],
         properties=[
@@ -171,6 +206,7 @@ def test_bearing_terms_are_inserted_at_referenced_grid():
 
 
 def test_two_grid_bearing_assembles_equal_and_opposite_blocks():
+    """Verify two-grid bearing assembly uses relative displacement."""
     prop = BearingProperty(
         id=4,
         kxx=11.0,
@@ -198,6 +234,7 @@ def test_two_grid_bearing_assembles_equal_and_opposite_blocks():
 
 
 def test_two_grid_bearing_rejects_identical_grid_ids():
+    """Verify a bearing cannot connect a grid to itself."""
     definition = ModelDefinition(
         grids=[Grid(10)],
         properties=[BearingProperty(id=4, kxx=1.0)],
@@ -209,6 +246,7 @@ def test_two_grid_bearing_rejects_identical_grid_ids():
 
 
 def test_disk_terms_are_inserted_at_referenced_grid():
+    """Verify disk matrices occupy the selected nodal block."""
     definition = ModelDefinition(
         grids=[Grid(42)],
         properties=[
@@ -234,6 +272,7 @@ def test_disk_terms_are_inserted_at_referenced_grid():
 
 
 def test_disk_matrices_follow_the_element_coordinate_system():
+    """Verify disk matrices rotate from their element coordinate system."""
     definition = ModelDefinition(
         grids=[Grid(42)],
         coordinate_systems=[
@@ -266,6 +305,7 @@ def test_disk_matrices_follow_the_element_coordinate_system():
 
 
 def test_grid_coordinates_are_transformed_to_basic_system():
+    """Verify local grid coordinates resolve into the global frame."""
     definition = ModelDefinition(
         coordinate_systems=[
             CoordinateSystem(
@@ -318,11 +358,13 @@ def test_grid_coordinates_are_transformed_to_basic_system():
     ],
 )
 def test_invalid_record_references_are_rejected(definition, message):
+    """Verify invalid record relationships produce useful errors."""
     with pytest.raises((TypeError, ValueError), match=message):
         ModelBuilder().build(definition)
 
 
 def test_coincident_shaft_grids_are_rejected(shaft_properties):
+    """Verify zero-length shaft elements are rejected."""
     definition = _shaft_records(shaft_properties)
     definition = replace(definition, grids=[Grid(1), Grid(2)])
 
@@ -356,12 +398,14 @@ def test_coincident_shaft_grids_are_rejected(shaft_properties):
 def test_builder_strictly_validates_record_types_and_finite_geometry(
     definition, exception, message
 ):
+    """Verify strict validation of record types and finite geometry."""
     with pytest.raises(exception, match=message):
         ModelBuilder().build(definition)
 
 
 @pytest.mark.parametrize("stochastic", [0, 1, None, "yes"])
 def test_builder_requires_a_boolean_stochastic_flag(stochastic):
+    """Verify the stochastic option accepts only Boolean values."""
     with pytest.raises(TypeError, match="must be a boolean"):
         ModelBuilder().build(
             ModelDefinition(grids=[Grid(1)]), stochastic=stochastic

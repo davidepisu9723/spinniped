@@ -30,23 +30,58 @@ class ShaftProperties:
 
     @property
     def area(self):
+        """Return the circular cross-sectional area.
+
+        Returns
+        -------
+        float
+            Cross-sectional area.
+        """
         return np.pi * self.diameter**2 / 4.0
 
     @property
     def second_moment(self):
+        """Return the transverse second moment of area.
+
+        Returns
+        -------
+        float
+            Second moment about either transverse centroidal axis.
+        """
         return np.pi * self.diameter**4 / 64.0
 
     @property
     def polar_moment(self):
+        """Return the polar second moment of area.
+
+        Returns
+        -------
+        float
+            Polar second moment about the shaft axis.
+        """
         return 2.0 * self.second_moment
 
     @property
     def shear_modulus(self):
+        """Return the isotropic shear modulus.
+
+        Returns
+        -------
+        float
+            Shear modulus derived from Young's modulus and Poisson's ratio.
+        """
         return self.young_modulus / (2.0 * (1.0 + self.poisson_ratio))
 
 
 @pytest.fixture
 def shaft_properties():
+    """Return the shared reference shaft properties fixture.
+
+    Returns
+    -------
+    ShaftProperties
+        Reference SI properties used by beam and shaft tests.
+    """
     return ShaftProperties()
 
 

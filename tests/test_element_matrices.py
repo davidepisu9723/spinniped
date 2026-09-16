@@ -22,6 +22,7 @@ from spinniped.stiffness import (
 
 
 def test_shaft_matrices_have_expected_structure(shaft_local_matrices):
+    """Verify shaft kernels have the expected symmetry and dimensions."""
     stiffness = shaft_local_matrices["stiffness"]
     mass = shaft_local_matrices["mass"]
     gyroscopic = shaft_local_matrices["gyroscopic"]
@@ -35,6 +36,7 @@ def test_shaft_matrices_have_expected_structure(shaft_local_matrices):
 
 
 def test_shaft_stiffness_has_six_rigid_body_modes(shaft_local_matrices):
+    """Verify free shaft stiffness contains six rigid-body modes."""
     eigenvalues = np.linalg.eigvalsh(shaft_local_matrices["stiffness"])
     scale = np.max(np.abs(eigenvalues))
     zero_modes = np.count_nonzero(np.abs(eigenvalues) < 1e-10 * scale)
@@ -44,10 +46,12 @@ def test_shaft_stiffness_has_six_rigid_body_modes(shaft_local_matrices):
 
 
 def test_shaft_mass_is_positive_definite(shaft_local_matrices):
+    """Verify the consistent shaft mass matrix is positive definite."""
     assert np.linalg.eigvalsh(shaft_local_matrices["mass"]).min() > 0.0
 
 
 def test_axial_and_torsional_blocks_match_closed_form(shaft_properties):
+    """Compare axial and torsional terms with closed-form values."""
     p = shaft_properties
     matrix = shaft_stiffness(
         length=p.length,
@@ -74,6 +78,7 @@ def test_axial_and_torsional_blocks_match_closed_form(shaft_properties):
 
 
 def test_density_scales_mass_and_gyroscopic_but_not_stiffness(shaft_properties):
+    """Verify density affects inertial kernels but not stiffness."""
     p = shaft_properties
     stiffness_options = {
         "length": p.length,
@@ -102,6 +107,7 @@ def test_density_scales_mass_and_gyroscopic_but_not_stiffness(shaft_properties):
 def test_full_shaft_gyroscopic_matrix_couples_translations_and_rotations(
     shaft_properties,
 ):
+    """Verify shaft gyroscopic coupling and skew symmetry."""
     p = shaft_properties
     options = {
         "length": p.length,
@@ -130,6 +136,7 @@ def test_full_shaft_gyroscopic_matrix_couples_translations_and_rotations(
 
 
 def test_bearing_kernels_place_coefficients_in_translational_block():
+    """Verify bearing coefficients occupy translational DOFs only."""
     stiffness = bearing_stiffness(kxx=11.0, kxy=12.0, kyx=13.0,
                                   kyy=14.0, kzz=15.0)
     damping = bearing_damping(cxx=21.0, cxy=22.0, cyx=23.0,
@@ -148,6 +155,7 @@ def test_bearing_kernels_place_coefficients_in_translational_block():
 
 
 def test_disk_kernels_represent_lumped_mass_and_polar_gyroscopic_coupling():
+    """Verify disk inertia and polar gyroscopic matrix terms."""
     lumped_mass = disk_mass(mass=2.0, diametral_inertia=0.1,
                             polar_inertia=0.2)
     gyroscopic = disk_gyroscopic(polar_inertia=0.2)
@@ -160,6 +168,7 @@ def test_disk_kernels_represent_lumped_mass_and_polar_gyroscopic_coupling():
 
 
 def test_element_damping_is_mass_proportional():
+    """Verify shaft and disk damping are mass proportional."""
     shaft_mass_matrix = np.eye(12)
     disk_mass_matrix = np.eye(6)
 
@@ -182,6 +191,7 @@ def test_element_damping_is_mass_proportional():
     ],
 )
 def test_invalid_shaft_geometry_is_rejected(options, shaft_properties):
+    """Verify shaft kernels reject nonphysical geometry."""
     with pytest.raises(ValueError, match="positive"):
         shaft_stiffness(
             **options,

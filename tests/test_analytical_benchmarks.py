@@ -13,6 +13,8 @@ from conftest import (
 
 
 def test_simply_supported_beam_first_four_bending_frequencies(shaft_properties):
+    """Compare four numerical bending modes with analytical frequencies."""
+    # A fine Euler mesh isolates assembly accuracy from shear deformation.
     elements = 16
     modes = 4
     model = build_uniform_beam(shaft_properties, elements, theory="euler")

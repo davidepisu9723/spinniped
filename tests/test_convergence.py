@@ -14,6 +14,21 @@ from conftest import (
 
 
 def _first_mode_error(properties, elements):
+    """Return relative first-mode error for one mesh density.
+
+    Parameters
+    ----------
+    properties : ShaftProperties
+        Uniform beam properties.
+    elements : int
+        Number of finite elements in the mesh.
+
+    Returns
+    -------
+    float
+        Absolute relative error in the first bending frequency.
+    """
+    # Solve the finite-element model with simply supported end conditions.
     model = build_uniform_beam(properties, elements, theory="euler")
     result = Solver(model).solve(
         "modal",
@@ -27,10 +42,13 @@ def _first_mode_error(properties, elements):
 
 @pytest.mark.parametrize("elements", [2, 4, 8, 16])
 def test_first_frequency_is_reasonable_at_each_mesh(shaft_properties, elements):
+    """Verify acceptable first-mode accuracy for every tested mesh."""
     assert _first_mode_error(shaft_properties, elements) < 0.01
 
 
 def test_first_frequency_converges_under_mesh_refinement(shaft_properties):
+    """Verify that first-mode error decreases as the mesh is refined."""
+    # Evaluate the same physical beam at progressively finer resolutions.
     element_counts = [2, 4, 8, 16]
     errors = np.array(
         [_first_mode_error(shaft_properties, count) for count in element_counts]

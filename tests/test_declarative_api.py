@@ -21,6 +21,18 @@ from spinniped import (
 
 
 def _rotor_definition(*, random=False):
+    """Return a small rotor definition with optional random references.
+
+    Parameters
+    ----------
+    random : bool, optional
+        Insert registered distribution references when true.
+
+    Returns
+    -------
+    ModelDefinition
+        Three-grid shaft, bearing, and disk model.
+    """
     diameter = (1,) if random else 0.01
     density = (2,) if random else 7850.0
     bearing_stiffness = (3,) if random else 1.0e8
@@ -90,6 +102,7 @@ def _rotor_definition(*, random=False):
 
 
 def test_deterministic_build_resolves_every_distribution_to_its_mean():
+    """Verify deterministic builds use distribution expected values."""
     resolved = ModelBuilder().build(
         _rotor_definition(random=True), stochastic=False, samples=20, seed=7
     )
@@ -106,6 +119,7 @@ def test_deterministic_build_resolves_every_distribution_to_its_mean():
 
 
 def test_stochastic_build_produces_reproducible_model_realizations():
+    """Verify seeded stochastic builds reproduce all realizations."""
     first = ModelBuilder().build(
         _rotor_definition(random=True),
         stochastic=True,
@@ -186,6 +200,7 @@ def test_stochastic_build_produces_reproducible_model_realizations():
     ],
 )
 def test_invalid_distribution_specifications_are_rejected(distribution, message):
+    """Verify malformed distribution records are rejected."""
     definition = _rotor_definition()
     definition.properties[0] = ShaftProperty(
         1, material=1, outer_diameter=(1,)
@@ -197,6 +212,7 @@ def test_invalid_distribution_specifications_are_rejected(distribution, message)
 
 
 def test_multivariate_components_preserve_requested_correlation():
+    """Verify sampled components reproduce the requested correlation."""
     definition = _rotor_definition()
     definition.properties[1] = BearingProperty(2, kxx=(17, 0), kyy=(17, 1))
     definition.distributions.append(
@@ -222,6 +238,7 @@ def test_multivariate_components_preserve_requested_correlation():
 
 
 def test_repeated_scalar_reference_reuses_the_same_sample():
+    """Verify repeated references retrieve the same scalar draw."""
     model = ModelBuilder().build(
         _rotor_definition(random=True), stochastic=True, samples=10, seed=4
     )
@@ -239,6 +256,7 @@ def test_repeated_scalar_reference_reuses_the_same_sample():
     ],
 )
 def test_invalid_distribution_references_are_rejected(reference, message):
+    """Verify missing distributions and invalid components are rejected."""
     definition = _rotor_definition(random=True)
     definition.properties[0] = ShaftProperty(1, 1, reference)
 
@@ -248,6 +266,7 @@ def test_invalid_distribution_references_are_rejected(reference, message):
 
 @pytest.mark.parametrize("samples", [0, -1, 1.5, "5", True])
 def test_stochastic_sample_count_must_be_a_positive_integer(samples):
+    """Verify stochastic sample counts are positive integers."""
     with pytest.raises(ValueError, match="positive integer"):
         ModelBuilder().build(
             _rotor_definition(random=True),
@@ -257,11 +276,13 @@ def test_stochastic_sample_count_must_be_a_positive_integer(samples):
 
 
 def test_builder_requires_a_model_definition():
+    """Verify the builder rejects non-model root objects."""
     with pytest.raises(TypeError, match="ModelDefinition"):
         ModelBuilder().build({"grids": []})
 
 
 def test_modal_solver_returns_real_modes_for_each_sample():
+    """Verify modal analysis returns real modes for every realization."""
     model = ModelBuilder().build(
         _rotor_definition(random=True),
         stochastic=True,
@@ -286,6 +307,7 @@ def test_modal_solver_returns_real_modes_for_each_sample():
 
 
 def test_campbell_solver_returns_modes_at_every_speed():
+    """Verify Campbell analysis returns branches at every speed."""
     model = ModelBuilder().build(_rotor_definition())
     result = Solver().solve(
         "campbell",
@@ -306,6 +328,7 @@ def test_campbell_solver_returns_modes_at_every_speed():
 
 @pytest.mark.parametrize("modes", [0, -1, 1.5, True, "4"])
 def test_campbell_solver_rejects_invalid_mode_counts(modes):
+    """Verify Campbell analysis validates requested mode counts."""
     model = ModelBuilder().build(_rotor_definition())
 
     with pytest.raises(ValueError, match="modes must be a positive integer"):
@@ -315,6 +338,7 @@ def test_campbell_solver_rejects_invalid_mode_counts(modes):
 
 
 def test_campbell_solver_rejects_more_modes_than_are_available():
+    """Verify Campbell analysis rejects unavailable mode counts."""
     model = ModelBuilder().build(_rotor_definition())
 
     with pytest.raises(ValueError, match="Requested 100 modes"):
@@ -324,6 +348,7 @@ def test_campbell_solver_rejects_more_modes_than_are_available():
 
 
 def test_frequency_response_accepts_a_full_model_force():
+    """Verify frequency response reduces a full-model force vector."""
     model = ModelBuilder().build(_rotor_definition())
     force = np.zeros(model.ndof)
     force[6] = 1.0
@@ -342,6 +367,7 @@ def test_frequency_response_accepts_a_full_model_force():
 
 
 def test_time_response_returns_displacement_and_velocity():
+    """Verify time response returns displacement and velocity histories."""
     model = ModelBuilder().build(_rotor_definition())
     force = np.zeros(model.ndof)
     force[6] = 1.0
@@ -362,6 +388,7 @@ def test_time_response_returns_displacement_and_velocity():
 
 
 def test_time_response_reduces_a_full_model_initial_state():
+    """Verify time response reduces full-model initial conditions."""
     model = ModelBuilder().build(_rotor_definition())
     fixed = [2, 5]
     free = np.setdiff1d(np.arange(model.ndof), fixed)
@@ -382,6 +409,7 @@ def test_time_response_reduces_a_full_model_initial_state():
 
 
 def test_solver_validates_entry_point_arguments():
+    """Verify the unified solver validates its public arguments."""
     model = ModelBuilder().build(_rotor_definition())
 
     with pytest.raises(TypeError, match="ModelBuilder"):
@@ -401,6 +429,7 @@ def test_solver_validates_entry_point_arguments():
 
 
 def test_modal_rejects_cross_coupled_nonsymmetric_stiffness():
+    """Verify real modal analysis rejects nonsymmetric stiffness."""
     definition = _rotor_definition()
     definition.properties[1] = BearingProperty(
         2, kxx=1.0e8, kyy=1.0e8, kxy=2.0e6, kyx=1.0e6
@@ -412,6 +441,7 @@ def test_modal_rejects_cross_coupled_nonsymmetric_stiffness():
 
 
 def test_modal_keeps_small_physical_modes_in_a_wide_spectrum():
+    """Verify modal filtering retains small positive physical modes."""
     definition = ModelDefinition(
         grids=[Grid(1)],
         properties=[
@@ -430,6 +460,7 @@ def test_modal_keeps_small_physical_modes_in_a_wide_spectrum():
 
 
 def test_response_solvers_validate_load_and_time_shapes():
+    """Verify response solvers reject malformed load and time arrays."""
     model = ModelBuilder().build(_rotor_definition())
     solver = Solver(model)
 
