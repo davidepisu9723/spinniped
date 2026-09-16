@@ -70,20 +70,41 @@ class Solver:
         if not isinstance(numerical_model, BuiltModel):
             raise TypeError("model must be a model returned by ModelBuilder")
 
-        # Resolve the analysis name to its private implementation.
-        try:
-            normalized_analysis = analysis.lower()
-            handler = getattr(self, f"_solve_{normalized_analysis}")
-        except (AttributeError, TypeError):
-            raise ValueError(
-                f"Unknown analysis {analysis!r}; choose from {self._ANALYSES}"
-            ) from None
-
         # Convert fixed global DOFs into a sorted free-DOF array.
         free_dofs = self._free_dofs(numerical_model.ndof, fixed_dofs)
 
-        # Delegate only the options understood by the selected handler.
-        result = handler(numerical_model, free_dofs, **options)
+        # Normalize the public name before selecting an analysis strategy.
+        if not isinstance(analysis, str):
+            raise TypeError("analysis must be a string")
+
+        normalized_analysis = analysis.lower()
+        
+        # Select the requested strategy explicitly so the dispatch remains
+        # visible when reading this public entry point.
+        if normalized_analysis == "modal":
+            result = self._solve_modal(numerical_model, free_dofs, **options)
+
+        elif normalized_analysis == "campbell":
+            result = self._solve_campbell(numerical_model, free_dofs, **options)
+
+        elif normalized_analysis == "frequency_response":
+            result = self._solve_frequency_response(
+                numerical_model,
+                free_dofs,
+                **options,
+            )
+
+        elif normalized_analysis == "time_response":
+            result = self._solve_time_response(
+                numerical_model,
+                free_dofs,
+                **options,
+            )
+
+        else:
+            raise ValueError(
+                f"Unknown analysis {analysis!r}; choose from {self._ANALYSES}"
+            )
 
         # Add metadata common to all analysis result dictionaries.
         result.update(
