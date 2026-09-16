@@ -378,8 +378,112 @@ def _sample_distributions(distributions, rng, stochastic):
     return sampled
 
 
+def _is_distribution_reference(value):
+    """Return whether a value follows the random-reference tuple syntax.
+
+    Parameters
+    ----------
+    value : object
+        Candidate value from a declarative model record.
+
+    Returns
+    -------
+    bool
+        ``True`` for ``(distribution_id,)`` and
+        ``(distribution_id, component)`` tuples.
+    """
+    # Boolean values are integers in Python, but are not valid IDs or indices.
+    return (
+        isinstance(value, tuple)
+        and len(value) in (1, 2)
+        and all(
+            isinstance(item, int) and not isinstance(item, bool)
+            for item in value
+        )
+    )
+
+
+def _resolve_reference(reference, sampled_distributions, path):
+    """Retrieve one sampled value through a distribution reference.
+
+    Parameters
+    ----------
+    reference : tuple of int
+        Scalar ``(distribution_id,)`` or component
+        ``(distribution_id, component)`` reference.
+    sampled_distributions : dict
+        Sampled component tuples indexed by distribution ID.
+    path : str
+        Human-readable model location used in validation errors.
+
+    Returns
+    -------
+    float
+        Referenced scalar value for the current realization.
+
+    Raises
+    ------
+    ValueError
+        If the ID is unknown, a multivariate component is omitted, or the
+        requested component is outside the sampled vector.
+    """
+    # The first tuple item always identifies the registered distribution.
+    distribution_id = reference[0]
+    if distribution_id not in sampled_distributions:
+        raise ValueError(f"{path}: unknown distribution ID {distribution_id}")
+
+    # Scalar references implicitly select the only available component.
+    sampled_values = sampled_distributions[distribution_id]
+    component = 0 if len(reference) == 1 else reference[1]
+
+    # Multivariate variables require an explicit component to avoid ambiguity.
+    if len(reference) == 1 and len(sampled_values) != 1:
+        raise ValueError(
+            f"{path}: multivariate distribution {distribution_id} "
+            "requires a component index"
+        )
+
+    # Reject negative and oversized indices before indexing the sampled tuple.
+    if component < 0 or component >= len(sampled_values):
+        raise ValueError(
+            f"{path}: component {component} is out of range for "
+            f"distribution {distribution_id}"
+        )
+
+    return sampled_values[component]
+
+
+def _resolve_dataclass(value, sampled_distributions, path):
+    """Reconstruct a dataclass after recursively resolving all fields.
+
+    Parameters
+    ----------
+    value : dataclass instance
+        Declarative record to resolve.
+    sampled_distributions : dict
+        Sampled component tuples indexed by distribution ID.
+    path : str
+        Human-readable model location used in validation errors.
+
+    Returns
+    -------
+    object
+        Dataclass of the same type containing resolved field values.
+    """
+    # ``replace`` supports the frozen and slotted records exposed by the API.
+    resolved_fields = {
+        field.name: _resolve(
+            getattr(value, field.name),
+            sampled_distributions,
+            f"{path}.{field.name}",
+        )
+        for field in fields(value)
+    }
+    return replace(value, **resolved_fields)
+
+
 def _resolve(value, sampled_distributions, path="model"):
-    """Recursively replace distribution references with sampled values.
+    """Recursively traverse model data and resolve random references.
 
     Parameters
     ----------
@@ -395,30 +499,20 @@ def _resolve(value, sampled_distributions, path="model"):
     object
         Value with the same structure and no distribution references.
     """
-    # One- and two-integer tuples are scalar and component references.
-    if isinstance(value, tuple):
-        is_reference = len(value) in (1, 2) and all(
-            isinstance(item, int) and not isinstance(item, bool) for item in value
+    # Distribution records define the registry and must remain unchanged.
+    if isinstance(value, RandomDistribution):
+        return value
+
+    # Reference validation is isolated from the recursive traversal logic.
+    if _is_distribution_reference(value):
+        return _resolve_reference(
+            value,
+            sampled_distributions,
+            path,
         )
-        if is_reference:
-            distribution_id = value[0]
-            if distribution_id not in sampled_distributions:
-                raise ValueError(
-                    f"{path}: unknown distribution ID {distribution_id}"
-                )
-            values = sampled_distributions[distribution_id]
-            component = 0 if len(value) == 1 else value[1]
-            if len(value) == 1 and len(values) != 1:
-                raise ValueError(
-                    f"{path}: multivariate distribution {distribution_id} "
-                    "requires a component index"
-                )
-            if component < 0 or component >= len(values):
-                raise ValueError(
-                    f"{path}: component {component} is out of range for "
-                    f"distribution {distribution_id}"
-                )
-            return values[component]
+
+    # Preserve structural tuples such as coordinate-system vectors.
+    if isinstance(value, tuple):
         return tuple(
             _resolve(item, sampled_distributions, f"{path}[{index}]")
             for index, item in enumerate(value)
@@ -431,21 +525,9 @@ def _resolve(value, sampled_distributions, path="model"):
             for index, item in enumerate(value)
         ]
 
-    # Distribution records describe the registry and are not model parameters.
-    if isinstance(value, RandomDistribution):
-        return value
-
-    # Reconstruct frozen dataclasses with resolved fields.
+    # Delegate dataclass reconstruction to keep this dispatcher concise.
     if is_dataclass(value):
-        resolved_fields = {
-            field.name: _resolve(
-                getattr(value, field.name),
-                sampled_distributions,
-                f"{path}.{field.name}",
-            )
-            for field in fields(value)
-        }
-        return replace(value, **resolved_fields)
+        return _resolve_dataclass(value, sampled_distributions, path)
 
     # Ordinary deterministic scalars require no conversion here.
     return value
