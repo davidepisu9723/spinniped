@@ -234,7 +234,7 @@ def _finite_array(value, label, *, dimensions):
     return array
 
 
-def _sample_distribution(specification, rng, deterministic):
+def _sample_distribution(specification, rng, stochastic):
     """Generate one scalar or vector realization from a distribution.
 
     Parameters
@@ -243,8 +243,8 @@ def _sample_distribution(specification, rng, deterministic):
         Distribution record to validate and sample.
     rng : numpy.random.Generator
         Random generator used for stochastic construction.
-    deterministic : bool
-        Return expected values instead of random draws when true.
+    stochastic : bool
+        Draw random values when true; otherwise return expected values.
 
     Returns
     -------
@@ -279,7 +279,7 @@ def _sample_distribution(specification, rng, deterministic):
         deviation = _finite_array(parameters["stdv"], "stdv", dimensions=(0,))
         if deviation < 0:
             raise ValueError("Distribution standard deviation cannot be negative")
-        draw = mean if deterministic else rng.normal(mean, deviation)
+        draw = rng.normal(mean, deviation) if stochastic else mean
 
     # A scalar uniform distribution is represented by its two bounds.
     elif distribution_name == "uniform":
@@ -289,7 +289,11 @@ def _sample_distribution(specification, rng, deterministic):
         upper = _finite_array(parameters["high"], "high", dimensions=(0,))
         if upper < lower:
             raise ValueError("Uniform distribution requires high >= low")
-        draw = (lower + upper) / 2.0 if deterministic else rng.uniform(lower, upper)
+        draw = (
+            rng.uniform(lower, upper)
+            if stochastic
+            else (lower + upper) / 2.0
+        )
 
     # A multivariate normal jointly generates all correlated components.
     elif distribution_name == "multivariate_normal":
@@ -323,7 +327,7 @@ def _sample_distribution(specification, rng, deterministic):
             raise ValueError("correlation must be positive semidefinite")
         # Convert standard deviations and correlation into covariance units.
         covariance = np.outer(deviation, deviation) * correlation
-        draw = mean if deterministic else rng.multivariate_normal(mean, covariance)
+        draw = rng.multivariate_normal(mean, covariance) if stochastic else mean
 
     else:
         raise ValueError(f"Unsupported distribution {distribution_name!r}")
@@ -335,7 +339,7 @@ def _sample_distribution(specification, rng, deterministic):
     return tuple(values.tolist())
 
 
-def _sample_distributions(distributions, rng, deterministic):
+def _sample_distributions(distributions, rng, stochastic):
     """Validate and sample every registered distribution exactly once.
 
     Parameters
@@ -344,8 +348,8 @@ def _sample_distributions(distributions, rng, deterministic):
         Model-level distribution registry.
     rng : numpy.random.Generator
         Random generator used for stochastic construction.
-    deterministic : bool
-        Return expected values instead of random draws when true.
+    stochastic : bool
+        Draw random values when true; otherwise return expected values.
 
     Returns
     -------
@@ -368,7 +372,7 @@ def _sample_distributions(distributions, rng, deterministic):
             raise ValueError(f"Duplicate distribution name {specification.name!r}")
         # Store one joint draw; every reference will read from this same tuple.
         sampled[specification.id] = _sample_distribution(
-            specification, rng, deterministic
+            specification, rng, stochastic
         )
         names.add(specification.name)
     return sampled
@@ -1079,7 +1083,7 @@ class ModelBuilder:
         self,
         definition,
         *,
-        deterministic=True,
+        stochastic=False,
         samples=1,
         seed=None,
     ):
@@ -1089,10 +1093,11 @@ class ModelBuilder:
         ----------
         definition : ModelDefinition
             Model records to validate, sample, and assemble.
-        deterministic : bool, optional
-            Use distribution means and build exactly one realization.
+        stochastic : bool, optional
+            Draw random parameters and build a Monte Carlo ensemble. The
+            default uses distribution means and builds one realization.
         samples : int, optional
-            Number of Monte Carlo realizations when ``deterministic=False``.
+            Number of Monte Carlo realizations when ``stochastic=True``.
         seed : int or None, optional
             Seed passed to NumPy's random generator.
 
@@ -1106,18 +1111,18 @@ class ModelBuilder:
             raise TypeError("definition must be a ModelDefinition")
 
         # Avoid ambiguous truthy values such as the string ``"false"``.
-        if not isinstance(deterministic, bool):
-            raise TypeError("deterministic must be a boolean")
+        if not isinstance(stochastic, bool):
+            raise TypeError("stochastic must be a boolean")
 
-        # Deterministic construction always produces exactly one realization.
-        if deterministic:
-            samples = 1
-        elif (
+        # Stochastic construction requires an explicit positive sample count.
+        if stochastic and (
             isinstance(samples, bool)
             or not isinstance(samples, int)
             or samples < 1
         ):
             raise ValueError("samples must be a positive integer")
+        if not stochastic:
+            samples = 1
 
         # One generator supplies reproducible scalar and multivariate draws.
         random_generator = np.random.default_rng(seed)
@@ -1133,7 +1138,7 @@ class ModelBuilder:
                 sampled_distributions = _sample_distributions(
                     definition.distributions,
                     random_generator,
-                    deterministic,
+                    stochastic,
                 )
 
                 # Replace every tuple reference with its generated component.
@@ -1154,9 +1159,9 @@ class ModelBuilder:
             except (TypeError, ValueError) as error:
                 # Attach the failing realization without hiding the root cause.
                 sample_label = (
-                    "deterministic model"
-                    if deterministic
-                    else f"sample {sample_index}"
+                    f"sample {sample_index}"
+                    if stochastic
+                    else "deterministic model"
                 )
                 raise type(error)(
                     f"Failed to build {sample_label}: {error}"
@@ -1197,7 +1202,7 @@ class ModelBuilder:
             grid_ids=grid_ids,
             coordinates=np.stack(sample_coordinates),
             definitions=tuple(resolved_definitions),
-            stochastic=not deterministic,
+            stochastic=stochastic,
             seed=seed,
         )
 

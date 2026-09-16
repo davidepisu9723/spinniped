@@ -91,7 +91,7 @@ def _rotor_definition(*, random=False):
 
 def test_deterministic_build_resolves_every_distribution_to_its_mean():
     resolved = ModelBuilder().build(
-        _rotor_definition(random=True), deterministic=True, samples=20, seed=7
+        _rotor_definition(random=True), stochastic=False, samples=20, seed=7
     )
     explicit_mean = build_model(_rotor_definition(random=False))
 
@@ -108,13 +108,13 @@ def test_deterministic_build_resolves_every_distribution_to_its_mean():
 def test_stochastic_build_produces_reproducible_model_realizations():
     first = ModelBuilder().build(
         _rotor_definition(random=True),
-        deterministic=False,
+        stochastic=True,
         samples=6,
         seed=123,
     )
     repeated = ModelBuilder().build(
         _rotor_definition(random=True),
-        deterministic=False,
+        stochastic=True,
         samples=6,
         seed=123,
     )
@@ -213,7 +213,7 @@ def test_multivariate_components_preserve_requested_correlation():
     )
 
     model = ModelBuilder().build(
-        definition, deterministic=False, samples=2_000, seed=42
+        definition, stochastic=True, samples=2_000, seed=42
     )
     kxx = [sample.properties[1].kxx for sample in model.definitions]
     kyy = [sample.properties[1].kyy for sample in model.definitions]
@@ -223,7 +223,7 @@ def test_multivariate_components_preserve_requested_correlation():
 
 def test_repeated_scalar_reference_reuses_the_same_sample():
     model = ModelBuilder().build(
-        _rotor_definition(random=True), deterministic=False, samples=10, seed=4
+        _rotor_definition(random=True), stochastic=True, samples=10, seed=4
     )
 
     for definition in model.definitions:
@@ -251,7 +251,7 @@ def test_stochastic_sample_count_must_be_a_positive_integer(samples):
     with pytest.raises(ValueError, match="positive integer"):
         ModelBuilder().build(
             _rotor_definition(random=True),
-            deterministic=False,
+            stochastic=True,
             samples=samples,
         )
 
@@ -264,7 +264,7 @@ def test_builder_requires_a_model_definition():
 def test_modal_solver_returns_real_modes_for_each_sample():
     model = ModelBuilder().build(
         _rotor_definition(random=True),
-        deterministic=False,
+        stochastic=True,
         samples=3,
         seed=12,
     )

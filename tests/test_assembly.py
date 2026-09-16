@@ -360,9 +360,9 @@ def test_builder_strictly_validates_record_types_and_finite_geometry(
         ModelBuilder().build(definition)
 
 
-@pytest.mark.parametrize("deterministic", [0, 1, None, "yes"])
-def test_builder_requires_a_boolean_deterministic_flag(deterministic):
+@pytest.mark.parametrize("stochastic", [0, 1, None, "yes"])
+def test_builder_requires_a_boolean_stochastic_flag(stochastic):
     with pytest.raises(TypeError, match="must be a boolean"):
         ModelBuilder().build(
-            ModelDefinition(grids=[Grid(1)]), deterministic=deterministic
+            ModelDefinition(grids=[Grid(1)]), stochastic=stochastic
         )

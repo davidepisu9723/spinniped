@@ -282,7 +282,7 @@ from spinniped import ModelBuilder
 model = ModelBuilder().build(definition)
 
 # Equivalent, explicit form:
-model = ModelBuilder().build(definition, deterministic=True)
+model = ModelBuilder().build(definition, stochastic=False)
 ```
 
 ### Stochastic build
@@ -293,7 +293,7 @@ assembles one matrix set per realization:
 ```python
 ensemble = ModelBuilder().build(
     definition,
-    deterministic=False,
+    stochastic=True,
     samples=1_000,
     seed=42,
 )
