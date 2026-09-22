@@ -198,7 +198,7 @@ class BuiltModel:
         return self.gyroscopic
 
 
-def _finite_array(value, label, *, dimensions):
+def _distr_to_array(value, label, *, dimensions):
     """Convert distribution parameters to a finite floating-point array.
 
     Parameters
@@ -275,8 +275,8 @@ def _sample_distribution(specification, rng, stochastic):
     if distribution_name == "normal":
         if set(parameters) != {"mean", "stdv"}:
             raise ValueError("A normal distribution requires only 'mean' and 'stdv'")
-        mean = _finite_array(parameters["mean"], "mean", dimensions=(0,))
-        deviation = _finite_array(parameters["stdv"], "stdv", dimensions=(0,))
+        mean = _distr_to_array(parameters["mean"], "mean", dimensions=(0,))
+        deviation = _distr_to_array(parameters["stdv"], "stdv", dimensions=(0,))
         if deviation < 0:
             raise ValueError("Distribution standard deviation cannot be negative")
         draw = rng.normal(mean, deviation) if stochastic else mean
@@ -285,8 +285,8 @@ def _sample_distribution(specification, rng, stochastic):
     elif distribution_name == "uniform":
         if set(parameters) != {"low", "high"}:
             raise ValueError("A uniform distribution requires only 'low' and 'high'")
-        lower = _finite_array(parameters["low"], "low", dimensions=(0,))
-        upper = _finite_array(parameters["high"], "high", dimensions=(0,))
+        lower = _distr_to_array(parameters["low"], "low", dimensions=(0,))
+        upper = _distr_to_array(parameters["high"], "high", dimensions=(0,))
         if upper < lower:
             raise ValueError("Uniform distribution requires high >= low")
         draw = (
@@ -303,9 +303,9 @@ def _sample_distribution(specification, rng, stochastic):
                 "A multivariate normal distribution requires only "
                 "'mean', 'stdv', and 'correlation'"
             )
-        mean = _finite_array(parameters["mean"], "mean", dimensions=(1,))
-        deviation = _finite_array(parameters["stdv"], "stdv", dimensions=(1,))
-        correlation = _finite_array(
+        mean = _distr_to_array(parameters["mean"], "mean", dimensions=(1,))
+        deviation = _distr_to_array(parameters["stdv"], "stdv", dimensions=(1,))
+        correlation = _distr_to_array(
             parameters["correlation"], "correlation", dimensions=(2,)
         )
         component_count = mean.size
@@ -403,7 +403,7 @@ def _is_distribution_reference(value):
     )
 
 
-def _resolve_reference(reference, sampled_distributions, path):
+def _resolve_distribution_reference(reference, sampled_distributions, path):
     """Retrieve one sampled value through a distribution reference.
 
     Parameters
@@ -505,7 +505,7 @@ def _resolve(value, sampled_distributions, path="model"):
 
     # Reference validation is isolated from the recursive traversal logic.
     if _is_distribution_reference(value):
-        return _resolve_reference(
+        return _resolve_distribution_reference(
             value,
             sampled_distributions,
             path,
