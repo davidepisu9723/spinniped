@@ -52,6 +52,7 @@ parametrized functions run once for every listed case.
 | [`test_declarative_api.py`](#test_declarative_apipy) | 19 | Distribution resolution and every public solver route |
 | [`test_plotting.py`](#test_plottingpy) | 3 | Campbell-diagram rendering and plotting-input validation |
 | [`test_analytical_benchmarks.py`](#test_analytical_benchmarkspy) | 1 | Comparison with the Euler--Bernoulli beam solution |
+| [`test_jeffcott_benchmark.py`](#test_jeffcott_benchmarkpy) | 2 | Jeffcott frequency and critical-speed comparison |
 | [`test_convergence.py`](#test_convergencepy) | 2 | Accuracy under mesh refinement |
 
 The suite also relies on [`conftest.py`](#conftestpy-shared-test-support),
@@ -507,6 +508,72 @@ $$
 \frac{\left|f_{m,\mathrm{num}}-f_{m,\mathrm{ana}}\right|}
 {f_{m,\mathrm{ana}}}.
 $$
+
+### `test_jeffcott_benchmark.py`
+
+This extended Jeffcott reference uses a rigid central disk, a massless elastic
+shaft, and two identical flexible bearings of stiffness $k_b$. Combining shaft
+and bearing compliances gives the equivalent disk-center stiffnesses
+
+$$
+k_t=\left(\frac{L^3}{48EI}+\frac{1}{2k_b}\right)^{-1},
+\qquad
+k_r=\left(\frac{L}{12EI}+\frac{2}{k_bL^2}\right)^{-1}.
+$$
+
+The cylindrical translation pair remains independent of spin speed,
+
+$$
+\omega_t=\sqrt{\frac{k_t}{m}},
+$$
+
+while disk polar inertia $I_p$ splits the conical pair with increasing spin
+speed $\Omega$:
+
+$$
+\omega_{c,\mp}(\Omega)=
+\frac{
+\sqrt{(I_p\Omega)^2+4I_dk_r}\mp I_p\Omega
+}{2I_d}.
+$$
+
+For $E=2.0\times10^{11}\ \mathrm{Pa}$, $d=0.02\ \mathrm{m}$,
+$L=1.0\ \mathrm{m}$, $m=5.0\ \mathrm{kg}$,
+$I_d=0.025\ \mathrm{kg\,m^2}$, $I_p=0.05\ \mathrm{kg\,m^2}$, and
+$k_b=1.0\times10^6\ \mathrm{N/m}$, the analytical references are:
+
+| Quantity | Analytical value |
+|---|---:|
+| Second moment $I$ | $7.853981634\times10^{-9}\ \mathrm{m^4}$ |
+| Translation stiffness $k_t$ | $72659.042323\ \mathrm{N/m}$ |
+| Rotation stiffness $k_r$ | $18164.760581\ \mathrm{N\,m/rad}$ |
+| Cylindrical frequency at rest | $19.185802264\ \mathrm{Hz}$ |
+| Conical frequency at rest | $135.664108836\ \mathrm{Hz}$ |
+| Cylindrical 1x critical speed | $1151.148135859\ \mathrm{rpm}$ |
+| Backward-conical 1x critical speed | $4699.542585350\ \mathrm{rpm}$ |
+
+The comparable finite-element model uses ten Euler--Bernoulli shaft elements,
+a disk node at the exact midpoint, negligible positive shaft density, and
+grounded flexible bearings at both ends. Shaft rotary inertia is disabled so
+the disk is the only gyroscopic source. Axial and torsional DOFs are removed
+because they are outside the lateral Jeffcott model.
+
+#### `test_flexible_bearing_jeffcott_frequencies_match_finite_element_model`
+
+Solves four real modes at rest and compares the degenerate cylindrical and
+conical pairs with the flexible-bearing analytical frequencies. An explicit
+zero modal threshold retains the disk modes in the deliberately wide spectrum
+created by the nearly massless shaft.
+
+#### `test_jeffcott_gyroscopic_shift_and_critical_speeds_match_finite_elements`
+
+Solves at rest, at an intermediate speed, and at both analytical critical
+speeds. The FE frequencies must reproduce the fixed cylindrical pair and the
+oppositely shifting conical branches. It also checks that the cylindrical and
+backward-conical frequencies intersect the 1x line at their respective
+analytical critical speeds. Independent frequency sorting is used because the
+conical pair is exactly degenerate at rest, making its initial MAC labels
+arbitrary.
 
 ### `test_convergence.py`
 
