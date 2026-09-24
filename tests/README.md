@@ -454,6 +454,11 @@ created.
 Builds a 16-element Euler--Bernoulli shaft and compares one member of each of
 the first four degenerate bending pairs with
 
+![Simply supported uniform shaft with pin and roller supports, free end rotations, and the global coordinate system](../theory/images/simply_supported_shaft.png)
+
+*Simply supported reference shaft. The pin and roller restrain transverse end
+motion while leaving bending rotations free; global $z$ follows the shaft.*
+
 $$
 f_m=\frac{m^2\pi}{2L^2}
 \sqrt{\frac{EI}{\rho A}},
@@ -514,6 +519,12 @@ $$
 This extended Jeffcott reference uses a rigid central disk, a massless elastic
 shaft, and two identical flexible bearings of stiffness $k_b$. Combining shaft
 and bearing compliances gives the equivalent disk-center stiffnesses
+
+![Flexible-bearing Jeffcott rotor with a central rigid disk, shaft spin direction, and global coordinate system](../theory/images/flexible_bearing_jeffcott_rotor.png)
+
+*Extended Jeffcott reference. The central disk carries $m$, $I_d$, and $I_p$;
+the two grounded bearing springs provide equal transverse stiffness $k_b$, and
+$\Omega$ denotes rotation about global $z$.*
 
 $$
 k_t=\left(\frac{L^3}{48EI}+\frac{1}{2k_b}\right)^{-1},
