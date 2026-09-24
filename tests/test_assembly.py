@@ -324,6 +324,95 @@ def test_grid_coordinates_are_transformed_to_basic_system():
     assert np.array_equal(model.coordinates, [[[7.0, -2.0, 7.0]]])
 
 
+def test_bearing_matrices_rotate_45_degrees_about_global_z():
+    """Verify an in-plane frame rotation transforms bearing coefficients."""
+    cosine = np.sqrt(0.5)
+    definition = ModelDefinition(
+        grids=[Grid(1)],
+        coordinate_systems=[
+            CoordinateSystem(
+                id=2,
+                x_axis=(cosine, cosine, 0.0),
+                xy_plane=(-cosine, cosine, 0.0),
+            )
+        ],
+        properties=[
+            BearingProperty(
+                id=3,
+                kxx=10.0,
+                kyy=20.0,
+                kzz=30.0,
+                cxx=2.0,
+                cyy=6.0,
+                czz=8.0,
+            )
+        ],
+        elements=[BearingElement(4, 1, 3, coordinate_system=2)],
+    )
+    model = ModelBuilder().build(definition)
+
+    expected_stiffness = np.array(
+        [[15.0, -5.0, 0.0], [-5.0, 15.0, 0.0], [0.0, 0.0, 30.0]]
+    )
+    expected_damping = np.array(
+        [[4.0, -2.0, 0.0], [-2.0, 4.0, 0.0], [0.0, 0.0, 8.0]]
+    )
+    assert np.allclose(model.K[0, :3, :3], expected_stiffness)
+    assert np.allclose(model.C[0, :3, :3], expected_damping)
+    assert np.count_nonzero(model.K[0, 3:, :]) == 0
+    assert np.count_nonzero(model.C[0, 3:, :]) == 0
+
+
+def test_rotated_grid_system_orients_shaft_along_global_x(shaft_properties):
+    """Verify rotated grid coordinates drive shaft matrix orientation."""
+    p = shaft_properties
+    definition = ModelDefinition(
+        coordinate_systems=[
+            # Local (x, y, z) maps to global (y, z, x).
+            CoordinateSystem(
+                id=2,
+                x_axis=(0.0, 1.0, 0.0),
+                xy_plane=(0.0, 0.0, 1.0),
+            )
+        ],
+        grids=[
+            Grid(1, z=0.0, coordinate_system=2),
+            Grid(2, z=p.length, coordinate_system=2),
+        ],
+        materials=[Material(3, p.density, p.young_modulus, p.poisson_ratio)],
+        properties=[
+            ShaftProperty(
+                4,
+                material=3,
+                outer_diameter=p.diameter,
+                theory="euler",
+                rotary_inertia=False,
+            )
+        ],
+        elements=[ShaftElement(5, 1, 2, 4)],
+    )
+    model = ModelBuilder().build(definition)
+
+    expected_axial = (
+        p.young_modulus
+        * p.area
+        / p.length
+        * np.array([[1.0, -1.0], [-1.0, 1.0]])
+    )
+    expected_torsional = (
+        p.shear_modulus
+        * p.polar_moment
+        / p.length
+        * np.array([[1.0, -1.0], [-1.0, 1.0]])
+    )
+    assert np.allclose(
+        model.coordinates[0],
+        [[0.0, 0.0, 0.0], [p.length, 0.0, 0.0]],
+    )
+    assert np.allclose(model.K[0][np.ix_([0, 6], [0, 6])], expected_axial)
+    assert np.allclose(model.K[0][np.ix_([3, 9], [3, 9])], expected_torsional)
+
+
 @pytest.mark.parametrize(
     ("definition", "message"),
     [
