@@ -513,6 +513,7 @@ Run the included examples from the repository root:
 ```bash
 python examples/01_simple_shaft_modal.py
 python examples/02_simple_shaft_modal_with_bearings.py
+python examples/03_simple_shaft_complex_eigenvalues.py
 ```
 
 The theoretical conventions and implemented shaft formulation are documented

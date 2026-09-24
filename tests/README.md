@@ -431,6 +431,43 @@ f_m=\frac{m^2\pi}{2L^2}
 \qquad m=1,2,\ldots.
 $$
 
+For the reference values used by the tests,
+
+$$
+A=\frac{\pi(0.01)^2}{4}
+=7.853981634\times10^{-5}\ \mathrm{m^2},
+$$
+
+$$
+I=\frac{\pi(0.01)^4}{64}
+=4.908738521\times10^{-10}\ \mathrm{m^4}.
+$$
+
+Substituting $E=2.0\times10^{11}\ \mathrm{Pa}$,
+$\rho=7850\ \mathrm{kg/m^3}$, and $L=1.0\ \mathrm{m}$ gives
+
+$$
+f_m=
+\frac{m^2\pi}{2(1.0)^2}
+\sqrt{
+\frac{(2.0\times10^{11})(4.908738521\times10^{-10})}
+{(7850)(7.853981634\times10^{-5})}
+}
+=m^2(19.821661494\ \mathrm{Hz}).
+$$
+
+The resulting analytical references are:
+
+| Mode $m$ | Analytical expression | Analytical frequency (Hz) |
+|---:|---:|---:|
+| 1 | $1^2(19.821661494)$ | 19.821661494 |
+| 2 | $2^2(19.821661494)$ | 79.286645975 |
+| 3 | $3^2(19.821661494)$ | 178.394953444 |
+| 4 | $4^2(19.821661494)$ | 317.146583901 |
+
+These values come only from the closed-form equation; they are not numerical
+finite-element results.
+
 Rotary inertia is disabled so the finite-element assumptions match the
 analytical equation. With the six-DOF grid order `x, y, z, tx, ty, tz`, the
 first grid fixes `x, y, z, tz` and the final grid fixes `x, y`; bending
