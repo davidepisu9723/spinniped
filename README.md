@@ -566,7 +566,13 @@ python examples/01_simple_shaft_modal.py
 python examples/02_simple_shaft_modal_with_bearings.py
 python examples/03_simple_shaft_complex_eigenvalues.py
 python examples/04_bearing_supported_shaft_with_disk_campbell.py
+python examples/05_flexible_bearing_jeffcott_comparison.py
 ```
+
+Example 05 compares the speed-invariant cylindrical modes and gyroscopically
+split conical modes of a flexible-bearing Jeffcott model with an equivalent
+finite-element shaft. It also marks the cylindrical and backward-conical 1x
+critical speeds without adding Jeffcott-specific content to example 04.
 
 The theoretical conventions and implemented shaft formulation are documented
 in [theory/00_notation.md](theory/00_notation.md) and
