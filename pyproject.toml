@@ -36,7 +36,11 @@ dependencies = [
 
 [project.optional-dependencies]
 test = [
+    "matplotlib",
     "pytest",
+]
+plot = [
+    "matplotlib",
 ]
 
 [project.urls]

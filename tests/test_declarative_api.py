@@ -323,6 +323,7 @@ def test_campbell_solver_returns_modes_at_every_speed():
     assert result["eigenvalues"].shape == (1, 3, 4)
     assert result["frequencies"].shape == (1, 3, 4)
     assert result["eigenvectors"].shape == (1, 3, 32, 4)
+    assert result["track_modes"] is True
     assert np.isfinite(result["frequencies"]).all()
 
 

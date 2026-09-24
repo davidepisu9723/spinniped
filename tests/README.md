@@ -50,6 +50,7 @@ parametrized functions run once for every listed case.
 | [`test_element_matrices.py`](#test_element_matricespy) | 10 | Stateless shaft, bearing, and disk matrix kernels |
 | [`test_assembly.py`](#test_assemblypy) | 16 | Record validation, coordinate transforms, and global assembly |
 | [`test_declarative_api.py`](#test_declarative_apipy) | 19 | Distribution resolution and every public solver route |
+| [`test_plotting.py`](#test_plottingpy) | 3 | Campbell-diagram rendering and plotting-input validation |
 | [`test_analytical_benchmarks.py`](#test_analytical_benchmarkspy) | 1 | Comparison with the Euler--Bernoulli beam solution |
 | [`test_convergence.py`](#test_convergencepy) | 2 | Accuracy under mesh refinement |
 
@@ -417,6 +418,33 @@ based on the largest eigenvalue from discarding a small but physical mode.
 Passes a force vector whose length matches neither the full nor reduced model,
 then supplies only one time point to the transient solver. Both malformed
 inputs must raise focused errors before numerical solution.
+
+### `test_plotting.py`
+
+This module uses Matplotlib's non-interactive `Agg` backend, so visualization
+tests render in local and continuous-integration environments without opening
+a graphical window.
+
+#### `test_plot_campbell_draws_one_line_per_tracked_mode`
+
+Plots the second realization from a synthetic two-sample Campbell result. It
+checks that each modal column becomes one line, rad/s values are converted to
+rpm, the selected sample supplies the y values, branch labels remain in mode
+order, and both returned objects refer to the same figure.
+
+#### `test_plot_campbell_draws_stochastic_statistics_and_bands`
+
+Adds an outlying third realization so mean and median branches differ, then
+checks both aggregations independently. It also verifies one confidence-band
+collection per mode, exact sampled minimum and maximum curves, consistent
+branch labels, and suppression of the legend when requested.
+
+#### `test_plot_campbell_validates_plot_options`
+
+Exercises an out-of-range sample, a noninteger sample, an unsupported speed
+unit, invalid statistics and confidence levels, and non-Boolean display
+options. Each case must fail with a focused exception before a figure is
+created.
 
 ### `test_analytical_benchmarks.py`
 
