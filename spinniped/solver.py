@@ -499,6 +499,7 @@ class Solver:
             "eigenvalues": eigenvalues,
             "frequencies": np.abs(np.imag(eigenvalues)) / (2.0 * np.pi),
             "eigenvectors": eigenvectors,
+            "track_modes": track_modes,
         }
 
     def _solve_frequency_response(
