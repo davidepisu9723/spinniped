@@ -9,11 +9,9 @@
 
 ## Installation
 
-Install the optional plotting dependency with:
-
-```bash
-python -m pip install -e ".[plot]"
-```
+Matplotlib is a core Spinniped dependency and is installed automatically with
+the package. Plotting functions are therefore available without an optional
+installation extra.
 
 ## Rotor longitudinal section
 

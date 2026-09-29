@@ -35,10 +35,10 @@ read as manufacturing dimensions. Component layers are ordered bearing,
 disk, shaft, bore, and centerline so shaft sections remain visible through
 nodal symbols.
 
-Matplotlib is imported lazily. The function validates the model type, sample
-index, axes object, title, and Boolean display options before creating artists.
-It returns the caller-owned or newly created figure and axes without displaying
-them.
+Matplotlib is imported when `spinniped.plotting` is loaded and is a core
+project dependency. The function validates the model type, sample index, axes
+object, title, and Boolean display options before creating artists. It returns
+the caller-owned or newly created figure and axes without displaying them.
 
 ## Campbell plotting implementation
 

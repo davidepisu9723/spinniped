@@ -30,17 +30,14 @@ classifiers = [
     "Topic :: Scientific/Engineering",
 ]
 dependencies = [
+    "matplotlib",
     "numpy",
     "scipy",
 ]
 
 [project.optional-dependencies]
 test = [
-    "matplotlib",
     "pytest",
-]
-plot = [
-    "matplotlib",
 ]
 
 [project.urls]

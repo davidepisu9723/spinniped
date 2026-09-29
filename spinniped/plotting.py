@@ -2,6 +2,8 @@
 
 from collections.abc import Mapping
 
+import matplotlib.pyplot as plt
+from matplotlib.patches import FancyArrowPatch, Rectangle
 import numpy as np
 
 from .builder import BuiltModel
@@ -205,16 +207,6 @@ def plot_rotor(
     if shaft_reference_radius <= 0.0:
         shaft_reference_radius = max(0.02 * axial_span, 1.0e-3)
     symbol_width = max(0.018 * axial_span, 0.35 * shaft_reference_radius)
-
-    # Keep Matplotlib optional for users who only build and solve models.
-    try:
-        import matplotlib.pyplot as plt
-        from matplotlib.patches import Rectangle
-    except ImportError as error:
-        raise ImportError(
-            "plot_rotor requires Matplotlib; install Spinniped with "
-            "the 'plot' extra"
-        ) from error
 
     if ax is None:
         figure, axes = plt.subplots()
@@ -428,8 +420,7 @@ def plot_campbell(
     ``track_modes=False``, columns instead follow independent frequency order
     and may exchange physical identity at crossings.
 
-    Matplotlib is imported only when this function is called, so model
-    construction and solution do not require the plotting dependency.
+    Matplotlib is a core Spinniped dependency and is imported with this module.
     """
     # Restrict the input to solver-like mappings before accessing result keys.
     if not isinstance(result, Mapping):
@@ -531,16 +522,6 @@ def plot_campbell(
                 "result critical_speeds must have shape "
                 "(samples, harmonics, modes, crossings)"
             )
-
-    # Keep Matplotlib optional for users who only build and solve models.
-    try:
-        import matplotlib.pyplot as plt
-        from matplotlib.patches import FancyArrowPatch
-    except ImportError as error:
-        raise ImportError(
-            "plot_campbell requires Matplotlib; install Spinniped with "
-            "the 'plot' extra"
-        ) from error
 
     # Reuse caller-owned axes when composing a multi-panel figure; otherwise
     # create an independent figure suitable for direct display or saving.

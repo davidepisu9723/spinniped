@@ -26,10 +26,10 @@ cd spinniped
 python -m pip install -e .
 ```
 
-Optional plotting and test dependencies are installed with:
+Install the test dependency with:
 
 ```bash
-python -m pip install -e ".[plot,test]"
+python -m pip install -e ".[test]"
 ```
 
 ## Minimal example

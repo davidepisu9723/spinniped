@@ -6,7 +6,8 @@
 
 ## Overview
 
-Spinniped requires Python 3.13 or newer, NumPy, and SciPy.
+Spinniped requires Python 3.13 or newer, NumPy, SciPy, and Matplotlib. These
+runtime dependencies are installed automatically with the package.
 
 Until a release is available on PyPI, install a local clone in editable mode:
 
