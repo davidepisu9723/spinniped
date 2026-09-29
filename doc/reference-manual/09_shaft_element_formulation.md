@@ -138,37 +138,37 @@ $$
 It is assembled by inserting smaller axial, torsional, and bending matrices into the Spinniped local ordering:
 
 $$
-\mathbf{K}_e[\mathcal{I}_a, \mathcal{I}_a] = \mathbf{K}_{a}
+\mathbf{K}_e[i_a, i_a] = \mathbf{K}_{a}
 $$
 
 $$
-\mathbf{K}_e[\mathcal{I}_t, \mathcal{I}_t] = \mathbf{K}_{t}
+\mathbf{K}_e[i_t, i_t] = \mathbf{K}_{t}
 $$
 
 $$
-\mathbf{K}_e[\mathcal{I}_{bx}, \mathcal{I}_{bx}] = \mathbf{K}_{bx}
+\mathbf{K}_e[i_{bx}, i_{bx}] = \mathbf{K}_{bx}
 $$
 
 $$
-\mathbf{K}_e[\mathcal{I}_{by}, \mathcal{I}_{by}] = \mathbf{K}_{by}
+\mathbf{K}_e[i_{by}, i_{by}] = \mathbf{K}_{by}
 $$
 
 where:
 
 $$
-\mathcal{I}_a = [2,8]
+i_a = [2,8]
 $$
 
 $$
-\mathcal{I}_t = [5,11]
+i_t = [5,11]
 $$
 
 $$
-\mathcal{I}_{bx} = [0,4,6,10]
+i_{bx} = [0,4,6,10]
 $$
 
 $$
-\mathcal{I}_{by} = [1,3,7,9]
+i_{by} = [1,3,7,9]
 $$
 
 ---
@@ -708,17 +708,17 @@ $$
 Using the index lists
 
 $$
-\mathcal{I}_{rx}=[3,9],
+i_{rx}=[3,9],
 \qquad
-\mathcal{I}_{ry}=[4,10],
+i_{ry}=[4,10],
 $$
 
 the nonzero blocks are
 
 $$
-\mathbf{G}_e[\mathcal{I}_{rx},\mathcal{I}_{ry}]=\mathbf{H},
+\mathbf{G}_e[i_{rx},i_{ry}]=\mathbf{H},
 \qquad
-\mathbf{G}_e[\mathcal{I}_{ry},\mathcal{I}_{rx}]=-\mathbf{H}.
+\mathbf{G}_e[i_{ry},i_{rx}]=-\mathbf{H}.
 $$
 
 Therefore

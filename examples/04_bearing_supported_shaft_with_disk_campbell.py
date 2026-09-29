@@ -16,6 +16,7 @@ from spinniped import (
     ShaftProperty,
     Solver,
     plot_campbell,
+    plot_rotor,
 )
 
 
@@ -104,6 +105,16 @@ definition = ModelDefinition(
 # Assemble one deterministic set of mass, stiffness, damping, and gyroscopic
 # matrices. There are no random-distribution references in this definition.
 model = ModelBuilder().build(definition)
+
+# Plot the assembled rotor before solving it. Shaft diameters follow their
+# resolved section properties; the disk and bearings use the conventional
+# longitudinal-section symbols described in the plotting user guide.
+rotor_figure, rotor_axes = plot_rotor(
+    model,
+    title="Two-bearing shaft with a central disk",
+    show_grid_ids=True,
+)
+rotor_figure.tight_layout()
 
 # Bearings remove lateral rigid motion. Constrain axial translation and
 # torsional rotation at the first grid because those directions are unsupported.

@@ -2,15 +2,44 @@
 
 ## Table of contents
 
-- [Overview](#overview)
+- [Installation](#installation)
+- [Rotor longitudinal section](#rotor-longitudinal-section)
+- [Campbell diagrams](#campbell-diagrams)
 
-## Overview
+## Installation
 
 Install the optional plotting dependency with:
 
 ```bash
 python -m pip install -e ".[plot]"
 ```
+
+## Rotor longitudinal section
+
+`plot_rotor` draws the resolved longitudinal section of a `BuiltModel`. Shaft
+outer and inner diameters are plotted in data units, so steps, solid sections,
+and hollow sections follow the properties assigned to each shaft element.
+Disk and bearing records do not contain manufacturing dimensions: disks are
+therefore shown using an equivalent radius inferred from mass and polar
+inertia, while disk width and bearing housings use conventional plot symbols.
+
+```python
+from spinniped import plot_rotor
+
+figure, axes = plot_rotor(model, show_grid_ids=True)
+figure.savefig("rotor.png", dpi=150, bbox_inches="tight")
+```
+
+For a stochastic model, select the resolved realization with `sample=N`. Use
+`ax=existing_axes` to add the section to an existing figure, `legend=False` to
+hide the component legend, or `title=None` to preserve an existing axes title.
+The function returns the figure and axes and does not call `show()`.
+
+The longitudinal coordinate is the projection onto the model's `spin_axis`.
+Every shaft must be parallel to that direction. A nonparallel shaft is rejected
+because its true geometry cannot be represented by one longitudinal section.
+
+## Campbell diagrams
 
 `plot_campbell` accepts the result dictionary returned by the Campbell solver.
 It plots one line per modal branch and defaults to rotor speed in rpm:

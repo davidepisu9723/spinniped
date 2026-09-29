@@ -17,7 +17,8 @@ python examples/04_bearing_supported_shaft_with_disk_campbell.py
 ```
 
 These examples exercise normal public-API workflows rather than controlled
-analytical validation cases.
+analytical validation cases. Example 04 uses `plot_rotor` to display the
+model's longitudinal section before plotting its Campbell diagram.
 
 ## Analytical benchmarks
 

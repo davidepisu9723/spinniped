@@ -62,7 +62,7 @@ parametrized functions run once for every listed case.
 | [`test_element_matrices.py`](#test_element_matricespy) | 10 | Stateless shaft, bearing, and disk matrix kernels |
 | [`test_assembly.py`](#test_assemblypy) | 16 | Record validation, coordinate transforms, and global assembly |
 | [`test_declarative_api.py`](#test_declarative_apipy) | 19 | Distribution resolution and every public solver route |
-| [`test_plotting.py`](#test_plottingpy) | 3 | Campbell-diagram rendering and plotting-input validation |
+| [`test_plotting.py`](#test_plottingpy) | 6 | Rotor-section and Campbell-diagram rendering and plotting-input validation |
 | [`test_analytical_benchmarks.py`](#test_analytical_benchmarkspy) | 1 | Comparison with the Euler--Bernoulli beam solution |
 | [`test_jeffcott_benchmark.py`](#test_jeffcott_benchmarkpy) | 2 | Jeffcott frequency and critical-speed comparison |
 | [`test_convergence.py`](#test_convergencepy) | 2 | Accuracy under mesh refinement |
@@ -430,6 +430,29 @@ Adds an outlying third realization so mean and median branches differ, then
 checks both aggregations independently. It also verifies one confidence-band
 collection per mode, exact sampled minimum and maximum curves, consistent
 branch labels, and suppression of the legend when requested.
+
+#### `test_plot_rotor_draws_exact_shaft_sections_disks_and_bearings`
+
+Builds a stepped rotor containing one hollow shaft section, one solid shaft
+section, a central disk, and two grounded bearings. It checks every shaft
+rectangle against the resolved axial endpoints and diameters, checks the bore
+against the inner diameter, and verifies that the disk and both halves of each
+bearing symbol are present. Axis labels and the component legend are also
+checked.
+
+#### `test_plot_rotor_selects_resolved_sample_and_reuses_axes`
+
+Builds three stochastic realizations of a random shaft diameter and plots the
+second one into caller-owned axes. The shaft height must equal that sample's
+resolved property value. The test also verifies figure reuse, preservation of
+an existing title, optional grid-ID labels, and legend suppression.
+
+#### `test_plot_rotor_validates_model_sample_and_longitudinal_geometry`
+
+Rejects an unbuilt definition, a Boolean sample, an out-of-range sample, and a
+shaft not parallel to the model spin axis. The last case ensures an oblique
+element cannot silently be shortened by projection and presented as a valid
+longitudinal section.
 
 #### `test_plot_campbell_validates_plot_options`
 

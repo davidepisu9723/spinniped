@@ -9,7 +9,7 @@ from .records import (
     ModelDefinition, RandomDistribution, ShaftElement, ShaftProperty,
 )
 from .solver import Solver
-from .plotting import plot_campbell
+from .plotting import plot_campbell, plot_rotor
 
 __all__ = [
     "BearingElement", "BearingProperty", "BuiltModel", "CoordinateSystem",
@@ -17,5 +17,5 @@ __all__ = [
     "LumpedMassProperty", "Material", "ModelBuilder", "ModelDefinition",
     "RandomDistribution",
     "ShaftElement", "ShaftProperty", "Solver", "build_model",
-    "plot_campbell",
+    "plot_campbell", "plot_rotor",
 ]
