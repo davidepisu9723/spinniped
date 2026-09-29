@@ -81,6 +81,7 @@ result = solver.solve(
     speeds=[0.0, 100.0, 200.0],  # rad/s
     modes=8,
     track_modes=True,
+    harmonics=[1.0, 2.0],
 )
 ```
 
@@ -94,7 +95,13 @@ Its analysis-specific results are:
   `(samples, speeds, modes)`;
 - `eigenvectors`: complex state vectors, shape
   `(samples, speeds, 2*free_dofs, modes)`;
-- `track_modes`: whether MAC-based branch tracking was enabled.
+- `track_modes`: whether MAC-based branch tracking was enabled;
+- `harmonics`: requested positive synchronous ratios, shape `(harmonics,)`;
+- `critical_speeds`: interpolated angular speeds in rad/s, shape
+  `(samples, harmonics, modes, crossings)`;
+- `critical_speeds_hz`: the same values divided by $2\pi$;
+- `critical_speed_counts`: number of crossings found for each sample,
+  harmonic, and mode, shape `(samples, harmonics, modes)`.
 
 With `track_modes=True`, roots after the first speed are assigned to the
 previous speed by displacement-vector MAC and phase-aligned, forming continuous
@@ -102,6 +109,27 @@ modal branches through crossings. Stochastic Campbell results are then matched
 at each speed to sample zero. Set `track_modes=False` to sort each speed and
 sample independently by positive imaginary part. The requested `modes` count is
 strict at every speed.
+
+When `harmonics` is supplied, critical speeds are intersections between each
+tracked modal branch and
+
+$$
+f_r(\Omega)=\frac{r\Omega}{2\pi}.
+$$
+
+The solver detects exact intersections at sampled speeds and sign changes
+between adjacent sampled speeds. A sign-change intersection is found by linear
+interpolation of the two existing residual values. It never evaluates an
+additional speed or refines the user's speed sequence. Harmonic detection
+consequently requires at least two strictly increasing speeds and
+`track_modes=True`.
+
+Most branches cross a given harmonic once, but the last result axis preserves
+multiple crossings in ascending speed order. Its length is the largest number
+found anywhere in the result. Missing crossings are padded with `NaN`; use
+`critical_speed_counts` to distinguish them explicitly. For stochastic
+results, the sample axis retains corresponding tracked modes and crossing
+order, allowing finite values to be summarized across realizations.
 
 ## Frequency response
 

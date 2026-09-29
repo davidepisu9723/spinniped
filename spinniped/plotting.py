@@ -15,6 +15,67 @@ _SPEED_CONVERSIONS = {
 }
 
 
+def _finite_sample_reduction(values, reducer):
+    """Reduce a leading sample axis while ignoring missing realizations."""
+    values = np.asarray(values, dtype=float)
+    flattened = values.reshape(values.shape[0], -1)
+    reduced = np.full(flattened.shape[1], np.nan)
+    counts = np.zeros(flattened.shape[1], dtype=int)
+
+    for column_index, column in enumerate(flattened.T):
+        finite_values = column[np.isfinite(column)]
+        counts[column_index] = len(finite_values)
+        if finite_values.size:
+            reduced[column_index] = reducer(finite_values)
+
+    output_shape = values.shape[1:]
+    return reduced.reshape(output_shape), counts.reshape(output_shape)
+
+
+def _sample_statistics(values, *, statistic, sample, confidence):
+    """Return consistent sample statistics for curves or crossing arrays."""
+    mean, counts = _finite_sample_reduction(values, np.mean)
+    median, _ = _finite_sample_reduction(values, np.median)
+    minimum, _ = _finite_sample_reduction(values, np.min)
+    maximum, _ = _finite_sample_reduction(values, np.max)
+    variance, _ = _finite_sample_reduction(
+        values,
+        lambda data: np.var(data, ddof=1) if len(data) > 1 else 0.0,
+    )
+
+    if statistic == "sample":
+        central = values[sample]
+    elif statistic == "mean":
+        central = mean
+    else:
+        central = median
+
+    lower = upper = None
+    if confidence is not None:
+        tail_probability = (1.0 - confidence) / 2.0
+        lower, _ = _finite_sample_reduction(
+            values,
+            lambda data: np.quantile(data, tail_probability),
+        )
+        upper, _ = _finite_sample_reduction(
+            values,
+            lambda data: np.quantile(data, 1.0 - tail_probability),
+        )
+
+    return {
+        "central": central,
+        "mean": mean,
+        "median": median,
+        "variance": variance,
+        "standard_deviation": np.sqrt(variance),
+        "minimum": minimum,
+        "maximum": maximum,
+        "lower": lower,
+        "upper": upper,
+        "count": counts,
+    }
+
+
 def plot_rotor(
     model,
     *,
@@ -309,6 +370,9 @@ def plot_campbell(
     ax=None,
     title="Campbell diagram",
     legend=True,
+    show_harmonics=False,
+    show_critical_speeds=True,
+    show_critical_samples=False,
 ):
     """Plot modal-frequency branches from a Campbell analysis.
 
@@ -337,6 +401,17 @@ def plot_campbell(
         Axes title. Use ``None`` to leave an existing title unchanged.
     legend : bool, optional
         Draw a legend containing one label per modal branch.
+    show_harmonics : bool, optional
+        Plot the synchronous harmonic ratios requested during the Campbell
+        solution. The result must contain critical-speed data.
+    show_critical_speeds : bool, optional
+        Mark critical speeds when synchronous harmonics are shown. Sample mode
+        marks the selected realization. Mean mode also draws capped diagonal
+        one-standard-deviation error bars unless a confidence interval was
+        requested.
+    show_critical_samples : bool, optional
+        Draw every finite sample critical speed as a faint point. This is most
+        useful with a stochastic mean or median Campbell diagram.
 
     Returns
     -------
@@ -411,10 +486,56 @@ def plot_campbell(
         raise TypeError("title must be a string or None")
     if not isinstance(legend, bool):
         raise TypeError("legend must be a boolean")
+    if not isinstance(show_harmonics, bool):
+        raise TypeError("show_harmonics must be a boolean")
+    if not isinstance(show_critical_speeds, bool):
+        raise TypeError("show_critical_speeds must be a boolean")
+    if not isinstance(show_critical_samples, bool):
+        raise TypeError("show_critical_samples must be a boolean")
+    if show_critical_samples and not show_critical_speeds:
+        raise ValueError(
+            "show_critical_samples requires show_critical_speeds=True"
+        )
+
+    harmonic_ratios = np.empty(0)
+    critical_speeds = None
+    if show_harmonics:
+        if result.get("track_modes") is not True:
+            raise ValueError(
+                "critical-speed plotting requires tracked Campbell modes"
+            )
+        harmonic_ratios = np.asarray(result.get("harmonics"), dtype=float)
+        critical_speeds = np.asarray(
+            result.get("critical_speeds"), dtype=float
+        )
+        if (
+            harmonic_ratios.ndim != 1
+            or not harmonic_ratios.size
+            or not np.isfinite(harmonic_ratios).all()
+            or np.any(harmonic_ratios <= 0.0)
+        ):
+            raise ValueError(
+                "result must contain positive Campbell harmonic ratios"
+            )
+        expected_prefix = (
+            frequencies.shape[0],
+            len(harmonic_ratios),
+            frequencies.shape[2],
+        )
+        if (
+            critical_speeds.ndim != 4
+            or critical_speeds.shape[:3] != expected_prefix
+            or np.isinf(critical_speeds).any()
+        ):
+            raise ValueError(
+                "result critical_speeds must have shape "
+                "(samples, harmonics, modes, crossings)"
+            )
 
     # Keep Matplotlib optional for users who only build and solve models.
     try:
         import matplotlib.pyplot as plt
+        from matplotlib.patches import FancyArrowPatch
     except ImportError as error:
         raise ImportError(
             "plot_campbell requires Matplotlib; install Spinniped with "
@@ -436,72 +557,172 @@ def plot_campbell(
     convert_speed, speed_label = _SPEED_CONVERSIONS[speed_unit]
     plotted_speeds = convert_speed(speeds)
 
-    # Collapse only the sample axis. Speed and tracked-mode axes are preserved
-    # so every output column remains one Campbell branch.
-    if statistic == "sample":
-        central_frequencies = frequencies[sample]
-        central_label = None
-    elif statistic == "mean":
-        central_frequencies = np.mean(frequencies, axis=0)
-        central_label = "mean"
-    else:
-        central_frequencies = np.median(frequencies, axis=0)
-        central_label = "median"
-
-    # Extrema are inexpensive to compute and are shared by every modal branch.
-    minimum_frequencies = np.min(frequencies, axis=0)
-    maximum_frequencies = np.max(frequencies, axis=0)
-    if confidence is not None:
-        # Split the omitted probability equally between both tails. This forms
-        # an empirical central band without assuming a normal distribution.
-        tail_probability = (1.0 - confidence) / 2.0
-        lower_frequencies, upper_frequencies = np.quantile(
-            frequencies,
-            [tail_probability, 1.0 - tail_probability],
-            axis=0,
-        )
+    # One statistics helper supplies identical sample semantics to modal curves
+    # and critical-speed points, including finite-only stochastic reductions.
+    frequency_statistics = _sample_statistics(
+        frequencies,
+        statistic=statistic,
+        sample=sample,
+        confidence=confidence,
+    )
+    central_frequencies = frequency_statistics["central"]
 
     # Plot every tracked mode separately. Confidence fills and extrema reuse
     # the central line's color so all representations of a mode stay grouped.
+    mode_colors = []
     for mode_index in range(frequencies.shape[2]):
         label = f"Mode {mode_index + 1}"
-        if central_label is not None:
-            label += f" {central_label}"
         line = axes.plot(
             plotted_speeds,
             central_frequencies[:, mode_index],
             label=label,
         )[0]
         color = line.get_color()
+        mode_colors.append(color)
 
         if confidence is not None:
-            confidence_percent = 100.0 * confidence
             axes.fill_between(
                 plotted_speeds,
-                lower_frequencies[:, mode_index],
-                upper_frequencies[:, mode_index],
+                frequency_statistics["lower"][:, mode_index],
+                frequency_statistics["upper"][:, mode_index],
                 color=color,
                 alpha=0.2,
-                label=f"Mode {mode_index + 1} {confidence_percent:g}% band",
+                label="_nolegend_",
             )
 
         if show_extremes:
             axes.plot(
                 plotted_speeds,
-                minimum_frequencies[:, mode_index],
+                frequency_statistics["minimum"][:, mode_index],
                 color=color,
                 linestyle="--",
                 linewidth=1.0,
-                label=f"Mode {mode_index + 1} minimum",
+                label="_nolegend_",
             )
             axes.plot(
                 plotted_speeds,
-                maximum_frequencies[:, mode_index],
+                frequency_statistics["maximum"][:, mode_index],
                 color=color,
-                linestyle=":",
+                linestyle="--",
                 linewidth=1.0,
-                label=f"Mode {mode_index + 1} maximum",
+                label="_nolegend_",
             )
+
+    if show_harmonics:
+        for harmonic_index, ratio in enumerate(harmonic_ratios):
+            axes.plot(
+                plotted_speeds,
+                ratio * speeds / (2.0 * np.pi),
+                color="#303030",
+                linestyle=(0, (5, 2 + harmonic_index % 3)),
+                linewidth=1.0,
+                label=f"{ratio:g}x synchronous",
+                zorder=1,
+            )
+
+        if show_critical_speeds:
+            critical_statistics = _sample_statistics(
+                critical_speeds,
+                statistic=statistic,
+                sample=sample,
+                confidence=confidence,
+            )
+
+            for harmonic_index, ratio in enumerate(harmonic_ratios):
+                for mode_index, color in enumerate(mode_colors):
+                    for crossing_index in range(critical_speeds.shape[3]):
+                        critical_speed = critical_statistics["central"][
+                            harmonic_index, mode_index, crossing_index
+                        ]
+                        if not np.isfinite(critical_speed):
+                            continue
+
+                        crossing_label = (
+                            f"Mode {mode_index + 1} {ratio:g}x critical"
+                        )
+                        if critical_speeds.shape[3] > 1:
+                            crossing_label += f" #{crossing_index + 1}"
+
+                        critical_artist = axes.plot(
+                            convert_speed(critical_speed),
+                            ratio * critical_speed / (2.0 * np.pi),
+                            marker="o",
+                            linestyle="none",
+                            markersize=6.0,
+                            markerfacecolor=color,
+                            markeredgecolor="#202020",
+                            label=crossing_label,
+                            zorder=6,
+                        )[0]
+                        critical_artist.set_gid(
+                            f"critical-h{harmonic_index}-m{mode_index}-"
+                            f"c{crossing_index}"
+                        )
+
+                        lower_speed = upper_speed = None
+                        if confidence is not None:
+                            lower_speed = critical_statistics["lower"][
+                                harmonic_index, mode_index, crossing_index
+                            ]
+                            upper_speed = critical_statistics["upper"][
+                                harmonic_index, mode_index, crossing_index
+                            ]
+                        elif statistic == "mean":
+                            deviation = critical_statistics[
+                                "standard_deviation"
+                            ][harmonic_index, mode_index, crossing_index]
+                            lower_speed = critical_speed - deviation
+                            upper_speed = critical_speed + deviation
+
+                        if (
+                            lower_speed is not None
+                            and np.isfinite(lower_speed)
+                            and np.isfinite(upper_speed)
+                            and upper_speed > lower_speed
+                        ):
+                            spread_speeds = np.array(
+                                [lower_speed, upper_speed]
+                            )
+                            spread_x = convert_speed(spread_speeds)
+                            spread_y = (
+                                ratio * spread_speeds / (2.0 * np.pi)
+                            )
+                            spread_artist = FancyArrowPatch(
+                                (spread_x[0], spread_y[0]),
+                                (spread_x[1], spread_y[1]),
+                                arrowstyle="|-|",
+                                mutation_scale=8.0,
+                                color=color,
+                                linewidth=1.3,
+                                alpha=0.9,
+                                label="_nolegend_",
+                                zorder=4,
+                            )
+                            spread_artist.set_gid(
+                                f"critical-spread-h{harmonic_index}-"
+                                f"m{mode_index}-c{crossing_index}"
+                            )
+                            axes.add_patch(spread_artist)
+
+                        if show_critical_samples:
+                            sample_speeds = critical_speeds[
+                                :, harmonic_index, mode_index, crossing_index
+                            ]
+                            sample_speeds = sample_speeds[
+                                np.isfinite(sample_speeds)
+                            ]
+                            axes.scatter(
+                                convert_speed(sample_speeds),
+                                ratio
+                                * sample_speeds
+                                / (2.0 * np.pi),
+                                color=color,
+                                s=12.0,
+                                alpha=0.3,
+                                edgecolors="none",
+                                label="_nolegend_",
+                                zorder=5,
+                            )
 
     # Apply consistent engineering labels after all artists have been added.
     axes.set_xlabel(speed_label)
@@ -509,8 +730,40 @@ def plot_campbell(
     if title is not None:
         axes.set_title(title)
     axes.grid(True)
+
+    # Keep statistical metadata out of an already component-heavy legend.
+    # Deterministic sample plots need no box because they contain no ensemble
+    # reduction or uncertainty interval.
+    if frequencies.shape[0] > 1 or confidence is not None or show_extremes:
+        if statistic == "sample":
+            statistic_text = f"sample {sample}"
+        else:
+            statistic_text = statistic
+        information = [f"Displayed statistic: {statistic_text}"]
+        if confidence is not None:
+            information.append(f"Confidence interval: {100.0 * confidence:g}%")
+        elif show_harmonics and show_critical_speeds and statistic == "mean":
+            information.append("Critical-speed error bars: ±1 std. dev.")
+        if show_extremes:
+            information.append("Mode extremes: sample min–max")
+        axes.text(
+            0.02,
+            0.98,
+            "\n".join(information),
+            transform=axes.transAxes,
+            ha="left",
+            va="top",
+            fontsize="small",
+            bbox={
+                "boxstyle": "round,pad=0.35",
+                "facecolor": "white",
+                "edgecolor": "#777777",
+                "alpha": 0.85,
+            },
+            zorder=10,
+        )
     if legend:
-        axes.legend()
+        axes.legend(loc="upper right")
 
     # Returning both objects lets callers further customize, save, or display
     # the plot without this utility imposing an output workflow.

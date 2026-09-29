@@ -40,6 +40,33 @@ def _campbell_result():
     }
 
 
+def _critical_campbell_result():
+    """Return tracked stochastic branches with known critical speeds."""
+    speeds_hz = np.array([0.0, 8.0, 12.0, 20.0])
+    frequencies = np.array(
+        [
+            [[10.0, 30.0]] * 4,
+            [[12.0, 30.0]] * 4,
+            [[8.0, 30.0]] * 4,
+        ]
+    )
+    critical_speeds_hz = np.array(
+        [
+            [[[10.0], [np.nan]], [[5.0], [15.0]]],
+            [[[12.0], [np.nan]], [[6.0], [15.0]]],
+            [[[8.0], [np.nan]], [[4.0], [15.0]]],
+        ]
+    )
+    return {
+        "analysis": "campbell",
+        "speeds": 2.0 * np.pi * speeds_hz,
+        "frequencies": frequencies,
+        "track_modes": True,
+        "harmonics": np.array([1.0, 2.0]),
+        "critical_speeds": 2.0 * np.pi * critical_speeds_hz,
+    }
+
+
 def _rotor_model():
     """Return a stepped, partly hollow rotor with disks and bearings."""
     definition = ModelDefinition(
@@ -103,9 +130,11 @@ def test_plot_campbell_draws_stochastic_statistics_and_bands():
     assert len(axes.collections) == 2
     assert np.array_equal(axes.lines[0].get_ydata(), expected_mean[:, 0])
     assert np.array_equal(axes.lines[3].get_ydata(), expected_mean[:, 1])
-    assert axes.lines[0].get_label() == "Mode 1 mean"
-    assert axes.lines[1].get_label() == "Mode 1 minimum"
-    assert axes.lines[2].get_label() == "Mode 1 maximum"
+    assert axes.lines[0].get_label() == "Mode 1"
+    assert axes.lines[1].get_label() == "_nolegend_"
+    assert axes.lines[2].get_label() == "_nolegend_"
+    assert axes.lines[1].get_linestyle() == "--"
+    assert axes.lines[2].get_linestyle() == "--"
     assert np.array_equal(
         axes.lines[1].get_ydata(),
         np.min(result["frequencies"], axis=0)[:, 0],
@@ -115,6 +144,11 @@ def test_plot_campbell_draws_stochastic_statistics_and_bands():
         np.max(result["frequencies"], axis=0)[:, 0],
     )
     assert axes.get_legend() is None
+    assert [text.get_text() for text in axes.texts] == [
+        "Displayed statistic: mean\n"
+        "Confidence interval: 50%\n"
+        "Mode extremes: sample min–max"
+    ]
     plt.close(figure)
 
     median_figure, median_axes = plot_campbell(
@@ -126,8 +160,77 @@ def test_plot_campbell_draws_stochastic_statistics_and_bands():
         median_axes.lines[0].get_ydata(),
         np.median(result["frequencies"], axis=0)[:, 0],
     )
-    assert median_axes.lines[0].get_label() == "Mode 1 median"
+    assert median_axes.lines[0].get_label() == "Mode 1"
+    assert [text.get_text() for text in median_axes.texts] == [
+        "Displayed statistic: median"
+    ]
     plt.close(median_figure)
+
+
+def test_plot_campbell_draws_deterministic_harmonics_and_critical_speeds():
+    """Verify harmonic lines and one sample's critical-speed markers."""
+    import matplotlib.pyplot as plt
+
+    result = _critical_campbell_result()
+    result["frequencies"] = result["frequencies"][:1]
+    result["critical_speeds"] = result["critical_speeds"][:1]
+    figure, axes = plot_campbell(
+        result,
+        show_harmonics=True,
+        speed_unit="hz",
+    )
+
+    labels = [line.get_label() for line in axes.lines]
+    assert "1x synchronous" in labels
+    assert "2x synchronous" in labels
+    assert "Mode 1 1x critical" in labels
+    assert "Mode 1 2x critical" in labels
+    assert "Mode 2 2x critical" in labels
+    assert "Mode 2 1x critical" not in labels
+
+    marker = next(
+        line for line in axes.lines
+        if line.get_gid() == "critical-h0-m0-c0"
+    )
+    assert marker.get_xdata()[0] == pytest.approx(10.0)
+    assert marker.get_ydata()[0] == pytest.approx(10.0)
+    plt.close(figure)
+
+
+def test_plot_campbell_draws_stochastic_critical_speed_statistics():
+    """Verify mean, standard deviation, and sample critical-speed artists."""
+    import matplotlib.pyplot as plt
+
+    figure, axes = plot_campbell(
+        _critical_campbell_result(),
+        statistic="mean",
+        show_harmonics=True,
+        show_critical_samples=True,
+        speed_unit="hz",
+        legend=False,
+    )
+
+    mean_marker = next(
+        line for line in axes.lines
+        if line.get_gid() == "critical-h0-m0-c0"
+    )
+    standard_deviation = next(
+        patch for patch in axes.patches
+        if patch.get_gid() == "critical-spread-h0-m0-c0"
+    )
+    assert mean_marker.get_xdata()[0] == pytest.approx(10.0)
+    assert mean_marker.get_ydata()[0] == pytest.approx(10.0)
+    assert np.allclose(
+        standard_deviation._posA_posB,
+        [(8.0, 8.0), (12.0, 12.0)],
+    )
+    assert len(axes.collections) == 3
+    assert axes.get_legend() is None
+    assert [text.get_text() for text in axes.texts] == [
+        "Displayed statistic: mean\n"
+        "Critical-speed error bars: ±1 std. dev."
+    ]
+    plt.close(figure)
 
 
 def test_plot_rotor_draws_exact_shaft_sections_disks_and_bearings():
@@ -250,6 +353,12 @@ def test_plot_rotor_validates_model_sample_and_longitudinal_geometry():
         ({"show_extremes": 1}, TypeError, "show_extremes must be a boolean"),
         ({"speed_unit": "mph"}, ValueError, "speed_unit"),
         ({"legend": 1}, TypeError, "legend must be a boolean"),
+        ({"show_harmonics": 1}, TypeError, "show_harmonics"),
+        (
+            {"show_critical_speeds": False, "show_critical_samples": True},
+            ValueError,
+            "requires show_critical_speeds",
+        ),
     ],
 )
 def test_plot_campbell_validates_plot_options(options, exception, message):

@@ -61,8 +61,8 @@ parametrized functions run once for every listed case.
 |---|---:|---|
 | [`test_element_matrices.py`](#test_element_matricespy) | 10 | Stateless shaft, bearing, and disk matrix kernels |
 | [`test_assembly.py`](#test_assemblypy) | 16 | Record validation, coordinate transforms, and global assembly |
-| [`test_declarative_api.py`](#test_declarative_apipy) | 19 | Distribution resolution and every public solver route |
-| [`test_plotting.py`](#test_plottingpy) | 6 | Rotor-section and Campbell-diagram rendering and plotting-input validation |
+| [`test_declarative_api.py`](#test_declarative_apipy) | 23 | Distribution resolution and every public solver route |
+| [`test_plotting.py`](#test_plottingpy) | 8 | Rotor-section and Campbell-diagram rendering and plotting-input validation |
 | [`test_analytical_benchmarks.py`](#test_analytical_benchmarkspy) | 1 | Comparison with the Euler--Bernoulli beam solution |
 | [`test_jeffcott_benchmark.py`](#test_jeffcott_benchmarkpy) | 2 | Jeffcott frequency and critical-speed comparison |
 | [`test_convergence.py`](#test_convergencepy) | 2 | Accuracy under mesh refinement |
@@ -353,7 +353,37 @@ the conversion $f=\sqrt{\lambda}/(2\pi)$, and variation between realizations.
 
 Solves four state-space modes at 0, 100, and 200 rad/s. The test verifies speed
 conversion to hertz, realization/speed/mode axes, doubled state-space
-eigenvector size, and finite frequencies at every requested operating point.
+eigenvector size, finite frequencies at every requested operating point, and
+empty critical-speed axes when no harmonics were requested.
+
+#### `test_campbell_calculates_sampled_speed_interpolated_critical_speeds`
+
+Solves a two-direction 10 Hz mass--bearing oscillator on a deliberately coarse
+speed sequence and requests 1x and 2x harmonics. Both modal branches must cross
+at 10 Hz for 1x and 5 Hz for 2x. Neither value is a supplied speed, proving
+that the solver linearly interpolates existing residuals without inserting or
+evaluating another speed.
+
+#### `test_campbell_preserves_stochastic_critical_speed_correspondence`
+
+Builds four realizations of a two-direction mass--bearing oscillator whose two
+stiffness distributions occupy nonoverlapping frequency ranges. Every sample's
+1x roots must equal the natural frequencies calculated from its resolved
+`kxx` and `kyy`, proving that the sample and tracked-mode axes remain associated
+through critical-speed detection.
+
+#### `test_critical_speed_detection_retains_crossing_order_and_missing_values`
+
+Passes synthetic tracked frequencies directly to the crossing detector. The
+first sample crosses one harmonic three times and the second never crosses.
+The result must preserve all three roots in speed order, record per-sample
+counts, and fill the absent sample's crossing axis with `NaN`.
+
+#### `test_campbell_validates_critical_speed_options`
+
+Rejects nonpositive and duplicate harmonic ratios, disabled mode tracking,
+and a descending speed sequence. These conditions prevent ambiguous physical-mode
+association or ordered interpolation before the state eigensolutions begin.
 
 #### `test_campbell_solver_rejects_invalid_mode_counts`
 
@@ -430,6 +460,20 @@ Adds an outlying third realization so mean and median branches differ, then
 checks both aggregations independently. It also verifies one confidence-band
 collection per mode, exact sampled minimum and maximum curves, consistent
 branch labels, and suppression of the legend when requested.
+
+#### `test_plot_campbell_draws_deterministic_harmonics_and_critical_speeds`
+
+Plots 1x and 2x synchronous lines for one realization and checks the expected
+critical markers by harmonic and tracked mode. A mode without a 1x crossing
+must not receive a marker, while marker coordinates must satisfy both the
+stored critical speed and its synchronous-frequency relation.
+
+#### `test_plot_campbell_draws_stochastic_critical_speed_statistics`
+
+Plots three realizations through the mean-statistic route. It checks the mean
+critical point, the capped diagonal one-sample-standard-deviation error bar,
+the optional underlying sample scatter, and legend suppression. Missing
+crossings remain excluded from the finite statistics.
 
 #### `test_plot_rotor_draws_exact_shaft_sections_disks_and_bearings`
 

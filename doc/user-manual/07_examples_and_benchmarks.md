@@ -14,11 +14,19 @@ python examples/01_simple_shaft_modal.py
 python examples/02_simple_shaft_modal_with_bearings.py
 python examples/03_simple_shaft_complex_eigenvalues.py
 python examples/04_bearing_supported_shaft_with_disk_campbell.py
+python examples/05_stochastic_campbell.py
 ```
 
 These examples exercise normal public-API workflows rather than controlled
 analytical validation cases. Example 04 uses `plot_rotor` to display the
-model's longitudinal section before plotting its Campbell diagram.
+model's longitudinal section before plotting its Campbell diagram, 1x
+synchronous line, and speed-interpolated critical speeds.
+
+Example 05 builds a reproducible 40-realization ensemble whose only uncertain
+input is the direct stiffness $k_{xx}$, with the same realization used at both
+supports while $k_{yy}$ remains deterministic. It plots mean tracked branches,
+central empirical 90% bands, the 1x synchronous line, mean critical speeds,
+critical-speed intervals, and the individual realization crossings.
 
 ## Analytical benchmarks
 

@@ -337,6 +337,7 @@ class Solver:
         speeds,
         modes=None,
         track_modes=True,
+        harmonics=None,
     ):
         """Solve damped gyroscopic state problems over angular speeds.
 
@@ -352,6 +353,10 @@ class Solver:
             Number of positive-imaginary branches to return.
         track_modes : bool, optional
             Track branches across speeds and stochastic samples using the MAC.
+        harmonics : array_like or None, optional
+            Positive synchronous-excitation ratios for critical-speed
+            detection. Crossings are linearly interpolated only between the
+            supplied speed points; the solver never refines the speed grid.
 
         Returns
         -------
@@ -376,6 +381,21 @@ class Solver:
         requested_modes = self._validate_modes(modes)
         if not isinstance(track_modes, bool):
             raise TypeError("track_modes must be a boolean")
+        harmonic_ratios = self._validate_harmonics(harmonics)
+        if harmonic_ratios.size:
+            if not track_modes:
+                raise ValueError(
+                    "critical-speed calculation requires track_modes=True"
+                )
+            if len(angular_speeds) < 2:
+                raise ValueError(
+                    "critical-speed calculation requires at least two speeds"
+                )
+            if np.any(np.diff(angular_speeds) <= 0.0):
+                raise ValueError(
+                    "critical-speed calculation requires strictly increasing "
+                    "speeds"
+                )
 
         # Collect speed-dependent solutions for every stochastic sample.
         all_sample_values = []
@@ -491,16 +511,161 @@ class Solver:
         # Stack the sample dimension after all branch matching is complete.
         eigenvalues = self._stack(all_sample_values)
         eigenvectors = self._stack(all_sample_vectors)
+        frequencies = np.abs(np.imag(eigenvalues)) / (2.0 * np.pi)
+
+        # Intersect each tracked modal branch with every requested synchronous
+        # harmonic. The result retains crossing order and uses NaN padding so
+        # samples with missing crossings remain rectangular numerical arrays.
+        critical_speeds, critical_speed_counts = self._critical_speeds(
+            angular_speeds,
+            frequencies,
+            harmonic_ratios,
+        )
 
         # Report speed in both angular and cyclic units for clear comparisons.
         return {
             "speeds": angular_speeds,
             "speeds_hz": angular_speeds / (2.0 * np.pi),
             "eigenvalues": eigenvalues,
-            "frequencies": np.abs(np.imag(eigenvalues)) / (2.0 * np.pi),
+            "frequencies": frequencies,
             "eigenvectors": eigenvectors,
             "track_modes": track_modes,
+            "harmonics": harmonic_ratios,
+            "critical_speeds": critical_speeds,
+            "critical_speeds_hz": critical_speeds / (2.0 * np.pi),
+            "critical_speed_counts": critical_speed_counts,
         }
+
+    @staticmethod
+    def _validate_harmonics(harmonics):
+        """Return validated positive synchronous-excitation ratios."""
+        if harmonics is None:
+            return np.empty(0, dtype=float)
+        if isinstance(harmonics, (bool, np.bool_)):
+            raise TypeError(
+                "harmonics must contain only positive finite numbers"
+            )
+
+        try:
+            raw_ratios = np.asarray(harmonics, dtype=object)
+            if any(
+                isinstance(value, (bool, np.bool_))
+                for value in raw_ratios.flat
+            ):
+                raise TypeError
+            ratios = np.asarray(harmonics, dtype=float)
+        except (TypeError, ValueError):
+            raise TypeError(
+                "harmonics must contain only positive finite numbers"
+            ) from None
+        if ratios.ndim == 0:
+            ratios = ratios.reshape(1)
+        if ratios.ndim != 1:
+            raise ValueError("harmonics must be a one-dimensional sequence")
+        if not ratios.size:
+            return ratios
+        if not np.isfinite(ratios).all() or np.any(ratios <= 0.0):
+            raise ValueError("harmonics must contain positive finite values")
+        if len(np.unique(ratios)) != len(ratios):
+            raise ValueError("harmonics must not contain duplicate ratios")
+        return ratios
+
+    @staticmethod
+    def _critical_speeds(speeds, frequencies, harmonics):
+        """Intersect tracked Campbell branches with harmonic lines.
+
+        Detection uses only exact grid-point matches and sign changes between
+        adjacent supplied speeds. Each sign-change root is obtained by linear
+        interpolation; no model evaluation or grid refinement is performed.
+        """
+        sample_count, _, mode_count = frequencies.shape
+        harmonic_count = len(harmonics)
+        crossing_lists = [
+            [
+                [[] for _ in range(mode_count)]
+                for _ in range(harmonic_count)
+            ]
+            for _ in range(sample_count)
+        ]
+        counts = np.zeros(
+            (sample_count, harmonic_count, mode_count), dtype=int
+        )
+
+        for sample in range(sample_count):
+            for harmonic_index, ratio in enumerate(harmonics):
+                synchronous = ratio * speeds / (2.0 * np.pi)
+                for mode in range(mode_count):
+                    residual = frequencies[sample, :, mode] - synchronous
+                    scale = max(float(np.max(np.abs(residual))), 1.0)
+                    tolerance = (
+                        10.0 * np.finfo(float).eps * len(speeds) * scale
+                    )
+                    is_zero = np.abs(residual) <= tolerance
+                    roots = []
+
+                    for index in range(len(speeds) - 1):
+                        if is_zero[index]:
+                            roots.append(float(speeds[index]))
+                        if is_zero[index] or is_zero[index + 1]:
+                            continue
+                        if np.signbit(residual[index]) == np.signbit(
+                            residual[index + 1]
+                        ):
+                            continue
+
+                        # Linear interpolation of the residual on the user's
+                        # existing interval; this is detection, not refinement.
+                        fraction = -residual[index] / (
+                            residual[index + 1] - residual[index]
+                        )
+                        roots.append(
+                            float(
+                                speeds[index]
+                                + fraction
+                                * (speeds[index + 1] - speeds[index])
+                            )
+                        )
+
+                    if is_zero[-1]:
+                        roots.append(float(speeds[-1]))
+
+                    # Consecutive exact points can represent the same sampled
+                    # intersection. Preserve order while removing duplicates.
+                    unique_roots = []
+                    for root in roots:
+                        if not unique_roots or not np.isclose(
+                            root,
+                            unique_roots[-1],
+                            rtol=1.0e-12,
+                            atol=1.0e-12,
+                        ):
+                            unique_roots.append(root)
+
+                    crossing_lists[sample][harmonic_index][mode] = unique_roots
+                    counts[sample, harmonic_index, mode] = len(unique_roots)
+
+        maximum_crossings = int(counts.max(initial=0))
+        critical_speeds = np.full(
+            (
+                sample_count,
+                harmonic_count,
+                mode_count,
+                maximum_crossings,
+            ),
+            np.nan,
+        )
+        for sample in range(sample_count):
+            for harmonic_index in range(harmonic_count):
+                for mode in range(mode_count):
+                    roots = crossing_lists[sample][harmonic_index][mode]
+                    critical_speeds[
+                        sample,
+                        harmonic_index,
+                        mode,
+                        : len(roots),
+                    ] = roots
+
+        return critical_speeds, counts
 
     def _solve_frequency_response(
         self,

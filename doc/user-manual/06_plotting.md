@@ -5,6 +5,7 @@
 - [Installation](#installation)
 - [Rotor longitudinal section](#rotor-longitudinal-section)
 - [Campbell diagrams](#campbell-diagrams)
+- [Synchronous harmonics and critical speeds](#synchronous-harmonics-and-critical-speeds)
 
 ## Installation
 
@@ -82,3 +83,54 @@ to match each branch to the preceding speed and stores that choice in
 `result["track_modes"]`. If the analysis is run with `track_modes=False`, the
 plot still connects array columns, but those columns are independently sorted
 at each speed and can exchange physical identity at a crossing.
+
+## Synchronous harmonics and critical speeds
+
+Request the desired ratios during the Campbell solution, then enable their
+display in the plot:
+
+```python
+result = solver.solve(
+    "campbell",
+    fixed_dofs=fixed,
+    speeds=speeds,
+    modes=8,
+    harmonics=[1.0, 2.0],
+)
+
+figure, axes = plot_campbell(
+    result,
+    show_harmonics=True,
+)
+```
+
+For a deterministic result or `statistic="sample"`, each finite critical speed
+of the selected realization is marked on its harmonic line. For a stochastic
+mean plot, the marker is the mean of the sample critical speeds and a diagonal
+error bar along the harmonic represents one sample standard deviation. The
+error bar has perpendicular end caps. Supplying
+`confidence=0.95` makes this error bar span the empirical central 95% interval.
+A median plot uses the median marker and shows an error bar only when a
+confidence level is requested.
+
+The legend identifies modal branches, synchronous harmonics, and critical-speed
+markers. Confidence bands and critical-speed error bars are intentionally
+excluded from it. A separate information box reports whether the displayed
+central values are a sample, mean, or median and gives the confidence level
+when one is active.
+
+With `show_extremes=True`, the sample minimum and maximum of each modal branch
+are drawn using the same dashed linestyle and branch color. They are omitted
+from the legend; the information box instead reports that the sample min--max
+extremes are displayed.
+
+Set `show_critical_samples=True` to add every finite realization as a faint
+point. Samples without that crossing are omitted rather than converted to
+zero. Because frequency at a critical point is fixed by the harmonic ratio,
+uncertainty lies along the synchronous line; the plot therefore uses a line
+error bar rather than a two-dimensional ellipse.
+
+`plot_campbell` only visualizes the crossings stored by the solver. Neither the
+solver nor the plotting function refines the speed discretization, so selecting
+adequately spaced speed samples remains the user's responsibility. Set
+`show_critical_speeds=False` to draw harmonic lines without their intersections.

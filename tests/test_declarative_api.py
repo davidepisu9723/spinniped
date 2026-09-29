@@ -325,6 +325,149 @@ def test_campbell_solver_returns_modes_at_every_speed():
     assert result["eigenvectors"].shape == (1, 3, 32, 4)
     assert result["track_modes"] is True
     assert np.isfinite(result["frequencies"]).all()
+    assert result["harmonics"].shape == (0,)
+    assert result["critical_speeds"].shape == (1, 0, 4, 0)
+
+
+def test_campbell_calculates_sampled_speed_interpolated_critical_speeds():
+    """Verify tracked branches intersect requested harmonic ratios."""
+    natural_frequency = 10.0
+    stiffness = (2.0 * np.pi * natural_frequency) ** 2
+    definition = ModelDefinition(
+        grids=[Grid(1)],
+        properties=[
+            BearingProperty(1, kxx=stiffness, kyy=stiffness),
+            DiskProperty(2, mass=1.0, diametral_inertia=1.0),
+        ],
+        elements=[BearingElement(1, 1, 1), DiskElement(2, 1, 2)],
+    )
+    model = ModelBuilder().build(definition)
+    result = Solver(model).solve(
+        "campbell",
+        fixed_dofs=[2, 3, 4, 5],
+        speeds=2.0 * np.pi * np.array([0.0, 12.0, 20.0]),
+        modes=2,
+        harmonics=[1.0, 2.0],
+    )
+
+    assert np.array_equal(result["harmonics"], [1.0, 2.0])
+    assert result["critical_speeds"].shape == (1, 2, 2, 1)
+    assert np.all(result["critical_speed_counts"] == 1)
+    assert np.allclose(
+        result["critical_speeds_hz"][0, 0, :, 0],
+        natural_frequency,
+    )
+    assert np.allclose(
+        result["critical_speeds_hz"][0, 1, :, 0],
+        natural_frequency / 2.0,
+    )
+    assert not np.any(
+        np.isclose(
+            result["critical_speeds_hz"][0, 0, 0, 0],
+            [0.0, 12.0, 20.0],
+        )
+    )
+
+
+def test_campbell_preserves_stochastic_critical_speed_correspondence():
+    """Verify sample roots remain associated with tracked physical modes."""
+    definition = ModelDefinition(
+        grids=[Grid(1)],
+        properties=[
+            BearingProperty(1, kxx=(1,), kyy=(2,)),
+            DiskProperty(2, mass=1.0, diametral_inertia=1.0),
+        ],
+        elements=[BearingElement(1, 1, 1), DiskElement(2, 1, 2)],
+        distributions=[
+            RandomDistribution(
+                1,
+                "x stiffness",
+                "uniform",
+                {
+                    "low": (2.0 * np.pi * 8.0) ** 2,
+                    "high": (2.0 * np.pi * 10.0) ** 2,
+                },
+            ),
+            RandomDistribution(
+                2,
+                "y stiffness",
+                "uniform",
+                {
+                    "low": (2.0 * np.pi * 12.0) ** 2,
+                    "high": (2.0 * np.pi * 14.0) ** 2,
+                },
+            ),
+        ],
+    )
+    model = ModelBuilder().build(
+        definition, stochastic=True, samples=4, seed=9
+    )
+    result = Solver(model).solve(
+        "campbell",
+        fixed_dofs=[2, 3, 4, 5],
+        speeds=2.0 * np.pi * np.array([0.0, 15.0]),
+        modes=2,
+        harmonics=[1.0],
+    )
+
+    expected = np.array(
+        [
+            [
+                np.sqrt(sample.properties[0].kxx) / (2.0 * np.pi),
+                np.sqrt(sample.properties[0].kyy) / (2.0 * np.pi),
+            ]
+            for sample in model.definitions
+        ]
+    )
+    assert np.allclose(result["critical_speeds_hz"][:, 0, :, 0], expected)
+
+
+def test_critical_speed_detection_retains_crossing_order_and_missing_values():
+    """Verify multiple roots are ordered and absent roots use NaN padding."""
+    speeds = 2.0 * np.pi * np.array([0.0, 1.0, 2.0, 3.0])
+    synchronous = speeds / (2.0 * np.pi)
+    frequencies = np.empty((2, 4, 1))
+    frequencies[0, :, 0] = synchronous + [0.5, -0.5, 0.5, -0.5]
+    frequencies[1, :, 0] = synchronous + 1.0
+
+    critical, counts = Solver._critical_speeds(
+        speeds, frequencies, np.array([1.0])
+    )
+
+    assert critical.shape == (2, 1, 1, 3)
+    assert np.array_equal(counts[:, 0, 0], [3, 0])
+    assert np.allclose(
+        critical[0, 0, 0] / (2.0 * np.pi), [0.5, 1.5, 2.5]
+    )
+    assert np.isnan(critical[1, 0, 0]).all()
+
+
+@pytest.mark.parametrize(
+    ("options", "exception", "message"),
+    [
+        ({"harmonics": [0.0]}, ValueError, "positive finite"),
+        ({"harmonics": [1.0, 1.0]}, ValueError, "duplicate"),
+        (
+            {"harmonics": [1.0], "track_modes": False},
+            ValueError,
+            "track_modes=True",
+        ),
+        (
+            {"harmonics": [1.0], "speeds": [1.0, 0.0]},
+            ValueError,
+            "strictly increasing",
+        ),
+    ],
+)
+def test_campbell_validates_critical_speed_options(options, exception, message):
+    """Verify critical-speed calculation requires coherent grid options."""
+    model = ModelBuilder().build(_rotor_definition())
+    solve_options = {"speeds": [0.0, 1.0], "modes": 2, **options}
+
+    with pytest.raises(exception, match=message):
+        Solver(model).solve(
+            "campbell", fixed_dofs=[2, 5], **solve_options
+        )
 
 
 @pytest.mark.parametrize("modes", [0, -1, 1.5, True, "4"])

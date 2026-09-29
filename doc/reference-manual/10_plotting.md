@@ -4,6 +4,7 @@
 
 - [Rotor-section plotting implementation](#rotor-section-plotting-implementation)
 - [Campbell plotting implementation](#campbell-plotting-implementation)
+- [Critical-speed plotting](#critical-speed-plotting)
 
 ## Rotor-section plotting implementation
 
@@ -53,3 +54,35 @@ figure and axes and does not call `show()`.
 The implementation validates result shapes, sample indices, speed units,
 statistics, confidence levels, and Boolean display options before creating the
 plot.
+
+## Critical-speed plotting
+
+With `show_harmonics=True`, `plot_campbell` reads `harmonics` and the padded
+four-dimensional `critical_speeds` array from the solver result. It does not
+calculate or refine intersections. Harmonic ordinates and critical-point
+ordinates are reconstructed from $r\Omega/(2\pi)$ after converting only the
+displayed horizontal coordinate to the selected speed unit.
+
+The private `_sample_statistics` helper reduces any leading sample axis and
+returns the selected central value, mean, median, sample variance, standard
+deviation, extrema, finite count, and optional empirical quantiles. The same
+helper supplies Campbell frequency bands and stochastic critical-speed
+summaries, keeping missing-crossing `NaN` values out of all reductions.
+
+Sample statistics produce one marker per harmonic, mode, and crossing order.
+Mean plots use a capped diagonal error bar spanning one standard deviation
+when no confidence level is requested; otherwise it spans the empirical
+confidence interval. Optional faint sample points show the underlying finite
+realizations. Every error bar lies along its harmonic because the two plotted
+critical-point coordinates are not independent random variables.
+
+Confidence fills and diagonal error bars use Matplotlib's `_nolegend_` label.
+Critical-point markers remain in the legend with their mode and harmonic,
+alongside the central modal branches and synchronous lines. Statistical mode
+and confidence metadata are rendered once in an axes-relative information box
+instead of being repeated for every branch.
+
+When extrema are enabled, both the sample-minimum and sample-maximum curves use
+the same dashed style and their central branch color. Both carry the
+`_nolegend_` label, while the information box records that the sample min--max
+envelope is present.

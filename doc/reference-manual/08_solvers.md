@@ -4,6 +4,7 @@
 
 - [Equation and matrix convention](#equation-and-matrix-convention)
 - [Implemented analysis routes](#implemented-analysis-routes)
+- [Critical-speed detection](#critical-speed-detection)
 - [Validation and result invariants](#validation-and-result-invariants)
 
 ## Equation and matrix convention
@@ -81,6 +82,29 @@ requires symmetric stiffness and mass matrices. The Campbell route forms a
 first-order damped gyroscopic state matrix at each requested speed. Frequency
 response solves the complex dynamic-stiffness system. Time response integrates
 the equivalent first-order system with SciPy.
+
+## Critical-speed detection
+
+Campbell analysis optionally accepts positive, unique `harmonics`. For sample
+$s$, tracked mode $m$, and ratio $r$, the implementation evaluates the
+residual at each sampled speed
+
+$$
+g_{s,m,r}(\Omega_i)=
+f_{s,m}(\Omega_i)-\frac{r\Omega_i}{2\pi}.
+$$
+
+An exact zero stores $\Omega_i$. Opposite signs at adjacent sampled speeds
+store the zero of the line joining their two residuals. No eigensolution is
+performed between sampled speeds and no adaptive refinement exists. Detection
+is therefore enabled only for strictly increasing speed sequences containing
+at least two values and for `track_modes=True`.
+
+All crossings are retained in ascending supplied-speed order. The numerical
+result uses the shape `(samples, harmonics, modes, maximum_crossings)` and pads
+missing entries with `NaN`; an integer `(samples, harmonics, modes)` array
+stores the actual counts. This keeps results rectangular while preserving
+stochastic sample and mode correspondence.
 
 ## Validation and result invariants
 

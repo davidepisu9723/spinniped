@@ -130,27 +130,18 @@ result = Solver(model).solve(
     fixed_dofs=fixed_dofs,
     speeds=speeds,
     modes=8,
+    harmonics=[1.0],
 )
 
-# Plot the tracked natural-frequency branches. Rotor speed defaults to rpm on
-# the horizontal axis, matching the array used for the synchronous reference.
+# Plot the tracked natural-frequency branches, the 1x synchronous line, and
+# critical speeds interpolated on the supplied speed grid. The solver does not
+# add speed points or refine crossings automatically.
 figure, axes = plot_campbell(
     result,
     title="Two-bearing shaft with a central disk",
-)
-
-# A once-per-revolution excitation has frequency speed_rpm / 60 in hertz.
-# Intersections with modal branches indicate candidate 1x critical speeds.
-axes.plot(
-    speeds_rpm,
-    speeds_rpm / 60.0,
-    color="black",
-    linestyle="--",
-    linewidth=1.0,
-    label="1x synchronous",
+    show_harmonics=True,
 )
 axes.set_xlim(0.0, maximum_speed_rpm)
 axes.set_ylim(bottom=0.0)
-axes.legend()
 figure.tight_layout()
 plt.show()
