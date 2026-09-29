@@ -1,22 +1,33 @@
-# Shaft Element Theory Notes
+# Chapter 9 -- Shaft-element formulation
 
-This note documents the two-grid shaft formulation evaluated by
+## Table of contents
+
+- [1. Element degree-of-freedom vector](#1-element-degree-of-freedom-vector)
+- [2. Geometric and material quantities](#2-geometric-and-material-quantities)
+- [3. Element stiffness matrix structure](#3-element-stiffness-matrix-structure)
+- [4. Axial stiffness matrix](#4-axial-stiffness-matrix)
+- [5. Torsional stiffness matrix](#5-torsional-stiffness-matrix)
+- [6. Timoshenko bending stiffness matrices](#6-timoshenko-bending-stiffness-matrices)
+- [7. Euler-Bernoulli bending stiffness matrices](#7-euler-bernoulli-bending-stiffness-matrices)
+- [8. Element mass matrix structure](#8-element-mass-matrix-structure)
+- [9. Axial mass matrix](#9-axial-mass-matrix)
+- [10. Torsional inertia matrix](#10-torsional-inertia-matrix)
+- [11. Euler-Bernoulli translational bending mass matrices](#11-euler-bernoulli-translational-bending-mass-matrices)
+- [12. Timoshenko translational bending mass matrices](#12-timoshenko-translational-bending-mass-matrices)
+- [13. Euler-Bernoulli rotary inertia contribution](#13-euler-bernoulli-rotary-inertia-contribution)
+- [14. Timoshenko rotary inertia contribution](#14-timoshenko-rotary-inertia-contribution)
+- [15. Unit-speed gyroscopic matrix](#15-unit-speed-gyroscopic-matrix)
+- [16. Shaft damping matrix](#16-shaft-damping-matrix)
+
+This manual chapter documents the two-grid shaft formulation evaluated by
 `spinniped.stiffness.shaft_stiffness`, `spinniped.mass.shaft_mass`,
 `spinniped.damping.shaft_damping`, and
 `spinniped.gyroscopic.shaft_gyroscopic`. `ShaftElement` is the declarative
 connectivity record; it does not store numerical matrices.
 
-The local matrices follow the Spinniped ordering:
-
-```text
-x0, y0, z0, tx0, ty0, tz0, x1, y1, z1, tx1, ty1, tz1
-```
-
-The shaft axis is local `z`; local `x` and `y` are transverse. The builder
-transforms local matrices to the global frame, so the element need not be
-parallel to global `z`. Each grid has six mechanical degrees of freedom.
-
----
+For a derivation-led introduction that begins with free-body diagrams rather
+than finite-element matrices, see the
+[rotordynamics theory manual](../theory-manual/00_theory_manual.md).
 
 ## 1. Element degree-of-freedom vector
 
@@ -67,7 +78,7 @@ $$
 This explains why the $x$-$z$ and $y$-$z$ bending matrices have the same physical content but different signs in the displacement-rotation coupling terms.
 
 <p align="center">
-  <img src="img/dydz_convention.png" width="600" alt="dydz-convention">
+  <img src="images/dydz_convention.png" width="600" alt="Positive transverse displacement and rotation convention">
 </p>
 
 ---
@@ -734,78 +745,3 @@ The same rotary-inertia option used to construct $\mathbf{M}_e$ consequently
 affects $\mathbf{C}_e$. Setting `damping=0.0`, the default, gives a zero shaft
 damping matrix. This simple viscous model is not a general material-loss or
 hysteretic-damping formulation.
-
-## 17. Transformation and global assembly
-
-Let the model contain $n$ compact grids. The global number of mechanical
-degrees of freedom is
-
-$$
-n_\mathrm{dof}=6n,
-$$
-
-and each assembled matrix belongs to
-
-$$
-\mathbf{K},\mathbf{M},\mathbf{C},\mathbf{G}
-\in\mathbb{R}^{6n\times 6n}.
-$$
-
-For an element connecting compact grid indices $p$ and $q$, the global index
-vector is
-
-$$
-\mathbf{i}_e=
-\begin{bmatrix}
-6p & 6p+1 & 6p+2 & 6p+3 & 6p+4 & 6p+5 &
-6q & 6q+1 & 6q+2 & 6q+3 & 6q+4 & 6q+5
-\end{bmatrix}.
-$$
-
-Let $\mathbf{R}$ map global vector components to element-local components. The
-12-DOF transformation is block diagonal:
-
-$$
-\mathbf{T}=\operatorname{diag}(\mathbf{R},\mathbf{R},
-\mathbf{R},\mathbf{R}),
-\qquad
-\mathbf{q}_e^{\mathrm{local}}=\mathbf{T}\mathbf{q}_e^{\mathrm{global}}.
-$$
-
-For each local matrix $\mathbf{A}_e\in
-\{\mathbf{K}_e,\mathbf{M}_e,\mathbf{C}_e,\mathbf{G}_e\}$, the global-frame
-element matrix is
-
-$$
-\mathbf{A}_e^{\mathrm{global}}=
-\mathbf{T}^{T}\mathbf{A}_e^{\mathrm{local}}\mathbf{T}.
-$$
-
-It is accumulated according to
-
-$$
-A_{i_e(a),i_e(b)}\mathrel{+}=
-A_{e,ab}^{\mathrm{global}},
-\qquad a,b=0,1,\ldots,11.
-$$
-
-The builder performs this operation independently for every resolved
-realization:
-
-```text
-for each resolved definition s:
-    convert grid coordinates to the global frame
-    allocate dense K[s], M[s], C[s], G[s]
-
-    for each ShaftElement record:
-        look up its ShaftProperty and Material records
-        derive length and the local-to-global transformation
-        evaluate shaft_stiffness, shaft_mass,
-                 shaft_damping, and shaft_gyroscopic
-        transform and add all four local matrices
-
-    add each BearingElement and DiskElement nodal contribution
-```
-
-The final arrays have shape `(samples, ndof, ndof)`. The current builder uses
-dense assembly; sparse global storage is not yet implemented.

@@ -33,17 +33,12 @@ def simply_supported_beam(
     float
         Natural frequency in hertz.
     """
-    # These constants approximate (mode * pi)^2 for the first four modes.
-    mode_constants = {
-        1: 9.87,
-        2: 39.48,
-        3: 88.82,
-        4: 156.96,
-    }
+    # A simply supported beam has the exact characteristic value beta*L=n*pi.
+    characteristic_value = mode * np.pi
 
     # Apply the closed-form Euler-Bernoulli frequency equation.
     return (
-        mode_constants[mode]
+        characteristic_value**2
         / (2.0 * np.pi)
         * np.sqrt(
             young_modulus
@@ -83,17 +78,17 @@ def fixed_ends_beam(
     float
         Natural frequency in hertz.
     """
-    # Fixed-fixed boundary conditions use different characteristic roots.
-    mode_constants = {
-        1: 22.4,
-        2: 61.7,
-        3: 120.9,
-        4: 200.1,
+    # These are the first roots of cos(beta*L) cosh(beta*L) = 1.
+    characteristic_roots = {
+        1: 4.730040744862704,
+        2: 7.853204624095838,
+        3: 10.99560783800167,
+        4: 14.137165491257,
     }
 
     # Apply the corresponding closed-form beam frequency equation.
     return (
-        mode_constants[mode]
+        characteristic_roots[mode] ** 2
         / (2.0 * np.pi)
         * np.sqrt(
             young_modulus

@@ -1,10 +1,22 @@
-# Testing and Verification
+# Testing and verification
 
 Spinniped's tests serve two purposes: preventing software regressions and
 checking that the finite-element equations reproduce expected mechanical
-behavior. The suite exercises the declarative records, stateless local-matrix
-kernels, deterministic and stochastic assembly, every solver route, and an
-independent beam benchmark.
+behavior. This file documents verification behavior rather than deriving the
+underlying mechanics; theoretical development belongs in the
+[rotordynamics theory manual](../doc/theory-manual/00_theory_manual.md). The
+suite exercises the declarative records, stateless local-matrix kernels,
+deterministic and stochastic assembly, every solver route, and an independent
+beam benchmark.
+
+## Table of contents
+
+- [Running the suite](#running-the-suite)
+- [Test summary](#test-summary)
+- [Test details](#test-details)
+- [Numerical tolerances](#numerical-tolerances)
+- [Adding tests](#adding-tests)
+- [Verification boundaries](#verification-boundaries)
 
 ## Running the suite
 
@@ -74,24 +86,15 @@ that are independent of the production records:
 | Diameter | $d$ | $0.01\ \mathrm{m}$ |
 | Total length | $L$ | $1.0\ \mathrm{m}$ |
 
-For the solid circular section,
-
-$$
-A=\frac{\pi d^2}{4},
-\qquad
-I=\frac{\pi d^4}{64},
-\qquad
-J=2I.
-$$
-
-`shaft_properties` exposes these inputs and derived section properties;
-`shaft_definition` creates one Timoshenko shaft; and `shaft_local_matrices`
-evaluates its stiffness, mass, and gyroscopic kernels. `build_uniform_beam`
-creates an arbitrary Euler or Timoshenko mesh through the public declarative
-API. The support, analytical-frequency, and bending-pair helpers are shared by
-the benchmark and convergence tests. In particular, the analytical helper is
-independent of Spinniped's matrix kernels, preventing the same implementation
-error from appearing on both sides of a comparison.
+The section properties used by the fixtures are calculated independently from
+these inputs. `shaft_properties` exposes the inputs and derived section
+properties; `shaft_definition` creates one Timoshenko shaft; and
+`shaft_local_matrices` evaluates its stiffness, mass, and gyroscopic kernels.
+`build_uniform_beam` creates an arbitrary Euler or Timoshenko mesh through the
+public declarative API. The support, analytical-frequency, and bending-pair
+helpers are shared by the benchmark and convergence tests. In particular, the
+analytical helper is independent of Spinniped's matrix kernels, preventing the
+same implementation error from appearing on both sides of a comparison.
 
 ### `test_element_matrices.py`
 
@@ -278,19 +281,7 @@ Passes integer, null, and string lookalikes as `stochastic`. All must raise a
 `TypeError`, ensuring callers explicitly choose a Boolean mode and preventing
 Python truthiness from silently changing model construction.
 
-Distinct cross-coupled bearing values are intentional throughout this module.
-For example,
-
-$$
-\mathbf{K}_b=
-\begin{bmatrix}
-11 & 12 & 0\\
-13 & 14 & 0\\
-0 & 0 & 15
-\end{bmatrix}
-$$
-
-makes transposition and DOF-permutation mistakes visible.
+Distinct cross-coupled bearing values are intentional throughout this module because they make transposition and DOF-permutation mistakes visible.
 
 ### `test_declarative_api.py`
 
@@ -449,142 +440,93 @@ created.
 
 ### `test_analytical_benchmarks.py`
 
+This module compares a finite-element shaft with an independent analytical
+reference. The derivation, boundary-condition discussion, and free-body
+diagrams are kept in
+[the flexural-vibration chapter](../doc/theory-manual/06_flexural_vibration.md).
+The executable reference is
+[`01_uniform_beam_frequencies.py`](../benchmark/01_uniform_beam_frequencies.py).
+
 #### `test_simply_supported_beam_first_four_bending_frequencies`
 
 Builds a 16-element Euler--Bernoulli shaft and compares one member of each of
-the first four degenerate bending pairs with
+the first four degenerate bending pairs with independently calculated,
+simply-supported beam frequencies. Rotary inertia is disabled so the numerical
+and analytical models use the same assumptions.
 
-![Simply supported uniform shaft with pin and roller supports, free end rotations, and the global coordinate system](../theory/images/simply_supported_shaft.png)
+The first grid constrains `x`, `y`, `z`, and `tz`; the final grid
+constrains `x` and `y`. Bending rotations remain free, while axial and
+torsional rigid motion is removed.
 
-*Simply supported reference shaft. The pin and roller restrain transverse end
-motion while leaving bending rotations free; global $z$ follows the shaft.*
+The immutable analytical reference values are:
 
-$$
-f_m=\frac{m^2\pi}{2L^2}
-\sqrt{\frac{EI}{\rho A}},
-\qquad m=1,2,\ldots.
-$$
+| Bending mode | Analytical frequency (Hz) |
+|---:|---:|
+| 1 | 19.821661494 |
+| 2 | 79.286645975 |
+| 3 | 178.394953444 |
+| 4 | 317.146583901 |
 
-For the reference values used by the tests,
-
-$$
-A=\frac{\pi(0.01)^2}{4}
-=7.853981634\times10^{-5}\ \mathrm{m^2},
-$$
-
-$$
-I=\frac{\pi(0.01)^4}{64}
-=4.908738521\times10^{-10}\ \mathrm{m^4}.
-$$
-
-Substituting $E=2.0\times10^{11}\ \mathrm{Pa}$,
-$\rho=7850\ \mathrm{kg/m^3}$, and $L=1.0\ \mathrm{m}$ gives
-
-$$
-f_m=
-\frac{m^2\pi}{2(1.0)^2}
-\sqrt{
-\frac{(2.0\times10^{11})(4.908738521\times10^{-10})}
-{(7850)(7.853981634\times10^{-5})}
-}
-=m^2(19.821661494\ \mathrm{Hz}).
-$$
-
-The resulting analytical references are:
-
-| Mode $m$ | Analytical expression | Analytical frequency (Hz) |
-|---:|---:|---:|
-| 1 | $1^2(19.821661494)$ | 19.821661494 |
-| 2 | $2^2(19.821661494)$ | 79.286645975 |
-| 3 | $3^2(19.821661494)$ | 178.394953444 |
-| 4 | $4^2(19.821661494)$ | 317.146583901 |
-
-These values come only from the closed-form equation; they are not numerical
-finite-element results.
-
-Rotary inertia is disabled so the finite-element assumptions match the
-analytical equation. With the six-DOF grid order `x, y, z, tx, ty, tz`, the
-first grid fixes `x, y, z, tz` and the final grid fixes `x, y`; bending
-rotations remain free, while axial and torsional rigid motion is removed.
-Every selected numerical frequency must have relative error below $0.1\%$:
-
-$$
-\varepsilon_m=
-\frac{\left|f_{m,\mathrm{num}}-f_{m,\mathrm{ana}}\right|}
-{f_{m,\mathrm{ana}}}.
-$$
+These values are produced independently of Spinniped's matrix kernels. Every
+selected numerical frequency must have relative error below $0.1\%$.
 
 ### `test_jeffcott_benchmark.py`
 
-This extended Jeffcott reference uses a rigid central disk, a massless elastic
-shaft, and two identical flexible bearings of stiffness $k_b$. Combining shaft
-and bearing compliances gives the equivalent disk-center stiffnesses
+This module compares an extended flexible-bearing Jeffcott reference with an
+equivalent finite-element model. The analytical derivation and diagrams are in
+[the Jeffcott chapter](../doc/theory-manual/07_jeffcott_rotor.md).
+The runnable comparison is
+[`02_flexible_bearing_jeffcott_comparison.py`](../benchmark/02_flexible_bearing_jeffcott_comparison.py).
 
-![Flexible-bearing Jeffcott rotor with a central rigid disk, shaft spin direction, and global coordinate system](../theory/images/flexible_bearing_jeffcott_rotor.png)
+The fixed benchmark inputs are:
 
-*Extended Jeffcott reference. The central disk carries $m$, $I_d$, and $I_p$;
-the two grounded bearing springs provide equal transverse stiffness $k_b$, and
-$\Omega$ denotes rotation about global $z$.*
+| Quantity | Value |
+|---|---:|
+| Young's modulus | $2.0\times10^{11}\ \mathrm{Pa}$ |
+| Shaft diameter | $0.02\ \mathrm{m}$ |
+| Shaft length | $1.0\ \mathrm{m}$ |
+| Disk mass | $5.0\ \mathrm{kg}$ |
+| Disk diametral inertia | $0.025\ \mathrm{kg\,m^2}$ |
+| Disk polar inertia | $0.05\ \mathrm{kg\,m^2}$ |
+| Bearing stiffness | $1.0\times10^6\ \mathrm{N/m}$ |
 
-$$
-k_t=\left(\frac{L^3}{48EI}+\frac{1}{2k_b}\right)^{-1},
-\qquad
-k_r=\left(\frac{L}{12EI}+\frac{2}{k_bL^2}\right)^{-1}.
-$$
-
-The cylindrical translation pair remains independent of spin speed,
-
-$$
-\omega_t=\sqrt{\frac{k_t}{m}},
-$$
-
-while disk polar inertia $I_p$ splits the conical pair with increasing spin
-speed $\Omega$:
-
-$$
-\omega_{c,\mp}(\Omega)=
-\frac{
-\sqrt{(I_p\Omega)^2+4I_dk_r}\mp I_p\Omega
-}{2I_d}.
-$$
-
-For $E=2.0\times10^{11}\ \mathrm{Pa}$, $d=0.02\ \mathrm{m}$,
-$L=1.0\ \mathrm{m}$, $m=5.0\ \mathrm{kg}$,
-$I_d=0.025\ \mathrm{kg\,m^2}$, $I_p=0.05\ \mathrm{kg\,m^2}$, and
-$k_b=1.0\times10^6\ \mathrm{N/m}$, the analytical references are:
+The resulting analytical reference values are:
 
 | Quantity | Analytical value |
 |---|---:|
-| Second moment $I$ | $7.853981634\times10^{-9}\ \mathrm{m^4}$ |
-| Translation stiffness $k_t$ | $72659.042323\ \mathrm{N/m}$ |
-| Rotation stiffness $k_r$ | $18164.760581\ \mathrm{N\,m/rad}$ |
+| Shaft second moment | $7.853981634\times10^{-9}\ \mathrm{m^4}$ |
+| Translation stiffness | $72659.042323\ \mathrm{N/m}$ |
+| Rotation stiffness | $18164.760581\ \mathrm{N\,m/rad}$ |
 | Cylindrical frequency at rest | $19.185802264\ \mathrm{Hz}$ |
 | Conical frequency at rest | $135.664108836\ \mathrm{Hz}$ |
 | Cylindrical 1x critical speed | $1151.148135859\ \mathrm{rpm}$ |
 | Backward-conical 1x critical speed | $4699.542585350\ \mathrm{rpm}$ |
 
 The comparable finite-element model uses ten Euler--Bernoulli shaft elements,
-a disk node at the exact midpoint, negligible positive shaft density, and
-grounded flexible bearings at both ends. Shaft rotary inertia is disabled so
-the disk is the only gyroscopic source. Axial and torsional DOFs are removed
-because they are outside the lateral Jeffcott model.
+a disk at the exact midpoint, negligible positive shaft density, and grounded
+flexible bearings at both ends. Shaft rotary inertia is disabled so the disk is
+the only gyroscopic source. Axial and torsional DOFs are removed because they
+are outside the reduced Jeffcott model.
 
 #### `test_flexible_bearing_jeffcott_frequencies_match_finite_element_model`
 
 Solves four real modes at rest and compares the degenerate cylindrical and
-conical pairs with the flexible-bearing analytical frequencies. An explicit
-zero modal threshold retains the disk modes in the deliberately wide spectrum
-created by the nearly massless shaft.
+conical pairs with the tabulated analytical frequencies. An explicit zero
+modal threshold retains the disk modes in the deliberately wide spectrum
+created by the nearly massless shaft. Analytical and finite-element
+frequencies must agree to relative tolerance $10^{-5}$.
 
 #### `test_jeffcott_gyroscopic_shift_and_critical_speeds_match_finite_elements`
 
-Solves at rest, at an intermediate speed, and at both analytical critical
-speeds. The FE frequencies must reproduce the fixed cylindrical pair and the
-oppositely shifting conical branches. It also checks that the cylindrical and
-backward-conical frequencies intersect the 1x line at their respective
-analytical critical speeds. Independent frequency sorting is used because the
-conical pair is exactly degenerate at rest, making its initial MAC labels
-arbitrary.
+Solves at rest, at an intermediate speed, and at both tabulated analytical
+critical speeds. The finite-element frequencies must reproduce the fixed
+cylindrical pair and the oppositely shifting conical branches. The test also
+checks that the cylindrical and backward-conical frequencies intersect the 1x
+line at their respective analytical critical speeds.
+
+Independent frequency sorting is used because the conical pair is exactly
+degenerate at rest, making its initial MAC labels arbitrary. All compared
+frequencies must agree to relative tolerance $10^{-5}$.
 
 ### `test_convergence.py`
 
