@@ -55,7 +55,7 @@ uses the Modal Assurance Criterion between a reference vector
 $\boldsymbol{\phi}_r$ and candidate $\boldsymbol{\phi}_c$:
 
 $$
-\operatorname{MAC}(\boldsymbol{\phi}_r,\boldsymbol{\phi}_c)=
+\mathop{\text{MAC}}(\boldsymbol{\phi}_r,\boldsymbol{\phi}_c)=
 \frac{\left|\boldsymbol{\phi}_r^H\boldsymbol{\phi}_c\right|^2}
 {\left(\boldsymbol{\phi}_r^H\boldsymbol{\phi}_r\right)
  \left(\boldsymbol{\phi}_c^H\boldsymbol{\phi}_c\right)}.

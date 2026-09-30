@@ -70,29 +70,23 @@ flowchart LR
     local --> transform --> accumulate --> global
     indices --> accumulate
 
-    subgraph overlap["Example: two neighboring shaft elements"]
-        direction TB
-        element_01["Element 0–1<br/>grid blocks 00, 01, 10, 11"]:::first
-        shared["Shared grid-1 block<br/>receives += from both elements"]:::shared
-        element_12["Element 1–2<br/>grid blocks 11, 12, 21, 22"]:::second
-        element_01 --> shared
-        element_12 --> shared
-    end
-
-    global -. "block-level view" .-> overlap
-
     classDef local fill:#d9eaf7,stroke:#2878b5,color:#27313a
     classDef operation fill:#f4f7f9,stroke:#27313a,color:#27313a
     classDef index fill:#fff1e6,stroke:#e07a2d,color:#27313a
     classDef global fill:#e9e1f2,stroke:#8064a2,color:#27313a
-    classDef first fill:#d9eaf7,stroke:#2878b5,color:#27313a
-    classDef second fill:#fde5d2,stroke:#e07a2d,color:#27313a
-    classDef shared fill:#8064a2,stroke:#5c4778,color:#ffffff
 ```
 
-*The transformation and index map are separate operations. Two neighboring
-12-DOF shaft elements overlap on the six DOFs of their shared grid, where
-assembly adds contributions instead of replacing the existing block.*
+*The transformation and index map are separate operations: first rotate the
+element matrix, then add its entries at the mapped global indices.*
+
+<p align="center">
+  <img src="images/global_block_assembly.png" width="560" alt="Three-by-three grid-block view of two neighboring shaft elements contributing to a global matrix">
+</p>
+
+*Each square represents one 6-by-6 grid-to-grid block. Element 0–1 contributes
+the blue upper-left footprint and element 1–2 the orange lower-right footprint.
+Their contributions overlap in the purple grid-1 block, where assembly adds
+both values instead of replacing either one.*
 
 The builder performs this operation independently for every resolved
 realization:
