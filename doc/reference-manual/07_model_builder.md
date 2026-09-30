@@ -36,7 +36,7 @@ Let $\mathbf{R}$ map global vector components to element-local components. The
 12-DOF transformation is block diagonal:
 
 $$
-\mathbf{T}=\operatorname{diag}(\mathbf{R},\mathbf{R},
+\mathbf{T}=\mathop{\text{diag}}(\mathbf{R},\mathbf{R},
 \mathbf{R},\mathbf{R}),
 \qquad
 \mathbf{q}_e^{\mathrm{local}}=\mathbf{T}\mathbf{q}_e^{\mathrm{global}}.

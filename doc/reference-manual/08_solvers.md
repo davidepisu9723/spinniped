@@ -4,6 +4,10 @@
 
 - [Equation and matrix convention](#equation-and-matrix-convention)
 - [Mode correspondence](#mode-correspondence)
+  - [MAC matrix and one-to-one assignment](#mac-matrix-and-one-to-one-assignment)
+  - [Tracking as array-column placement](#tracking-as-array-column-placement)
+  - [Reference modes used by each analysis](#reference-modes-used-by-each-analysis)
+  - [Phase alignment and limitations](#phase-alignment-and-limitations)
 - [Implemented analysis routes](#implemented-analysis-routes)
 - [Critical-speed detection](#critical-speed-detection)
 - [Validation and result invariants](#validation-and-result-invariants)
@@ -51,23 +55,128 @@ $$
 
 Eigenvalue order alone is not a reliable physical mode label across stochastic
 samples or through a Campbell speed sweep. With `track_modes=True`, Spinniped
-uses the Modal Assurance Criterion between a reference vector
-$\boldsymbol{\phi}_r$ and candidate $\boldsymbol{\phi}_c$:
+compares mode shapes rather than assuming that the $j$th frequency remains the
+same physical mode.
+
+### MAC matrix and one-to-one assignment
+
+Let the columns of $\boldsymbol{\Phi}_r\in\mathbb{C}^{n\times m_r}$ be the
+reference modes and the columns of
+$\boldsymbol{\Phi}_c\in\mathbb{C}^{n\times m_c}$ the newly calculated
+candidate modes. Spinniped evaluates every reference-candidate pair:
 
 $$
-\mathop{\text{MAC}}(\boldsymbol{\phi}_r,\boldsymbol{\phi}_c)=
-\frac{\left|\boldsymbol{\phi}_r^H\boldsymbol{\phi}_c\right|^2}
-{\left(\boldsymbol{\phi}_r^H\boldsymbol{\phi}_r\right)
- \left(\boldsymbol{\phi}_c^H\boldsymbol{\phi}_c\right)}.
+\mathop{\text{MAC}}_{ij}=
+\frac{\left|\boldsymbol{\phi}_{r,i}^{H}
+\boldsymbol{\phi}_{c,j}\right|^2}
+{\left(\boldsymbol{\phi}_{r,i}^{H}\boldsymbol{\phi}_{r,i}\right)
+ \left(\boldsymbol{\phi}_{c,j}^{H}\boldsymbol{\phi}_{c,j}\right)}.
 $$
 
-A one-to-one assignment maximizes total MAC. Modal samples are matched to
-sample zero. Campbell modes are matched first between consecutive speeds, then
-between each stochastic sample and sample zero at the same speed. After
-assignment, each candidate is multiplied by a sign or complex phase factor so
-its overlap with the reference is real and nonnegative. All comparisons use
-the reduced free-DOF vectors; Campbell matching uses the displacement half of
-the state eigenvector.
+The superscript $H$ is the conjugate transpose, so the same expression is valid
+for real and complex modes and is invariant to arbitrary eigenvector scale and
+global complex phase. The implementation uses the ordinary unweighted
+Hermitian inner product on the reduced vectors. A zero-norm pair receives a
+zero score.
+
+The complete MAC matrix has shape `(reference_modes, candidate_modes)`.
+Spinniped applies a linear-sum assignment to `-MAC`, thereby choosing one
+different candidate for every reference while maximizing the sum of the
+selected MAC values. This is not an independent row-by-row maximum: two
+reference modes cannot claim the same candidate. At least as many candidate
+modes as reference modes must be available.
+
+### Tracking as array-column placement
+
+Suppose three reference columns are stored as
+$[r_0,r_1,r_2]$, while the eigensolver returns candidates
+$[c_0,c_1,c_2]$. If the assignment finds
+
+$$
+r_0\leftrightarrow c_2,
+\qquad
+r_1\leftrightarrow c_0,
+\qquad
+r_2\leftrightarrow c_1,
+$$
+
+the permutation is `mode_order = [2, 0, 1]`. Spinniped applies it to both
+members of every eigenpair:
+
+```python
+tracked_eigenvalues = candidate_eigenvalues[mode_order]
+tracked_eigenvectors = candidate_eigenvectors[:, mode_order]
+```
+
+The resulting storage is therefore:
+
+| Destination mode position | Candidate placed there | Meaning |
+|---:|---:|---|
+| `0` | `2` | candidate matched to reference branch 0 |
+| `1` | `0` | candidate matched to reference branch 1 |
+| `2` | `1` | candidate matched to reference branch 2 |
+
+Mode position is thus the tracked label. In a modal result,
+`frequencies[s, j]`, `eigenvalues[s, j]`, and
+`eigenvectors[s, :, j]` contain the mode assigned to sample-0 position `j`.
+In a Campbell result,
+`frequencies[s, i, j]`, `eigenvalues[s, i, j]`, and
+`eigenvectors[s, i, :, j]` all describe the branch assigned to position `j`
+for realization `s` and speed position `i`. Critical-speed arrays retain that
+same mode position. Without tracking, position `j` merely means the $j$th
+frequency-sorted root at that individual eigensolution.
+
+### Reference modes used by each analysis
+
+Modal tracking proceeds as follows:
+
+1. Sample 0 is sorted by ascending eigenvalue after rigid modes are removed.
+   If `modes=m` is supplied, its first `m` columns define tracked positions
+   `0` through `m-1`.
+2. Every later stochastic sample is compared directly with sample 0.
+3. The selected candidate eigenpairs are permuted into the sample-0 positions.
+
+Campbell tracking proceeds as follows:
+
+1. At the first speed of each realization, positive-imaginary roots are sorted
+   by frequency; the requested lowest modes establish the initial positions.
+2. At every later speed, all current candidates are compared with the already
+   tracked modes at the immediately preceding speed of the same realization.
+   The displacement half of each complex state eigenvector is used to form the
+   MAC matrix, and the complete state eigenpair is then placed into the matched
+   position.
+3. After this speedwise pass, every stochastic realization after sample 0 is
+   matched once more to sample 0 at each speed. This gives mode position `j`
+   the same sample-to-sample meaning as well as the same speedwise meaning.
+
+Tracking therefore changes array order; it does not alter an eigenvalue or
+blend two eigenvectors. The first solution still defines the branch labels. At
+an exactly repeated eigenvalue, its individual eigenvectors are not unique, so
+the initial labels inside that degenerate subspace can be arbitrary.
+
+### Phase alignment and limitations
+
+After the permutation, the relative complex phase of candidate column $j$ is
+removed. With
+
+$$
+h_j=\boldsymbol{\phi}_{r,j}^{H}\boldsymbol{\phi}_{c,j},
+$$
+
+Spinniped multiplies the candidate by
+$\overline{h_j}/|h_j|$, making its overlap with the reference real and
+nonnegative. For real modes this reduces to sign alignment. MAC itself does
+not require this step, but phase alignment prevents arbitrary sign or phase
+flips in the eigenvectors stored in adjacent array positions. Campbell
+assignment uses displacement components, whereas phase alignment is applied
+to the full state vector.
+
+Pairwise MAC can become ambiguous for repeated or nearly degenerate modes,
+abruptly changing shapes, or a speed sequence too coarse to keep adjacent
+solutions similar. In those cases the eigenspace may remain continuous even
+though individual vectors rotate within it; subspace tracking would be more
+appropriate. Spinniped currently performs pairwise MAC assignment and does not
+refine the user's speed sequence automatically.
 
 Mode counts must be consistent. The solver raises rather than returning ragged
 object arrays when a requested count is unavailable or result shapes differ.

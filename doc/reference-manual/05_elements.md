@@ -71,7 +71,7 @@ $I_p$ the polar mass moment about the local spin axis. Its lumped mass matrix is
 
 $$
 \mathbf{M}_d=
-\operatorname{diag}(m_d,m_d,m_d,I_d,I_d,I_p).
+\mathop{\text{diag}}(m_d,m_d,m_d,I_d,I_d,I_p).
 $$
 
 In its selected local frame, the disk's canonical unit-speed gyroscopic matrix
