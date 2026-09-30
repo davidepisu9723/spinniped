@@ -131,6 +131,13 @@ $$
 a(t)=A\cos(\omega t)+B\sin(\omega t).
 $$
 
+![Spatial harmonic, temporal harmonic, and phase snapshots of their separated product](images/separation_of_variables.png)
+
+*Separation does not split one motion into unrelated problems. The spatial
+equation supplies a fixed mode shape, the temporal equation supplies its
+oscillating amplitude, and their product gives the displacement field at each
+instant.*
+
 Here $\beta$ is the spatial wavenumber in rad/m, while $\omega$ is the temporal
 angular frequency in rad/s. The relation $\omega=c_a\beta$ connects spatial
 wavelength to oscillation frequency through the axial wave speed.

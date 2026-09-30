@@ -2,6 +2,7 @@
 
 ## Table of contents
 
+- [How the records fit together](#how-the-records-fit-together)
 - [Record reference](#record-reference)
 - [Coordinate systems](#coordinate-systems)
 - [Spin-axis convention](#spin-axis-convention)
@@ -20,6 +21,40 @@ objects. Records refer to one another by integer IDs:
 
 `LumpedMassElement` and `LumpedMassProperty` are aliases for the corresponding
 disk records.
+
+## How the records fit together
+
+The left side of this diagram shows the ID references used by one typical
+rotor definition. The right side shows when declarative records become
+numerical arrays and, finally, analysis results.
+
+```mermaid
+flowchart LR
+    subgraph records["ID-linked definition records"]
+        direction TB
+        material["Material 1"] --> shaft_property["ShaftProperty 1"]
+        shaft_property --> shaft_element["ShaftElement"]
+        distribution["RandomDistribution 17"] --> bearing_property["BearingProperty: kxx = (17,)"]
+        bearing_property --> bearing_element["BearingElement"]
+        disk_property["DiskProperty 3"] --> disk_element["DiskElement"]
+        grids["Grid IDs"] --> shaft_element
+        grids --> bearing_element
+        grids --> disk_element
+    end
+
+    shaft_element --> definition["ModelDefinition"]
+    bearing_element --> definition
+    disk_element --> definition
+    definition --> builder["ModelBuilder<br/>resolve, validate, assemble"]
+    builder --> built["BuiltModel<br/>K, M, C, G"]
+    built --> solver["Solver"]
+    solver --> result["result arrays"]
+    result --> plots["plots"]
+```
+
+The arrows among definition records are integer references, not copied
+numerical data. `ModelBuilder` is the boundary between that declarative graph
+and the assembled numerical model.
 
 This example defines a three-grid shaft with a disk and two bearings:
 

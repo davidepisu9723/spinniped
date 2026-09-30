@@ -2,6 +2,7 @@
 
 ## Table of contents
 
+- [Reference reuse at a glance](#reference-reuse-at-a-glance)
 - [Deterministic build](#deterministic-build)
 - [Stochastic build](#stochastic-build)
 
@@ -42,6 +43,24 @@ RandomDistribution(
 
 BearingProperty(id=1, kxx=(18, 0), kyy=(18, 1))
 ```
+
+## Reference reuse at a glance
+
+Within realization `s`, the builder resolves a distribution once and stores
+the draw in a sample cache. Every field using the same reference receives that
+same value:
+
+```mermaid
+flowchart LR
+    distribution["RandomDistribution 17"] --> rng["seeded random generator"]
+    rng --> cache["sample cache: cache[s, 17] = x_s"]
+    cache --> left["left bearing: kxx = x_s"]
+    cache --> right["right bearing: kxx = x_s"]
+    next["realization s + 1"] -. new draw .-> rng
+```
+
+This is shared uncertainty, not two independent bearing draws. Use distinct
+distribution IDs when the physical parameters must vary independently.
 
 The supported families are ``"normal"``, ``"uniform"``, and
 ``"multivariate_normal"``. Schemas are strict, all parameters must be finite,

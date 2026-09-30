@@ -3,6 +3,7 @@
 ## Table of contents
 
 - [Equation and matrix convention](#equation-and-matrix-convention)
+- [Mode correspondence](#mode-correspondence)
 - [Implemented analysis routes](#implemented-analysis-routes)
 - [Critical-speed detection](#critical-speed-detection)
 - [Validation and result invariants](#validation-and-result-invariants)
@@ -46,7 +47,7 @@ $$
 f^{(s)}=\frac{\sqrt{\lambda^{(s)}}}{2\pi}.
 $$
 
-### 6.1 Mode correspondence
+## Mode correspondence
 
 Eigenvalue order alone is not a reliable physical mode label across stochastic
 samples or through a Campbell speed sweep. With `track_modes=True`, Spinniped
@@ -70,6 +71,14 @@ the state eigenvector.
 
 Mode counts must be consistent. The solver raises rather than returning ragged
 object arrays when a requested count is unavailable or result shapes differ.
+
+![Comparison of independent frequency sorting and MAC-based tracking at a modal crossing](images/mode_tracking_at_crossing.png)
+
+*Color identifies the independently sorted array column: column 0 is blue and
+column 1 is orange. Marker geometry identifies physical shape: A uses circles
+and B uses squares. Frequency sorting swaps the marker shapes between colored
+columns at the crossing, whereas MAC correspondence follows each physical
+shape through it.*
 
 ## Implemented analysis routes
 

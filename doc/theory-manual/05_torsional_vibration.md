@@ -93,6 +93,11 @@ $$
 b(t)=P\cos(\omega_t t)+Q\sin(\omega_t t).
 $$
 
+The interpretation is identical to the spatial and temporal harmonics shown
+in the [axial separation figure](04_axial_vibration.md#43-separation-of-variables-and-boundary-conditions):
+$\Psi(z)$ fixes the twist pattern and $b(t)$ changes only its instantaneous
+amplitude and sign.
+
 The fixed condition $\Psi(0)=0$ gives $D_2=0$. The torque-free condition at
 the other end is
 

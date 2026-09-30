@@ -22,6 +22,11 @@ Disk and bearing records do not contain manufacturing dimensions: disks are
 therefore shown using an equivalent radius inferred from mass and polar
 inertia, while disk width and bearing housings use conventional plot symbols.
 
+![Longitudinal section of a resolved Spinniped rotor showing the shaft mesh, end bearings, and central disk](images/rotor_longitudinal_section.png)
+
+*A resolved two-bearing rotor. Grid labels make the finite-element mesh visible
+without replacing the physical section.*
+
 ```python
 from spinniped import plot_rotor
 
@@ -68,6 +73,13 @@ figure, axes = plot_campbell(
     show_extremes=True,
 )
 ```
+
+![Stochastic Campbell diagram with modal confidence bands, sample extremes, a synchronous harmonic, critical-speed markers, and diagonal critical-speed uncertainty bars](images/stochastic_campbell.png)
+
+*Bearing-stiffness uncertainty propagated through a Campbell analysis. Solid
+curves are sample means, shaded regions are central 90% intervals, dashed
+curves are sample extremes, and the diagonal bars show critical-speed
+uncertainty along the 1x line.*
 
 The default `statistic="sample"` plots one realization selected with
 `sample=N`. Use `speed_unit="rad/s"` or `speed_unit="hz"` to change the

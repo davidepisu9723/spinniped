@@ -19,6 +19,12 @@ and disk tilt. The simplest classical Jeffcott model treats the disk as a
 point mass and retains lateral translation only; that model cannot show the
 gyroscopic splitting caused by disk rotational inertia.
 
+![Cylindrical, backward-conical, and forward-conical whirl motions with precession cones aligned to the rotor spin axis](images/whirl_motion_families.png)
+
+*The dashed horizontal line is the spin axis. In conical whirl, the tilted
+disk axis sweeps a cone coaxial with that spin axis. Spin and precession have
+the same sense for forward whirl and opposite senses for backward whirl.*
+
 ## 7.1 Assumptions
 
 - The disk is rigid and centered at $z=L/2$.

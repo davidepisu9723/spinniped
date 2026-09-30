@@ -33,3 +33,17 @@ then replaces all references from that sample cache. Repeated references
 therefore reuse exactly the same draw. A seeded NumPy generator supplies both
 scalar and multivariate draws. Invalid resolved physical values identify the
 sample and field path rather than being clipped or resampled.
+
+```mermaid
+flowchart LR
+    definition["RandomDistribution 17"] --> sampler["seeded sampler"]
+    sampler --> cache["cache[s, 17] = x_s"]
+    cache --> property_a["resolved left-bearing kxx = x_s"]
+    cache --> property_b["resolved right-bearing kxx = x_s"]
+    property_a --> matrices_a["left-bearing K and C"]
+    property_b --> matrices_b["right-bearing K and C"]
+```
+
+The cache key contains both the realization index and distribution ID.
+Reference resolution happens before element matrices are evaluated, which is
+why all consumers of one reference are coherent within that realization.

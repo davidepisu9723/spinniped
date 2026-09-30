@@ -59,6 +59,41 @@ A_{e,ab}^{\mathrm{global}},
 \qquad a,b=0,1,\ldots,11.
 $$
 
+```mermaid
+flowchart LR
+    local["Local element matrix<br/>A_e local: 12 × 12"]:::local
+    transform["Rotate into the global frame<br/>A_e global = Tᵀ A_e local T"]:::operation
+    indices["Assembly index vector<br/>i_e: 12 global DOF indices"]:::index
+    accumulate["Accumulate<br/>A[i_e, i_e] += A_e global"]:::operation
+    global["Global matrix<br/>A: 6n × 6n"]:::global
+
+    local --> transform --> accumulate --> global
+    indices --> accumulate
+
+    subgraph overlap["Example: two neighboring shaft elements"]
+        direction TB
+        element_01["Element 0–1<br/>grid blocks 00, 01, 10, 11"]:::first
+        shared["Shared grid-1 block<br/>receives += from both elements"]:::shared
+        element_12["Element 1–2<br/>grid blocks 11, 12, 21, 22"]:::second
+        element_01 --> shared
+        element_12 --> shared
+    end
+
+    global -. "block-level view" .-> overlap
+
+    classDef local fill:#d9eaf7,stroke:#2878b5,color:#27313a
+    classDef operation fill:#f4f7f9,stroke:#27313a,color:#27313a
+    classDef index fill:#fff1e6,stroke:#e07a2d,color:#27313a
+    classDef global fill:#e9e1f2,stroke:#8064a2,color:#27313a
+    classDef first fill:#d9eaf7,stroke:#2878b5,color:#27313a
+    classDef second fill:#fde5d2,stroke:#e07a2d,color:#27313a
+    classDef shared fill:#8064a2,stroke:#5c4778,color:#ffffff
+```
+
+*The transformation and index map are separate operations. Two neighboring
+12-DOF shaft elements overlap on the six DOFs of their shared grid, where
+assembly adds contributions instead of replacing the existing block.*
+
 The builder performs this operation independently for every resolved
 realization:
 

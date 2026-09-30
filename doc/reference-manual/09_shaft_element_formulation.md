@@ -67,6 +67,12 @@ The element matrix blocks are inserted through the following local index sets:
 | Bending in the $x$-$z$ plane | $[x_0, \theta_{y_0}, x_1, \theta_{y_1}]$ | `[0, 4, 6, 10]` |
 | Bending in the $y$-$z$ plane | $[y_0, \theta_{x_0}, y_1, \theta_{x_1}]$ | `[1, 3, 7, 9]` |
 
+![Single shaft element with translational and rotational degrees of freedom identified at both endpoint grids](images/shaft_element_dofs.png)
+
+*Straight arrows identify the three translations and curved arrows the three
+rotations at each grid. Both endpoint frames use the same orientation, with
+local positive z directed from grid 0 to grid 1.*
+
 The bending sign convention used in the code is:
 
 $$
