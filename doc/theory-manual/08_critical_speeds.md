@@ -94,16 +94,16 @@ Then
 | Cylindrical 1x critical speed | $1151.148135859\ \mathrm{rpm}$ |
 | Backward-conical 1x critical speed | $4699.542585350\ \mathrm{rpm}$ |
 
-The companion script computes the mode shapes and Campbell curves directly
-from the equations in this guide:
+The analytical mode shapes and Campbell curves are shown below:
 
-```bash
-python doc/theory-manual/plot_analytical_rotordynamics.py
-```
+![First stationary-shaft modes resolved into their physical degrees of freedom, beside the extended-Jeffcott Campbell diagram](images/analytical_rotordynamics.png)
 
-It writes the following figure without importing Spinniped:
-
-![Analytical stationary-shaft mode shapes and extended-Jeffcott Campbell diagram](images/analytical_rotordynamics.png)
+*The six left panels separate the normalized stationary-shaft mode components:
+axial translation $u_z$, torsional rotation $\theta_z$, transverse translations
+$x$ and $y$, and their associated bending rotations. The project sign
+convention gives $\theta_y=\partial x/\partial z$ and
+$\theta_x=-\partial y/\partial z$. Modal amplitudes and signs are arbitrary;
+the curves communicate the spatial distribution and the active DOF.*
 
 The dashed 1x line intersects the cylindrical branch and the decreasing
 conical branch at the two tabulated critical speeds.
