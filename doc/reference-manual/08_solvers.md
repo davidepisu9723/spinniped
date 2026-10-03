@@ -149,6 +149,48 @@ Campbell tracking proceeds as follows:
    matched once more to sample 0 at each speed. This gives mode position `j`
    the same sample-to-sample meaning as well as the same speedwise meaning.
 
+```mermaid
+flowchart LR
+    subgraph speed_0 [speed 0]
+        direction TB
+        s00["sample 0<br/>cell (0, 0)"]
+        ss0["sample s<br/>cell (s, 0)"]
+        s00 -.-> ss0
+    end
+
+    subgraph speed_1 [speed 1]
+        direction TB
+        s01["sample 0<br/>cell (0, 1)"]
+        ss1["sample s<br/>cell (s, 1)"]
+        s01 -.-> ss1
+    end
+
+    subgraph speed_i [speed i]
+        direction TB
+        s0i["sample 0<br/>cell (0, i)"]
+        ssi["sample s<br/>cell (s, i)"]
+        s0i -.-> ssi
+    end
+
+    speed_0 --> speed_1
+    speed_1 --> speed_i
+
+    classDef reference fill:#d9eaf7,stroke:#2878b5,color:#27313a
+    classDef candidate fill:#fff1e6,stroke:#e07a2d,color:#27313a
+    class s00,s01,s0i reference
+    class ss0,ss1,ssi candidate
+```
+
+*The Campbell result is organized as a two-dimensional grid: samples occupy the
+rows and speeds occupy the columns; each cell contains the mode vector indexed
+by `j`. Solid arrows between speed columns represent the first pass, which
+tracks modes across speeds independently in every sample. Dashed vertical
+arrows represent the second pass, which aligns each sample with sample 0 at the
+same speed. Every match is implemented by assignment, column reordering, and
+phase alignment. A
+deterministic Campbell analysis contains only the first row. Stochastic modal
+analysis is the same grid reduced to one speed column.*
+
 Tracking therefore changes array order; it does not alter an eigenvalue or
 blend two eigenvectors. The first solution still defines the branch labels. At
 an exactly repeated eigenvalue, its individual eigenvectors are not unique, so
