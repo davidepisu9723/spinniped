@@ -5,7 +5,7 @@
 - [7.1 Assumptions](#71-assumptions)
 - [7.2 Equivalent center-translation stiffness](#72-equivalent-center-translation-stiffness)
 - [7.3 Equivalent center-rotation stiffness](#73-equivalent-center-rotation-stiffness)
-- [7.4 Cylindrical translation modes](#74-cylindrical-translation-modes)
+- [7.4 Cylindrical lateral-translation modes](#74-cylindrical-lateral-translation-modes)
 - [7.5 Conical modes and gyroscopic coupling](#75-conical-modes-and-gyroscopic-coupling)
 
 A stationary shaft model does not yet explain what spin does. The next model
@@ -19,11 +19,13 @@ and disk tilt. The simplest classical Jeffcott model treats the disk as a
 point mass and retains lateral translation only; that model cannot show the
 gyroscopic splitting caused by disk rotational inertia.
 
-![Cylindrical, backward-conical, and forward-conical whirl motions with precession cones aligned to the rotor spin axis](images/whirl_motion_families.png)
+![Cylindrical lateral, backward-conical, and forward-conical whirl motions with precession cones aligned to the rotor spin axis](images/whirl_motion_families.png)
 
-*The dashed horizontal line is the spin axis. In conical whirl, the tilted
-disk axis sweeps a cone coaxial with that spin axis. Spin and precession have
-the same sense for forward whirl and opposite senses for backward whirl.*
+*The dashed horizontal line is the spin axis. Cylindrical motion is lateral
+translation: the disk center moves while its axis remains parallel to the
+undeformed shaft axis. In conical whirl, the disk axis tilts and sweeps a cone
+coaxial with the spin axis. Spin and precession have the same sense for forward
+whirl and opposite senses for backward whirl.*
 
 ## 7.1 Assumptions
 
@@ -37,6 +39,19 @@ the same sense for forward whirl and opposite senses for backward whirl.*
 
 The disk has mass $m$, equal diametral inertias $I_d$ about its local $x$ and
 $y$ axes, and polar inertia $I_p$ about its spin axis.
+
+The word *cylindrical* describes the geometry of the whirl, not a torsional
+mode. The active and excluded vibration coordinates are:
+
+| Motion | Active disk DOFs | Physical meaning |
+|---|---|---|
+| Cylindrical lateral mode | $x_d$, $y_d$ | transverse translation with shaft bending and no disk tilt |
+| Conical lateral mode | $\theta_x$, $\theta_y$ | disk tilt with shaft bending and gyroscopic coupling |
+| Axial mode, excluded here | $z_d$ | translation along the shaft axis |
+| Torsional mode, excluded here | $\theta_z$ | oscillatory twist about the shaft axis |
+
+The prescribed spin $\Omega$ is a steady rotation about $z$; it is not an
+oscillatory torsional coordinate $\theta_z$.
 
 ## 7.2 Equivalent center-translation stiffness
 
@@ -156,9 +171,12 @@ $$
 $k_r$ has units $\mathrm{N\,m/rad}$; radians are dimensionless in the
 equations.
 
-## 7.4 Cylindrical translation modes
+## 7.4 Cylindrical lateral-translation modes
 
-The disk translations $x_d$ and $y_d$ satisfy two identical equations:
+The active coordinates are the transverse disk translations $x_d$ and $y_d$.
+The shaft bends to provide their restoring stiffness, so this is a lateral or
+flexural modal family, not a torsional one. The two coordinates satisfy
+identical equations:
 
 $$
 m\ddot x_d+k_tx_d=0,
@@ -166,7 +184,8 @@ m\ddot x_d+k_tx_d=0,
 m\ddot y_d+k_ty_d=0.
 $$
 
-Therefore the cylindrical pair has the spin-independent frequency
+Therefore the two degenerate cylindrical lateral modes have the
+spin-independent frequency
 
 $$
 \boxed{
@@ -176,8 +195,10 @@ f_t=\frac{1}{2\pi}\sqrt{\frac{k_t}{m}}
 }.
 $$
 
-The motion is called cylindrical because the disk axis translates without
-tilting in this reduced model.
+One mode can translate in $x$ and the other in $y$. Because the rotor is
+isotropic, any linear combination is also possible, including circular whirl.
+During that whirl the disk axis translates without tilting and sweeps a
+cylindrical surface, which gives the family its name.
 
 ## 7.5 Conical modes and gyroscopic coupling
 
@@ -265,3 +286,7 @@ The branches are degenerate at zero speed. As $\Omega$ grows, polar inertia
 $I_p$ produces the gyroscopic separation. Diametral inertia $I_d$ supplies the
 tilt inertia even at rest. This is why a point-mass Jeffcott model cannot
 represent conical splitting.
+
+These are modal frequencies evaluated at prescribed spin speeds.
+[Chapter 8](08_critical_speeds.md) uses them to find the critical speeds where
+$\omega_j(\Omega)=h\Omega$.
