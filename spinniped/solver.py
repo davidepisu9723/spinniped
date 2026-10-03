@@ -354,9 +354,10 @@ class Solver:
         track_modes : bool, optional
             Track branches across speeds and stochastic samples using the MAC.
         harmonics : array_like or None, optional
-            Positive synchronous-excitation ratios for critical-speed
-            detection. Crossings are linearly interpolated only between the
-            supplied speed points; the solver never refines the speed grid.
+            Positive harmonic indices for critical-speed detection. For index
+            ``h``, the synchronous line is ``h * speed / (2*pi)``. Crossings
+            are linearly interpolated only between the supplied speed points;
+            the solver never refines the speed grid.
 
         Returns
         -------
@@ -381,8 +382,8 @@ class Solver:
         requested_modes = self._validate_modes(modes)
         if not isinstance(track_modes, bool):
             raise TypeError("track_modes must be a boolean")
-        harmonic_ratios = self._validate_harmonics(harmonics)
-        if harmonic_ratios.size:
+        harmonic_indices = self._validate_harmonics(harmonics)
+        if harmonic_indices.size:
             if not track_modes:
                 raise ValueError(
                     "critical-speed calculation requires track_modes=True"
@@ -519,7 +520,7 @@ class Solver:
         critical_speeds, critical_speed_counts = self._critical_speeds(
             angular_speeds,
             frequencies,
-            harmonic_ratios,
+            harmonic_indices,
         )
 
         # Report speed in both angular and cyclic units for clear comparisons.
@@ -530,7 +531,7 @@ class Solver:
             "frequencies": frequencies,
             "eigenvectors": eigenvectors,
             "track_modes": track_modes,
-            "harmonics": harmonic_ratios,
+            "harmonics": harmonic_indices,
             "critical_speeds": critical_speeds,
             "critical_speeds_hz": critical_speeds / (2.0 * np.pi),
             "critical_speed_counts": critical_speed_counts,
@@ -538,7 +539,7 @@ class Solver:
 
     @staticmethod
     def _validate_harmonics(harmonics):
-        """Return validated positive synchronous-excitation ratios."""
+        """Return validated positive harmonic indices."""
         if harmonics is None:
             return np.empty(0, dtype=float)
         if isinstance(harmonics, (bool, np.bool_)):
@@ -547,28 +548,30 @@ class Solver:
             )
 
         try:
-            raw_ratios = np.asarray(harmonics, dtype=object)
+            raw_harmonics = np.asarray(harmonics, dtype=object)
             if any(
                 isinstance(value, (bool, np.bool_))
-                for value in raw_ratios.flat
+                for value in raw_harmonics.flat
             ):
                 raise TypeError
-            ratios = np.asarray(harmonics, dtype=float)
+            harmonic_indices = np.asarray(harmonics, dtype=float)
         except (TypeError, ValueError):
             raise TypeError(
                 "harmonics must contain only positive finite numbers"
             ) from None
-        if ratios.ndim == 0:
-            ratios = ratios.reshape(1)
-        if ratios.ndim != 1:
+        if harmonic_indices.ndim == 0:
+            harmonic_indices = harmonic_indices.reshape(1)
+        if harmonic_indices.ndim != 1:
             raise ValueError("harmonics must be a one-dimensional sequence")
-        if not ratios.size:
-            return ratios
-        if not np.isfinite(ratios).all() or np.any(ratios <= 0.0):
+        if not harmonic_indices.size:
+            return harmonic_indices
+        if not np.isfinite(harmonic_indices).all() or np.any(
+            harmonic_indices <= 0.0
+        ):
             raise ValueError("harmonics must contain positive finite values")
-        if len(np.unique(ratios)) != len(ratios):
-            raise ValueError("harmonics must not contain duplicate ratios")
-        return ratios
+        if len(np.unique(harmonic_indices)) != len(harmonic_indices):
+            raise ValueError("harmonics must not contain duplicate indices")
+        return harmonic_indices
 
     @staticmethod
     def _critical_speeds(speeds, frequencies, harmonics):
@@ -592,8 +595,8 @@ class Solver:
         )
 
         for sample in range(sample_count):
-            for harmonic_index, ratio in enumerate(harmonics):
-                synchronous = ratio * speeds / (2.0 * np.pi)
+            for harmonic_position, h in enumerate(harmonics):
+                synchronous = h * speeds / (2.0 * np.pi)
                 for mode in range(mode_count):
                     residual = frequencies[sample, :, mode] - synchronous
                     scale = max(float(np.max(np.abs(residual))), 1.0)
@@ -641,8 +644,10 @@ class Solver:
                         ):
                             unique_roots.append(root)
 
-                    crossing_lists[sample][harmonic_index][mode] = unique_roots
-                    counts[sample, harmonic_index, mode] = len(unique_roots)
+                    crossing_lists[sample][harmonic_position][mode] = (
+                        unique_roots
+                    )
+                    counts[sample, harmonic_position, mode] = len(unique_roots)
 
         maximum_crossings = int(counts.max(initial=0))
         critical_speeds = np.full(
@@ -655,12 +660,12 @@ class Solver:
             np.nan,
         )
         for sample in range(sample_count):
-            for harmonic_index in range(harmonic_count):
+            for harmonic_position in range(harmonic_count):
                 for mode in range(mode_count):
-                    roots = crossing_lists[sample][harmonic_index][mode]
+                    roots = crossing_lists[sample][harmonic_position][mode]
                     critical_speeds[
                         sample,
-                        harmonic_index,
+                        harmonic_position,
                         mode,
                         : len(roots),
                     ] = roots

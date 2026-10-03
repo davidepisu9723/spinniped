@@ -55,6 +55,7 @@ circular shaft but different displacement--rotation coupling signs.
 | $\Omega$ | shaft spin speed | rad/s |
 | $\omega$ | vibration circular frequency | rad/s |
 | $f$ | vibration cyclic frequency, $\omega/(2\pi)$ | Hz |
+| $h$ | synchronous harmonic index | dimensionless |
 
 $J$ is a *geometric* section property, whereas $I_d$ and $I_p$ are *mass*
 moments of inertia. Their similar names should not be allowed to hide their

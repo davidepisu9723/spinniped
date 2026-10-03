@@ -96,8 +96,8 @@ at each speed and can exchange physical identity at a crossing.
 
 ## Synchronous harmonics and critical speeds
 
-Request the desired ratios during the Campbell solution, then enable their
-display in the plot:
+Request the desired harmonic indices $h$ during the Campbell solution, then
+enable their display in the plot:
 
 ```python
 result = solver.solve(
@@ -136,7 +136,7 @@ extremes are displayed.
 
 Set `show_critical_samples=True` to add every finite realization as a faint
 point. Samples without that crossing are omitted rather than converted to
-zero. Because frequency at a critical point is fixed by the harmonic ratio,
+zero. Because frequency at a critical point is fixed by the harmonic index,
 uncertainty lies along the synchronous line; the plot therefore uses a line
 error bar rather than a two-dimensional ellipse.
 

@@ -381,7 +381,7 @@ counts, and fill the absent sample's crossing axis with `NaN`.
 
 #### `test_campbell_validates_critical_speed_options`
 
-Rejects nonpositive and duplicate harmonic ratios, disabled mode tracking,
+Rejects nonpositive and duplicate harmonic indices, disabled mode tracking,
 and a descending speed sequence. These conditions prevent ambiguous physical-mode
 association or ordered interpolation before the state eigensolutions begin.
 

@@ -7,13 +7,15 @@
 - [8.3 Worked extended-Jeffcott result](#83-worked-extended-jeffcott-result)
 
 A Campbell diagram plots modal frequency vertically against rotor speed
-horizontally. A synchronous, or 1x, excitation has cyclic frequency
+horizontally. A synchronous excitation with harmonic index $h$ has cyclic
+frequency
 
 $$
-f_{1x}=\frac{\Omega}{2\pi}.
+f_h(\Omega)=\frac{h\Omega}{2\pi}.
 $$
 
-An ideal critical speed occurs where this line meets a modal branch.
+The 1x line corresponds to $h=1$. An ideal critical speed occurs where the
+selected harmonic line meets a modal branch.
 
 ## 8.1 Cylindrical critical speed
 

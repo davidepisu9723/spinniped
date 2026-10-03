@@ -96,7 +96,7 @@ Its analysis-specific results are:
 - `eigenvectors`: complex state vectors, shape
   `(samples, speeds, 2*free_dofs, modes)`;
 - `track_modes`: whether MAC-based branch tracking was enabled;
-- `harmonics`: requested positive synchronous ratios, shape `(harmonics,)`;
+- `harmonics`: requested positive harmonic indices $h$, shape `(harmonics,)`;
 - `critical_speeds`: interpolated angular speeds in rad/s, shape
   `(samples, harmonics, modes, crossings)`;
 - `critical_speeds_hz`: the same values divided by $2\pi$;
@@ -120,7 +120,8 @@ When `harmonics` is supplied, critical speeds are intersections between each
 tracked modal branch and
 
 $$
-f_r(\Omega)=\frac{r\Omega}{2\pi}.
+f_h(\Omega)=\frac{h\Omega}{2\pi},
+\qquad h>0.
 $$
 
 The solver detects exact intersections at sampled speeds and sign changes

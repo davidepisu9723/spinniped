@@ -245,13 +245,13 @@ the equivalent first-order system with SciPy.
 
 ## Critical-speed detection
 
-Campbell analysis optionally accepts positive, unique `harmonics`. For sample
-$s$, tracked mode $m$, and ratio $r$, the implementation evaluates the
-residual at each sampled speed
+Campbell analysis optionally accepts positive, unique harmonic indices $h$
+through `harmonics`. For sample $s$, tracked mode $m$, and harmonic index $h$,
+the implementation evaluates the residual at each sampled speed
 
 $$
-g_{s,m,r}(\Omega_i)=
-f_{s,m}(\Omega_i)-\frac{r\Omega_i}{2\pi}.
+g_{s,m,h}(\Omega_i)=
+f_{s,m}(\Omega_i)-\frac{h\Omega_i}{2\pi}.
 $$
 
 An exact zero stores $\Omega_i$. Opposite signs at adjacent sampled speeds

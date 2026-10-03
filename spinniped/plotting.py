@@ -394,8 +394,9 @@ def plot_campbell(
     legend : bool, optional
         Draw a legend containing one label per modal branch.
     show_harmonics : bool, optional
-        Plot the synchronous harmonic ratios requested during the Campbell
-        solution. The result must contain critical-speed data.
+        Plot the synchronous harmonic indices requested during the Campbell
+        solution. For index ``h``, the plotted frequency is
+        ``h * speed / (2*pi)``. The result must contain critical-speed data.
     show_critical_speeds : bool, optional
         Mark critical speeds when synchronous harmonics are shown. Sample mode
         marks the selected realization. Mean mode also draws capped diagonal
@@ -488,29 +489,29 @@ def plot_campbell(
             "show_critical_samples requires show_critical_speeds=True"
         )
 
-    harmonic_ratios = np.empty(0)
+    harmonic_indices = np.empty(0)
     critical_speeds = None
     if show_harmonics:
         if result.get("track_modes") is not True:
             raise ValueError(
                 "critical-speed plotting requires tracked Campbell modes"
             )
-        harmonic_ratios = np.asarray(result.get("harmonics"), dtype=float)
+        harmonic_indices = np.asarray(result.get("harmonics"), dtype=float)
         critical_speeds = np.asarray(
             result.get("critical_speeds"), dtype=float
         )
         if (
-            harmonic_ratios.ndim != 1
-            or not harmonic_ratios.size
-            or not np.isfinite(harmonic_ratios).all()
-            or np.any(harmonic_ratios <= 0.0)
+            harmonic_indices.ndim != 1
+            or not harmonic_indices.size
+            or not np.isfinite(harmonic_indices).all()
+            or np.any(harmonic_indices <= 0.0)
         ):
             raise ValueError(
-                "result must contain positive Campbell harmonic ratios"
+                "result must contain positive Campbell harmonic indices"
             )
         expected_prefix = (
             frequencies.shape[0],
-            len(harmonic_ratios),
+            len(harmonic_indices),
             frequencies.shape[2],
         )
         if (
@@ -590,14 +591,14 @@ def plot_campbell(
             )
 
     if show_harmonics:
-        for harmonic_index, ratio in enumerate(harmonic_ratios):
+        for harmonic_position, h in enumerate(harmonic_indices):
             axes.plot(
                 plotted_speeds,
-                ratio * speeds / (2.0 * np.pi),
+                h * speeds / (2.0 * np.pi),
                 color="#303030",
-                linestyle=(0, (5, 2 + harmonic_index % 3)),
+                linestyle=(0, (5, 2 + harmonic_position % 3)),
                 linewidth=1.0,
-                label=f"{ratio:g}x synchronous",
+                label=f"{h:g}x synchronous",
                 zorder=1,
             )
 
@@ -609,24 +610,24 @@ def plot_campbell(
                 confidence=confidence,
             )
 
-            for harmonic_index, ratio in enumerate(harmonic_ratios):
+            for harmonic_position, h in enumerate(harmonic_indices):
                 for mode_index, color in enumerate(mode_colors):
                     for crossing_index in range(critical_speeds.shape[3]):
                         critical_speed = critical_statistics["central"][
-                            harmonic_index, mode_index, crossing_index
+                            harmonic_position, mode_index, crossing_index
                         ]
                         if not np.isfinite(critical_speed):
                             continue
 
                         crossing_label = (
-                            f"Mode {mode_index + 1} {ratio:g}x critical"
+                            f"Mode {mode_index + 1} {h:g}x critical"
                         )
                         if critical_speeds.shape[3] > 1:
                             crossing_label += f" #{crossing_index + 1}"
 
                         critical_artist = axes.plot(
                             convert_speed(critical_speed),
-                            ratio * critical_speed / (2.0 * np.pi),
+                            h * critical_speed / (2.0 * np.pi),
                             marker="o",
                             linestyle="none",
                             markersize=6.0,
@@ -636,22 +637,22 @@ def plot_campbell(
                             zorder=6,
                         )[0]
                         critical_artist.set_gid(
-                            f"critical-h{harmonic_index}-m{mode_index}-"
+                            f"critical-h{harmonic_position}-m{mode_index}-"
                             f"c{crossing_index}"
                         )
 
                         lower_speed = upper_speed = None
                         if confidence is not None:
                             lower_speed = critical_statistics["lower"][
-                                harmonic_index, mode_index, crossing_index
+                                harmonic_position, mode_index, crossing_index
                             ]
                             upper_speed = critical_statistics["upper"][
-                                harmonic_index, mode_index, crossing_index
+                                harmonic_position, mode_index, crossing_index
                             ]
                         elif statistic == "mean":
                             deviation = critical_statistics[
                                 "standard_deviation"
-                            ][harmonic_index, mode_index, crossing_index]
+                            ][harmonic_position, mode_index, crossing_index]
                             lower_speed = critical_speed - deviation
                             upper_speed = critical_speed + deviation
 
@@ -666,7 +667,7 @@ def plot_campbell(
                             )
                             spread_x = convert_speed(spread_speeds)
                             spread_y = (
-                                ratio * spread_speeds / (2.0 * np.pi)
+                                h * spread_speeds / (2.0 * np.pi)
                             )
                             spread_artist = FancyArrowPatch(
                                 (spread_x[0], spread_y[0]),
@@ -680,23 +681,21 @@ def plot_campbell(
                                 zorder=4,
                             )
                             spread_artist.set_gid(
-                                f"critical-spread-h{harmonic_index}-"
+                                f"critical-spread-h{harmonic_position}-"
                                 f"m{mode_index}-c{crossing_index}"
                             )
                             axes.add_patch(spread_artist)
 
                         if show_critical_samples:
                             sample_speeds = critical_speeds[
-                                :, harmonic_index, mode_index, crossing_index
+                                :, harmonic_position, mode_index, crossing_index
                             ]
                             sample_speeds = sample_speeds[
                                 np.isfinite(sample_speeds)
                             ]
                             axes.scatter(
                                 convert_speed(sample_speeds),
-                                ratio
-                                * sample_speeds
-                                / (2.0 * np.pi),
+                                h * sample_speeds / (2.0 * np.pi),
                                 color=color,
                                 s=12.0,
                                 alpha=0.3,

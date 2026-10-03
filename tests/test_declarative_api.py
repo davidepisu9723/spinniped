@@ -330,7 +330,7 @@ def test_campbell_solver_returns_modes_at_every_speed():
 
 
 def test_campbell_calculates_sampled_speed_interpolated_critical_speeds():
-    """Verify tracked branches intersect requested harmonic ratios."""
+    """Verify tracked branches intersect requested harmonic indices."""
     natural_frequency = 10.0
     stiffness = (2.0 * np.pi * natural_frequency) ** 2
     definition = ModelDefinition(
