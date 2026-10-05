@@ -12,11 +12,14 @@ from .records import (
     DiskElement,
     DiskProperty,
     Grid,
+    HarmonicLoad,
     Material,
     ModelDefinition,
     RandomDistribution,
+    RotatingLoad,
     ShaftElement,
     ShaftProperty,
+    Unbalance,
 )
 
 
@@ -814,6 +817,11 @@ def _assemble(definition):
         "element",
         (ShaftElement, BearingElement, DiskElement),
     )
+    loads = _unique(
+        definition.loads,
+        "load",
+        (HarmonicLoad, RotatingLoad, Unbalance),
+    )
 
     # Record insertion order determines global grid and DOF order.
     grid_ids = tuple(grids)
@@ -877,6 +885,100 @@ def _assemble(definition):
         if isinstance(value, bool) or not isinstance(value, int):
             raise TypeError(f"{label} must be an integer ID")
         return value
+
+    def finite_scalar(value, label):
+        """Return one finite real scalar used by a load record."""
+        if isinstance(value, (bool, np.bool_)):
+            raise TypeError(f"{label} must be a real scalar")
+        try:
+            scalar = np.asarray(value, dtype=float)
+        except (TypeError, ValueError) as error:
+            raise TypeError(f"{label} must be a real scalar") from error
+        if scalar.shape != ():
+            raise ValueError(f"{label} must be a scalar")
+        if not np.isfinite(scalar):
+            raise ValueError(f"{label} must be finite")
+        return float(scalar)
+
+    def finite_vector(value, label):
+        """Return one finite three-component vector used by a load record."""
+        try:
+            vector = np.asarray(value, dtype=float)
+        except (TypeError, ValueError) as error:
+            raise TypeError(
+                f"{label} must contain only real numeric values"
+            ) from error
+        if vector.shape != (3,):
+            raise ValueError(f"{label} must contain three components")
+        if not np.isfinite(vector).all():
+            raise ValueError(f"{label} must contain only finite values")
+        return vector
+
+    # Validate declarative excitations without adding them to structural
+    # matrices. Solvers will later assemble their sample-specific load vectors.
+    for load in loads.values():
+        integer_reference(load.grid, f"Load {load.id} grid")
+        integer_reference(
+            load.coordinate_system,
+            f"Load {load.id} coordinate_system",
+        )
+        if load.grid not in grid_index:
+            raise ValueError(
+                f"Load {load.id} references unknown grid {load.grid}"
+            )
+        if load.coordinate_system not in coordinate_systems:
+            raise ValueError(
+                f"Load {load.id} references unknown coordinate system "
+                f"{load.coordinate_system}"
+            )
+
+        finite_scalar(load.phase, f"Load {load.id} phase")
+
+        if isinstance(load, HarmonicLoad):
+            finite_vector(load.force, f"Harmonic load {load.id} force")
+            finite_vector(load.moment, f"Harmonic load {load.id} moment")
+
+        elif isinstance(load, RotatingLoad):
+            magnitude = finite_scalar(
+                load.force_magnitude,
+                f"Rotating load {load.id} force_magnitude",
+            )
+            if magnitude < 0.0:
+                raise ValueError(
+                    f"Rotating load {load.id} force_magnitude must be "
+                    "nonnegative"
+                )
+            if not isinstance(load.sense, str):
+                raise TypeError(
+                    f"Rotating load {load.id} sense must be a string"
+                )
+            if load.sense not in {"positive", "negative"}:
+                raise ValueError(
+                    f"Rotating load {load.id} sense must be 'positive' "
+                    "or 'negative'"
+                )
+
+        elif isinstance(load, Unbalance):
+            mass_eccentricity = finite_scalar(
+                load.mass_eccentricity,
+                f"Unbalance {load.id} mass_eccentricity",
+            )
+            if mass_eccentricity < 0.0:
+                raise ValueError(
+                    f"Unbalance {load.id} mass_eccentricity must be "
+                    "nonnegative"
+                )
+
+            # The load frame supplies phase zero, but its transverse plane
+            # must be the rotor plane. Parallel and antiparallel z axes are
+            # physically equivalent and their sign can set the later phasor.
+            load_axis = coordinate_systems[load.coordinate_system][1][:, 2]
+            alignment = abs(float(load_axis @ spin_axis))
+            if not np.isclose(alignment, 1.0, rtol=1.0e-10, atol=1.0e-12):
+                raise ValueError(
+                    f"Unbalance {load.id} coordinate-system z-axis must be "
+                    "parallel to spin_axis"
+                )
 
     # Assemble each declarative element record.
     for element in definition.elements:

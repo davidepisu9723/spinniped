@@ -26,6 +26,7 @@ and plotting behavior. It intentionally does not teach the public API workflow.
 10. [Plotting implementation](10_plotting.md)
 11. [Symbols and units](11_symbols_and_units.md)
 12. [Development notes](12_development_notes.md)
+13. [Load records](13_load_records.md)
 
 ## Other manuals
 

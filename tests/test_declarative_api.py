@@ -1,21 +1,27 @@
 """End-to-end tests for records, random sampling, and the unified solver."""
 
+from dataclasses import FrozenInstanceError
+
 import numpy as np
 import pytest
 
 from spinniped import (
     BearingElement,
     BearingProperty,
+    CoordinateSystem,
     DiskElement,
     DiskProperty,
     Grid,
+    HarmonicLoad,
     Material,
     ModelBuilder,
     ModelDefinition,
     RandomDistribution,
+    RotatingLoad,
     ShaftElement,
     ShaftProperty,
     Solver,
+    Unbalance,
     build_model,
 )
 
@@ -99,6 +105,185 @@ def _rotor_definition(*, random=False):
         ],
         distributions=distributions,
     )
+
+
+def test_load_records_are_public_immutable_declarative_data():
+    """Verify load schemas, defaults, frozen storage, and list isolation."""
+    harmonic = HarmonicLoad(
+        1,
+        grid=2,
+        force=(1.0, -2.0, 3.0),
+        moment=(4.0, 5.0, -6.0),
+        phase=0.25,
+    )
+    rotating = RotatingLoad(2, grid=2, force_magnitude=10.0)
+    unbalance = Unbalance(3, grid=2, mass_eccentricity=2.0e-4)
+
+    assert harmonic.force == (1.0, -2.0, 3.0)
+    assert harmonic.moment == (4.0, 5.0, -6.0)
+    assert harmonic.phase == 0.25
+    assert harmonic.coordinate_system == 0
+    assert rotating.phase == 0.0
+    assert rotating.sense == "positive"
+    assert rotating.coordinate_system == 0
+    assert unbalance.phase == 0.0
+    assert unbalance.coordinate_system == 0
+    assert not hasattr(harmonic, "__dict__")
+
+    with pytest.raises(FrozenInstanceError):
+        harmonic.phase = 1.0
+
+    first = ModelDefinition()
+    second = ModelDefinition()
+    first.loads.append(harmonic)
+    assert second.loads == []
+
+
+def test_builder_resolves_and_preserves_declarative_loads():
+    """Verify load references share the ordinary parameter-resolution path."""
+    definition = _rotor_definition()
+    definition.distributions.extend(
+        [
+            RandomDistribution(
+                20,
+                "harmonic force",
+                "normal",
+                {"mean": 12.0, "stdv": 1.0},
+            ),
+            RandomDistribution(
+                21,
+                "unbalance",
+                "uniform",
+                {"low": 1.0e-4, "high": 3.0e-4},
+            ),
+        ]
+    )
+    definition.loads.extend(
+        [
+            HarmonicLoad(1, grid=2, force=((20,), 0.0, 0.0)),
+            RotatingLoad(2, grid=2, force_magnitude=(20,), sense="negative"),
+            Unbalance(3, grid=2, mass_eccentricity=(21,), phase=0.5),
+        ]
+    )
+
+    baseline = ModelBuilder().build(_rotor_definition())
+    model = ModelBuilder().build(definition)
+    resolved = model.definitions[0].loads
+
+    assert resolved[0].force == (12.0, 0.0, 0.0)
+    assert resolved[1].force_magnitude == 12.0
+    assert resolved[1].sense == "negative"
+    assert resolved[2].mass_eccentricity == pytest.approx(2.0e-4)
+    assert np.array_equal(model.K, baseline.K)
+    assert np.array_equal(model.M, baseline.M)
+    assert np.array_equal(model.C, baseline.C)
+    assert np.array_equal(model.G, baseline.G)
+
+
+@pytest.mark.parametrize(
+    ("loads", "exception", "message"),
+    [
+        ([DiskElement(9, 2, 3)], TypeError, "Every load record"),
+        (
+            [
+                HarmonicLoad(1, grid=2),
+                RotatingLoad(1, grid=2, force_magnitude=1.0),
+            ],
+            ValueError,
+            "Duplicate load ID",
+        ),
+        ([HarmonicLoad(1, grid=99)], ValueError, "unknown grid"),
+        (
+            [HarmonicLoad(1, grid=2, coordinate_system=99)],
+            ValueError,
+            "unknown coordinate system",
+        ),
+        (
+            [HarmonicLoad(1, grid=2, force=(1.0, 2.0))],
+            ValueError,
+            "three components",
+        ),
+        (
+            [HarmonicLoad(1, grid=2, moment=(0.0, np.inf, 0.0))],
+            ValueError,
+            "finite values",
+        ),
+        (
+            [HarmonicLoad(1, grid=2, phase=np.nan)],
+            ValueError,
+            "phase must be finite",
+        ),
+        (
+            [RotatingLoad(1, grid=2, force_magnitude=-1.0)],
+            ValueError,
+            "force_magnitude must be nonnegative",
+        ),
+        (
+            [RotatingLoad(1, grid=2, force_magnitude=1.0, sense="forward")],
+            ValueError,
+            "sense must be 'positive' or 'negative'",
+        ),
+        (
+            [Unbalance(1, grid=2, mass_eccentricity=-1.0e-4)],
+            ValueError,
+            "mass_eccentricity must be nonnegative",
+        ),
+    ],
+)
+def test_builder_rejects_invalid_load_records(loads, exception, message):
+    """Verify load records have valid IDs, references, and physical data."""
+    definition = _rotor_definition()
+    definition.loads.extend(loads)
+
+    with pytest.raises(exception, match=message):
+        ModelBuilder().build(definition)
+
+
+def test_unbalance_plane_must_be_normal_to_the_spin_axis():
+    """Verify an unbalance coordinate frame describes the rotor plane."""
+    definition = _rotor_definition()
+    definition.coordinate_systems.append(
+        CoordinateSystem(
+            10,
+            x_axis=(0.0, 1.0, 0.0),
+            xy_plane=(0.0, 0.0, 1.0),
+        )
+    )
+    definition.loads.append(
+        Unbalance(
+            1,
+            grid=2,
+            mass_eccentricity=1.0e-4,
+            coordinate_system=10,
+        )
+    )
+
+    with pytest.raises(ValueError, match="z-axis must be parallel"):
+        ModelBuilder().build(definition)
+
+
+def test_unbalance_plane_accepts_an_antiparallel_frame_axis():
+    """Verify either normal direction can describe the same rotor plane."""
+    definition = _rotor_definition()
+    definition.coordinate_systems.append(
+        CoordinateSystem(
+            10,
+            x_axis=(1.0, 0.0, 0.0),
+            xy_plane=(0.0, -1.0, 0.0),
+        )
+    )
+    definition.loads.append(
+        Unbalance(
+            1,
+            grid=2,
+            mass_eccentricity=1.0e-4,
+            coordinate_system=10,
+        )
+    )
+
+    model = ModelBuilder().build(definition)
+
+    assert model.definitions[0].loads == definition.loads
 
 
 def test_deterministic_build_resolves_every_distribution_to_its_mean():

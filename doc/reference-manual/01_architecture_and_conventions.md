@@ -13,6 +13,7 @@ The public model definition consists of immutable records:
 Grid, CoordinateSystem, Material
 ShaftProperty, BearingProperty, DiskProperty
 ShaftElement, BearingElement, DiskElement
+HarmonicLoad, RotatingLoad, Unbalance
 ```
 
 These records store identifiers, connectivity, and Python-valued parameters.
@@ -20,6 +21,10 @@ They do not own or calculate element matrices. `ModelBuilder` resolves all
 parameters, calculates local matrices using the functions in
 `spinniped.stiffness`, `spinniped.mass`, `spinniped.damping`, and
 `spinniped.gyroscopic`, transforms them, and assembles the global matrices.
+
+Load records are resolved and validated with the other definition records but
+do not contribute to the structural matrices. They remain attached to each
+resolved definition for later analysis-specific force assembly.
 
 A deterministic build has one realization. A stochastic build has $n_s$
 Monte Carlo realizations. Global numerical arrays therefore always retain a

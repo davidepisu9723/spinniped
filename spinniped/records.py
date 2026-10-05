@@ -12,6 +12,7 @@ from typing import TypeAlias
 
 RandomReference: TypeAlias = tuple[int] | tuple[int, int]
 Parameter: TypeAlias = int | float | RandomReference
+Vector3: TypeAlias = tuple[Parameter, Parameter, Parameter]
 
 
 @dataclass(frozen=True, slots=True)
@@ -273,9 +274,113 @@ class DiskElement:
 # A lumped-mass element is an alias with identical storage and behavior.
 LumpedMassElement = DiskElement
 
-# These unions document valid contents of model property and element lists.
+
+# Loads are independent records even where their physical behavior is related.
+# Keeping them as peers makes their different amplitude laws explicit: a
+# harmonic load has fixed signed components, a rotating load has a fixed
+# circular-force magnitude, and unbalance scales with rotor speed squared.
+@dataclass(frozen=True, slots=True)
+class HarmonicLoad:
+    """Define a fixed-amplitude harmonic nodal load.
+
+    Parameters
+    ----------
+    id : int
+        Unique load identifier.
+    grid : int
+        ID of the grid where the load is applied.
+    force : tuple, optional
+        Signed peak force amplitudes ``(fx, fy, fz)`` in the selected
+        coordinate system, in force units.
+    moment : tuple, optional
+        Signed peak moment amplitudes ``(mx, my, mz)`` in the selected
+        coordinate system, in force-length units.
+    phase : int, float, or tuple, optional
+        Common phase angle in radians.
+    coordinate_system : int, optional
+        ID of the frame in which force and moment components are expressed.
+
+    Notes
+    -----
+    The future harmonic-response assembly uses the convention
+    ``p(t) = Re(p_hat * exp(i * omega * t))``. All six components share
+    ``phase``; multiple records can represent components with different
+    phases.
+    """
+
+    id: int
+    grid: int
+    force: Vector3 = (0.0, 0.0, 0.0)
+    moment: Vector3 = (0.0, 0.0, 0.0)
+    phase: Parameter = 0.0
+    coordinate_system: int = 0
+
+
+@dataclass(frozen=True, slots=True)
+class RotatingLoad:
+    """Define a constant-magnitude circular rotating force.
+
+    Parameters
+    ----------
+    id : int
+        Unique load identifier.
+    grid : int
+        ID of the grid where the force is applied.
+    force_magnitude : int, float, or tuple
+        Nonnegative peak radial force magnitude.
+    phase : int, float, or tuple, optional
+        Initial angle in radians from the selected frame's positive x-axis.
+    sense : {"positive", "negative"}, optional
+        Rotation sense about the selected frame's positive z-axis. Positive
+        rotation proceeds from positive x toward positive y.
+    coordinate_system : int, optional
+        ID of the frame whose x-y plane contains the rotating force.
+    """
+
+    id: int
+    grid: int
+    force_magnitude: Parameter
+    phase: Parameter = 0.0
+    sense: str = "positive"
+    coordinate_system: int = 0
+
+
+@dataclass(frozen=True, slots=True)
+class Unbalance:
+    """Define a synchronous mass-unbalance excitation.
+
+    Parameters
+    ----------
+    id : int
+        Unique load identifier.
+    grid : int
+        ID of the grid carrying the unbalance.
+    mass_eccentricity : int, float, or tuple
+        Nonnegative unbalance magnitude ``m * e`` in mass-length units.
+    phase : int, float, or tuple, optional
+        Eccentricity angle in radians from the selected frame's positive
+        x-axis.
+    coordinate_system : int, optional
+        ID of the frame whose x-y plane is the unbalance plane.
+
+    Notes
+    -----
+    Unbalance is a synchronous rotating force with magnitude
+    ``mass_eccentricity * speed**2``. Its rotation follows the rotor rather
+    than defining an independent sense.
+    """
+
+    id: int
+    grid: int
+    mass_eccentricity: Parameter
+    phase: Parameter = 0.0
+    coordinate_system: int = 0
+
+
+# These unions document valid contents of model record lists.
 Property: TypeAlias = ShaftProperty | BearingProperty | DiskProperty
 Element: TypeAlias = ShaftElement | BearingElement | DiskElement
+Load: TypeAlias = HarmonicLoad | RotatingLoad | Unbalance
 
 
 @dataclass(frozen=True, slots=True)
@@ -298,6 +403,8 @@ class ModelDefinition:
         Registered probability distributions referenced by numeric fields.
     spin_axis : tuple, optional
         Global rotor spin direction. The builder normalizes this vector.
+    loads : list of load records, optional
+        Harmonic, rotating, and unbalance excitations associated with grids.
     """
 
     # Default factories prevent model instances from sharing mutable lists.
@@ -308,3 +415,5 @@ class ModelDefinition:
     elements: list[Element] = field(default_factory=list)
     distributions: list[RandomDistribution] = field(default_factory=list)
     spin_axis: tuple[Parameter, Parameter, Parameter] = (0.0, 0.0, 1.0)
+    # Appended to preserve the positional order of the pre-existing fields.
+    loads: list[Load] = field(default_factory=list)

@@ -343,6 +343,38 @@ Passes a dictionary instead of the public `ModelDefinition` root record. The
 builder must raise `TypeError`, making the supported declarative boundary
 explicit rather than accepting loosely shaped mappings.
 
+#### `test_load_records_are_public_immutable_declarative_data`
+
+Constructs harmonic, circular rotating, and unbalance records through the
+package root. It checks their component, phase, sense, and coordinate-system
+defaults, verifies frozen slotted storage, and confirms that separate
+`ModelDefinition` instances do not share a mutable load list.
+
+#### `test_builder_resolves_and_preserves_declarative_loads`
+
+References registered distributions from harmonic-force components, rotating
+force magnitude, and mass eccentricity. A deterministic build must resolve
+those values into `BuiltModel.definitions` while leaving all four structural
+matrix families identical to a load-free model.
+
+#### `test_builder_rejects_invalid_load_records`
+
+Checks the shared load-ID namespace, accepted record types, grid and
+coordinate-system references, vector shape, finite components and phase,
+rotation sense, and nonnegative rotating-force and unbalance magnitudes.
+
+#### `test_unbalance_plane_must_be_normal_to_the_spin_axis`
+
+Defines a load frame whose local z-axis is transverse to the rotor spin axis.
+The builder must reject it because that frame's local x-y plane is not the
+physical unbalance plane.
+
+#### `test_unbalance_plane_accepts_an_antiparallel_frame_axis`
+
+Builds an unbalance whose load-frame z-axis opposes the model spin axis. The
+frame is accepted because its x-y plane is still the rotor plane; the axis
+alignment sign remains available for the later force-phasor assembly.
+
 #### `test_modal_solver_returns_real_modes_for_each_sample`
 
 Solves four modes for each of three stochastic realizations after two DOFs are

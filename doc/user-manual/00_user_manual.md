@@ -6,9 +6,9 @@
 
 Spinniped is a small finite-element toolbox for deterministic and stochastic
 rotor dynamics. Its input API follows a NASTRAN-like structure: grids,
-coordinate systems, materials, properties, and elements are immutable Python
-dataclasses whose fields contain ordinary Python values. NumPy arrays appear
-only after a definition is built into a numerical model.
+coordinate systems, materials, properties, elements, and loads are immutable
+Python dataclasses whose fields contain ordinary Python values. NumPy arrays
+appear only after a definition is built into a numerical model.
 
 The project is under active development and is intended for preliminary design,
 research, and education.

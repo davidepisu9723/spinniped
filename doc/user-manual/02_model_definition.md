@@ -17,6 +17,8 @@ objects. Records refer to one another by integer IDs:
   physical data.
 - `ShaftElement`, `BearingElement`, and `DiskElement` define connectivity and
   reference a compatible property.
+- `HarmonicLoad`, `RotatingLoad`, and `Unbalance` define nodal excitation
+  data.
 - `ModelDefinition` holds the record lists.
 
 `LumpedMassElement` and `LumpedMassProperty` are aliases for the corresponding
@@ -40,11 +42,13 @@ flowchart LR
         grids["Grid IDs"] --> shaft_element
         grids --> bearing_element
         grids --> disk_element
+        grids --> loads["HarmonicLoad / RotatingLoad / Unbalance"]
     end
 
     shaft_element --> definition["ModelDefinition"]
     bearing_element --> definition
     disk_element --> definition
+    loads --> definition
     definition --> builder["ModelBuilder<br/>resolve, validate, assemble"]
     builder --> built["BuiltModel<br/>K, M, C, G"]
     built --> solver["Solver"]
@@ -56,7 +60,8 @@ The arrows among definition records are integer references, not copied
 numerical data. `ModelBuilder` is the boundary between that declarative graph
 and the assembled numerical model.
 
-This example defines a three-grid shaft with a disk and two bearings:
+This example defines a three-grid shaft with a disk, two bearings, and two
+loads:
 
 ```python
 from spinniped import (
@@ -65,11 +70,13 @@ from spinniped import (
     DiskElement,
     DiskProperty,
     Grid,
+    HarmonicLoad,
     Material,
     ModelDefinition,
     RandomDistribution,
     ShaftElement,
     ShaftProperty,
+    Unbalance,
 )
 
 definition = ModelDefinition(
@@ -114,6 +121,20 @@ definition = ModelDefinition(
         BearingElement(4, grid=3, property=2),
         DiskElement(5, grid=2, property=3),
     ],
+    loads=[
+        HarmonicLoad(
+            id=1,
+            grid=2,
+            force=(10.0, 0.0, 0.0),
+            phase=0.0,
+        ),
+        Unbalance(
+            id=2,
+            grid=2,
+            mass_eccentricity=2.0e-4,
+            phase=0.0,
+        ),
+    ],
     distributions=[
         RandomDistribution(
             id=1,
@@ -148,6 +169,9 @@ and theory notes use SI.
 | `ShaftElement` | `id`; end references `grid_a`, `grid_b`; shaft `property` reference |
 | `BearingElement` | `id`; first `grid`; bearing `property`; optional `grid_b`; property `coordinate_system` |
 | `DiskElement` | `id`; nodal `grid`; disk `property`; property `coordinate_system` |
+| `HarmonicLoad` | `id`; nodal `grid`; three-component `force` and `moment`; common `phase`; `coordinate_system` |
+| `RotatingLoad` | `id`; nodal `grid`; `force_magnitude`; `phase`; `sense`; `coordinate_system` |
+| `Unbalance` | `id`; nodal `grid`; `mass_eccentricity`; `phase`; `coordinate_system` |
 | `RandomDistribution` | unique `id`; unique `name`; `distribution`; family-specific `parameters` |
 
 `ShaftProperty.theory` accepts `"timoshenko"` (the default) and `"euler"`.
@@ -157,14 +181,15 @@ $\mathbf{C}=\alpha\mathbf{M}$. Bearing coefficients default to zero and occupy
 the translational x-y-z block.
 
 `ModelDefinition` groups the `grids`, `coordinate_systems`, `materials`,
-`properties`, `elements`, and `distributions` lists; each defaults to an empty
-list. Its `spin_axis` field is the global spin direction and defaults to
-`(0.0, 0.0, 1.0)`.
+`properties`, `elements`, `distributions`, and `loads` lists; each defaults to
+an empty list. Its `spin_axis` field is the global spin direction and defaults
+to `(0.0, 0.0, 1.0)`.
 
 IDs must be unique positive integers within each record category. A shaft
 element must reference a `ShaftProperty`, a bearing element a
 `BearingProperty`, and a disk element a `DiskProperty`. A shaft property also
-references a material ID. The builder validates these relationships.
+references a material ID. Harmonic, rotating, and unbalance records share one
+load-ID namespace. The builder validates these relationships.
 
 ## Coordinate systems
 
@@ -209,6 +234,15 @@ similarly orients disk inertia and its local spin axis. These element
 coordinate-system fields default to global system `0`. A grid's own
 `coordinate_system` locates the grid; it does not implicitly orient an attached
 bearing or disk.
+
+Load coordinate systems follow the same separation. A grid's coordinate
+system locates the application point, while each load's `coordinate_system`
+orients its components or rotating plane. `HarmonicLoad.force` and `moment`
+are signed peak amplitudes in that frame and share one phase angle in radians.
+For `RotatingLoad`, `sense="positive"` means rotation from local positive x
+toward local positive y about local positive z; `"negative"` reverses it.
+An `Unbalance` frame may point parallel or antiparallel to `spin_axis`, but its
+local x-y plane must be the rotor plane.
 
 ## Spin-axis convention
 
