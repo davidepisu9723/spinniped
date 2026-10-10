@@ -19,14 +19,14 @@ and plotting behavior. It intentionally does not teach the public API workflow.
 3. [Materials](03_materials.md)
 4. [Properties](04_properties.md)
 5. [Elements](05_elements.md)
-6. [Random distributions](06_random_distributions.md)
-7. [Model builder and assembly](07_model_builder.md)
-8. [Solvers](08_solvers.md)
-9. [Shaft-element formulation](09_shaft_element_formulation.md)
-10. [Plotting implementation](10_plotting.md)
-11. [Symbols and units](11_symbols_and_units.md)
-12. [Development notes](12_development_notes.md)
-13. [Load records](13_load_records.md)
+6. [Load records](06_load_records.md)
+7. [Random distributions](07_random_distributions.md)
+8. [Model builder and assembly](08_model_builder.md)
+9. [Solvers](09_solvers.md)
+10. [Shaft-element formulation](10_shaft_element_formulation.md)
+11. [Plotting implementation](11_plotting.md)
+12. [Symbols and units](12_symbols_and_units.md)
+13. [Development notes](13_development_notes.md)
 
 ## Other manuals
 

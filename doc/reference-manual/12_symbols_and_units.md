@@ -1,4 +1,4 @@
-# Chapter 11 -- Symbols and units
+# Chapter 12 -- Symbols and units
 
 ## Table of contents
 

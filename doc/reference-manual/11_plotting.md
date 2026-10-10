@@ -1,4 +1,4 @@
-# Chapter 10 -- Plotting implementation
+# Chapter 11 -- Plotting implementation
 
 ## Table of contents
 

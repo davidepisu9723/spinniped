@@ -1,4 +1,4 @@
-# Chapter 8 -- Solvers
+# Chapter 9 -- Solvers
 
 ## Table of contents
 

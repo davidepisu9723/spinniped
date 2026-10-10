@@ -1,4 +1,4 @@
-# Chapter 7 -- Model builder and assembly
+# Chapter 8 -- Model builder and assembly
 
 ## Table of contents
 

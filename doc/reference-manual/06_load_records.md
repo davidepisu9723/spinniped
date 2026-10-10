@@ -1,4 +1,4 @@
-# Chapter 13 -- Load records
+# Chapter 6 -- Load records
 
 ## Table of contents
 

@@ -1,4 +1,4 @@
-# Chapter 6 -- Random distributions
+# Chapter 7 -- Random distributions
 
 ## Table of contents
 

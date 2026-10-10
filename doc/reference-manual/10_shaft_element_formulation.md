@@ -1,4 +1,4 @@
-# Chapter 9 -- Shaft-element formulation
+# Chapter 10 -- Shaft-element formulation
 
 ## Table of contents
 

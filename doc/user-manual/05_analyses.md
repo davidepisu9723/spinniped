@@ -114,7 +114,7 @@ strict at every speed.
 Tracking physically permutes the result's mode axis: array position `j` holds
 the candidate assigned to reference position `j`, rather than necessarily the
 $j$th frequency at that speed. The
-[solver reference](../reference-manual/08_solvers.md#mode-correspondence)
+[solver reference](../reference-manual/09_solvers.md#mode-correspondence)
 documents the MAC matrix, assignment, array permutation, and phase alignment.
 
 When `harmonics` is supplied, critical speeds are intersections between each

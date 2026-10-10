@@ -52,6 +52,6 @@ critical speeds.
 
 The normative conventions and implemented shaft formulation are documented in
 [Reference manual](../reference-manual/00_reference_manual.md) and
-[Shaft-element implementation](../reference-manual/09_shaft_element_formulation.md). For a derivation-led
+[Shaft-element implementation](../reference-manual/10_shaft_element_formulation.md). For a derivation-led
 introduction to shaft and rotor dynamics, see
 [Rotordynamics theory manual](../theory-manual/00_theory_manual.md).
