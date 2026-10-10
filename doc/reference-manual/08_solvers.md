@@ -9,6 +9,7 @@
   - [Reference modes used by each analysis](#reference-modes-used-by-each-analysis)
   - [Phase alignment and limitations](#phase-alignment-and-limitations)
 - [Implemented analysis routes](#implemented-analysis-routes)
+- [Harmonic response and load assembly](#harmonic-response-and-load-assembly)
 - [Critical-speed detection](#critical-speed-detection)
 - [Validation and result invariants](#validation-and-result-invariants)
 
@@ -233,15 +234,57 @@ shape through it.*
 
 ## Implemented analysis routes
 
-`Solver.solve` dispatches to modal, Campbell, frequency-response, and
-time-response implementations. Fixed global DOFs are validated, deduplicated,
-and removed before solution.
+`Solver.solve` dispatches to modal, Campbell, frequency-response,
+unbalance-response, and time-response implementations. Fixed global DOFs are
+validated, deduplicated, and removed before solution.
 
 The modal route evaluates the real undamped generalized eigenproblem and
 requires symmetric stiffness and mass matrices. The Campbell route forms a
 first-order damped gyroscopic state matrix at each requested speed. Frequency
-response solves the complex dynamic-stiffness system. Time response integrates
-the equivalent first-order system with SciPy.
+and unbalance response solve complex dynamic-stiffness systems. Time response
+integrates the equivalent first-order system with SciPy.
+
+## Harmonic response and load assembly
+
+At forcing angular frequency $\omega$ and signed rotor speed $\Omega$, both
+steady-response routes form
+
+$$
+\mathbf{Z}(\omega,\Omega)=
+\mathbf{K}-\omega^2\mathbf{M}
++i\omega\left(\mathbf{C}+\Omega\mathbf{G}\right)
+$$
+
+and solve
+
+$$
+\mathbf{Z}\widehat{\mathbf{q}}=\widehat{\mathbf{f}}.
+$$
+
+Frequency response keeps $\Omega$ fixed while sweeping independent finite
+nonnegative frequencies supplied in Hz. Its source is exactly one of a raw
+full/reduced complex vector or selected `HarmonicLoad` and `RotatingLoad`
+records. A declarative force is resolved and assembled separately for each
+stochastic realization but is constant across that realization's frequency
+sweep.
+
+Unbalance response instead evaluates one diagonal synchronous sweep:
+
+$$
+\omega_i=|\Omega_i|,
+\qquad
+\left|\widehat{\mathbf{f}}_{u,i}\right|=m e\Omega_i^2.
+$$
+
+The sign of $\Omega_i$ is retained in the gyroscopic term and determines the
+physical rotation sense. `speeds_hz` consequently remains signed, whereas the
+returned forcing `frequencies` are nonnegative.
+
+Declarative load vectors are first assembled in full global DOF order. Force
+and moment triples are transformed with the load coordinate system's
+local-to-global rotation, contributions with the same grid are summed, and
+fixed DOFs are removed afterward. Selection preserves caller ID order for
+metadata but does not otherwise affect the commutative superposition.
 
 ## Critical-speed detection
 

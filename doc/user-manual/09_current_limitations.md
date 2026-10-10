@@ -14,6 +14,5 @@
 - Analyses return numerical dictionaries rather than typed result objects.
 - Rotor and Campbell plots are provided, but response plotting is not yet
   implemented.
-- Declarative harmonic, rotating, and unbalance load records are resolved and
-  validated, but response solvers do not consume them yet; frequency and time
-  response still require explicit force vectors.
+- Declarative loads are currently limited to steady harmonic and unbalance
+  response. Time response still requires an explicit vector or callback.

@@ -915,7 +915,7 @@ def _assemble(definition):
         return vector
 
     # Validate declarative excitations without adding them to structural
-    # matrices. Solvers will later assemble their sample-specific load vectors.
+    # matrices. Response solvers assemble sample-specific load vectors.
     for load in loads.values():
         integer_reference(load.grid, f"Load {load.id} grid")
         integer_reference(

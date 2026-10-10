@@ -302,7 +302,7 @@ class HarmonicLoad:
 
     Notes
     -----
-    The future harmonic-response assembly uses the convention
+    Harmonic-response assembly uses the convention
     ``p(t) = Re(p_hat * exp(i * omega * t))``. All six components share
     ``phase``; multiple records can represent components with different
     phases.
@@ -329,7 +329,8 @@ class RotatingLoad:
     force_magnitude : int, float, or tuple
         Nonnegative peak radial force magnitude.
     phase : int, float, or tuple, optional
-        Initial angle in radians from the selected frame's positive x-axis.
+        Signed initial geometric angle in radians from the selected frame's
+        positive x-axis toward its positive y-axis.
     sense : {"positive", "negative"}, optional
         Rotation sense about the selected frame's positive z-axis. Positive
         rotation proceeds from positive x toward positive y.
@@ -358,8 +359,8 @@ class Unbalance:
     mass_eccentricity : int, float, or tuple
         Nonnegative unbalance magnitude ``m * e`` in mass-length units.
     phase : int, float, or tuple, optional
-        Eccentricity angle in radians from the selected frame's positive
-        x-axis.
+        Signed initial eccentricity angle in radians from the selected frame's
+        positive x-axis toward its positive y-axis.
     coordinate_system : int, optional
         ID of the frame whose x-y plane is the unbalance plane.
 

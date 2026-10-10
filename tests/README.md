@@ -61,7 +61,8 @@ parametrized functions run once for every listed case.
 |---|---:|---|
 | [`test_element_matrices.py`](#test_element_matricespy) | 10 | Stateless shaft, bearing, and disk matrix kernels |
 | [`test_assembly.py`](#test_assemblypy) | 16 | Record validation, coordinate transforms, and global assembly |
-| [`test_declarative_api.py`](#test_declarative_apipy) | 23 | Distribution resolution and every public solver route |
+| [`test_declarative_api.py`](#test_declarative_apipy) | 28 | Distribution resolution and core public solver routes |
+| [`test_load_response.py`](#test_load_responsepy) | 6 | Declarative load phasors and steady-response routes |
 | [`test_plotting.py`](#test_plottingpy) | 8 | Rotor-section and Campbell-diagram rendering and plotting-input validation |
 | [`test_analytical_benchmarks.py`](#test_analytical_benchmarkspy) | 1 | Comparison with the Euler--Bernoulli beam solution |
 | [`test_jeffcott_benchmark.py`](#test_jeffcott_benchmarkpy) | 2 | Jeffcott frequency and critical-speed comparison |
@@ -472,6 +473,48 @@ based on the largest eigenvalue from discarding a small but physical mode.
 Passes a force vector whose length matches neither the full nor reduced model,
 then supplies only one time point to the transient solver. Both malformed
 inputs must raise focused errors before numerical solution.
+
+### `test_load_response.py`
+
+This module verifies conversion of declarative load records into complex nodal
+phasors and their use by both steady-response routes.
+
+#### `test_harmonic_load_matches_an_equivalent_global_force_vector`
+
+Rotates nonzero force and moment triples from a custom frame, applies a common
+phase, and compares the declarative response with the existing raw-vector
+route. The exact assembled six-DOF phasor must also match independently
+transformed components.
+
+#### `test_rotating_load_sense_phase_and_superposition_are_preserved`
+
+Checks positive and negative circular phasors at a nonzero initial angle, then
+verifies that selecting both records produces the sum of their independent
+responses while preserving caller load-ID order in the metadata.
+
+#### `test_frequency_response_uses_each_samples_resolved_load`
+
+Builds four realizations with random force magnitude and phase. Every response
+must match its own resolved record rather than reusing sample zero's load.
+
+#### `test_unbalance_response_matches_signed_synchronous_dynamic_stiffness`
+
+Compares forward, zero, and reverse-speed results against direct solutions of
+$K-\omega^2M+i\omega(C+\Omega G)$ with $\omega=|\Omega|$ and
+$F=me\Omega^2$. A nonzero custom gyroscopic block makes signed speed part of
+the numerical check.
+
+#### `test_unbalance_uses_frame_alignment_to_follow_the_rotor`
+
+Compares parallel and antiparallel load-frame z-axes. After transformation,
+both representations of the same phase-zero unbalance must produce the same
+global rotating force.
+
+#### `test_response_load_selection_is_validated`
+
+Rejects missing or conflicting frequency-response sources, empty, scalar,
+Boolean, duplicate, unknown, and analysis-incompatible load selections,
+negative forcing frequencies, and malformed unbalance speed arrays.
 
 ### `test_plotting.py`
 

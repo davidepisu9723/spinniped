@@ -23,6 +23,9 @@ SI units.
 | $\Omega$ | spin speed | rad/s |
 | $\omega$ | natural or forcing circular frequency | rad/s |
 | $f$ | cyclic frequency | Hz |
+| $F$ | force amplitude | N |
+| $m e$ | mass-unbalance magnitude | kg m |
+| $\phi$ | harmonic phase or eccentricity angle | rad |
 | $k$ | translational stiffness | N/m |
 | $c$ | translational viscous damping | N s/m |
 

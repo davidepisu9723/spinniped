@@ -2,7 +2,8 @@
 
 import numpy as np
 
-from .builder import BuiltModel
+from .builder import BuiltModel, _coordinate_system_matrix
+from .records import HarmonicLoad, RotatingLoad, Unbalance
 
 
 class Solver:
@@ -24,6 +25,7 @@ class Solver:
         "modal",
         "campbell",
         "frequency_response",
+        "unbalance_response",
         "time_response",
     )
 
@@ -44,8 +46,8 @@ class Solver:
         Parameters
         ----------
         analysis : str, optional
-            One of ``modal``, ``campbell``, ``frequency_response``, or
-            ``time_response``.
+            One of ``modal``, ``campbell``, ``frequency_response``,
+            ``unbalance_response``, or ``time_response``.
         model : BuiltModel or None, optional
             Per-call model override. By default, use the constructor model.
         fixed_dofs : sequence of int or None, optional
@@ -89,6 +91,13 @@ class Solver:
 
         elif normalized_analysis == "frequency_response":
             result = self._solve_frequency_response(
+                numerical_model,
+                free_dofs,
+                **options,
+            )
+
+        elif normalized_analysis == "unbalance_response":
+            result = self._solve_unbalance_response(
                 numerical_model,
                 free_dofs,
                 **options,
@@ -678,7 +687,8 @@ class Solver:
         free_dofs,
         *,
         frequencies,
-        force,
+        force=None,
+        load_ids=None,
         speed=0.0,
     ):
         """Solve steady harmonic response at requested frequencies.
@@ -691,8 +701,12 @@ class Solver:
             Retained global DOF indices.
         frequencies : array_like
             Excitation frequencies in hertz.
-        force : array_like
-            Complex force vector in full or reduced DOF ordering.
+        force : array_like or None, optional
+            Complex force vector in full or reduced DOF ordering. Supply
+            exactly one of ``force`` and ``load_ids``.
+        load_ids : sequence of int or None, optional
+            IDs of :class:`HarmonicLoad` and :class:`RotatingLoad` records to
+            assemble and superimpose for every frequency.
         speed : float, optional
             Rotor angular speed in radians per second.
 
@@ -707,23 +721,49 @@ class Solver:
             frequencies.ndim != 1
             or not frequencies.size
             or not np.isfinite(frequencies).all()
+            or np.any(frequencies < 0.0)
         ):
             raise ValueError(
-                "frequencies must be a non-empty one-dimensional sequence"
+                "frequencies must be a non-empty one-dimensional sequence "
+                "of finite nonnegative values"
             )
 
-        # Gyroscopic damping is scaled by a finite angular speed.
+        # Gyroscopic damping is scaled by one signed, finite angular speed.
+        if isinstance(speed, (bool, np.bool_)):
+            raise TypeError("speed must be a real scalar")
+        try:
+            speed = float(speed)
+        except (TypeError, ValueError):
+            raise TypeError("speed must be a real scalar") from None
         if not np.isfinite(speed):
             raise ValueError("speed must be finite")
 
-        # Accept either a full global force or an already reduced force.
-        reduced_force = self._free_vector(
-            force,
-            model.ndof,
-            free_dofs,
-            "force",
-            dtype=complex,
-        )
+        # Preserve the raw-vector route while making declarative selection
+        # explicit. Combining both sources would obscure accidental double
+        # application, so callers must choose exactly one.
+        if (force is None) == (load_ids is None):
+            raise ValueError(
+                "frequency_response requires exactly one of force or load_ids"
+            )
+
+        selected_load_ids = ()
+        reduced_force = None
+        if load_ids is None:
+            # One caller-supplied vector is shared by every realization.
+            reduced_force = self._free_vector(
+                force,
+                model.ndof,
+                free_dofs,
+                "force",
+                dtype=complex,
+            )
+        else:
+            selected_load_ids = self._validate_load_ids(
+                model,
+                load_ids,
+                (HarmonicLoad, RotatingLoad),
+                "frequency_response",
+            )
 
         # Solve the complex dynamic stiffness for each sample and frequency.
         all_responses = []
@@ -732,29 +772,312 @@ class Solver:
         for sample in range(model.samples):
             mass_matrix = self._reduced(model.M, sample, free_dofs)
             stiffness_matrix = self._reduced(model.K, sample, free_dofs)
-            effective_damping = (
-                self._reduced(model.C, sample, free_dofs)
-                + speed * self._reduced(model.G, sample, free_dofs)
-            )
+            damping_matrix = self._reduced(model.C, sample, free_dofs)
+            gyroscopic_matrix = self._reduced(model.G, sample, free_dofs)
+
+            # Declarative parameters are resolved independently per sample.
+            if selected_load_ids:
+                sample_force = self._assemble_harmonic_loads(
+                    model,
+                    sample,
+                    selected_load_ids,
+                )[free_dofs]
+            else:
+                sample_force = reduced_force
 
             sample_responses = []
             for angular_frequency in angular_frequencies:
-                # Z(omega) = K - omega^2 M + i omega (C + Omega G).
-                dynamic_stiffness = (
-                    stiffness_matrix
-                    - angular_frequency**2 * mass_matrix
-                    + 1j * angular_frequency * effective_damping
+                dynamic_stiffness = self._dynamic_stiffness(
+                    stiffness_matrix,
+                    mass_matrix,
+                    damping_matrix,
+                    gyroscopic_matrix,
+                    speed,
+                    angular_frequency,
                 )
                 sample_responses.append(
-                    np.linalg.solve(dynamic_stiffness, reduced_force)
+                    np.linalg.solve(dynamic_stiffness, sample_force)
                 )
 
             all_responses.append(np.stack(sample_responses))
 
         return {
             "frequencies": frequencies,
+            "speed": speed,
+            "load_ids": selected_load_ids,
             "response": np.stack(all_responses),
         }
+
+    def _solve_unbalance_response(
+        self,
+        model,
+        free_dofs,
+        *,
+        speeds,
+        load_ids,
+    ):
+        """Solve synchronous response to selected mass-unbalance records.
+
+        Parameters
+        ----------
+        model : BuiltModel
+            Numerical model or stochastic ensemble.
+        free_dofs : numpy.ndarray
+            Retained global DOF indices.
+        speeds : array_like
+            Signed rotor angular speeds in radians per second.
+        load_ids : sequence of int
+            IDs of :class:`Unbalance` records to assemble and superimpose.
+
+        Returns
+        -------
+        dict
+            Speeds, synchronous frequencies, selected IDs, and complex
+            displacement responses.
+        """
+        # Speed sign controls rotation sense and the gyroscopic term, while
+        # its absolute value is the synchronous excitation frequency.
+        speeds = np.asarray(speeds, dtype=float)
+        if (
+            speeds.ndim != 1
+            or not speeds.size
+            or not np.isfinite(speeds).all()
+        ):
+            raise ValueError(
+                "speeds must be a non-empty one-dimensional sequence of "
+                "finite values"
+            )
+
+        selected_load_ids = self._validate_load_ids(
+            model,
+            load_ids,
+            (Unbalance,),
+            "unbalance_response",
+        )
+
+        all_responses = []
+        angular_frequencies = np.abs(speeds)
+
+        for sample in range(model.samples):
+            mass_matrix = self._reduced(model.M, sample, free_dofs)
+            stiffness_matrix = self._reduced(model.K, sample, free_dofs)
+            damping_matrix = self._reduced(model.C, sample, free_dofs)
+            gyroscopic_matrix = self._reduced(model.G, sample, free_dofs)
+
+            # Geometry, phase, and sampled mass eccentricity are constant
+            # within one realization. Assemble one coefficient for each spin
+            # sense, then apply Omega**2 at every requested point.
+            positive_force_coefficient = self._assemble_unbalances(
+                model,
+                sample,
+                selected_load_ids,
+                1.0,
+            )[free_dofs]
+            negative_force_coefficient = self._assemble_unbalances(
+                model,
+                sample,
+                selected_load_ids,
+                -1.0,
+            )[free_dofs]
+            zero_force = np.zeros(len(free_dofs), dtype=complex)
+
+            sample_responses = []
+            for speed, angular_frequency in zip(
+                speeds,
+                angular_frequencies,
+                strict=True,
+            ):
+                if speed > 0.0:
+                    sample_force = speed**2 * positive_force_coefficient
+                elif speed < 0.0:
+                    sample_force = speed**2 * negative_force_coefficient
+                else:
+                    sample_force = zero_force
+                dynamic_stiffness = self._dynamic_stiffness(
+                    stiffness_matrix,
+                    mass_matrix,
+                    damping_matrix,
+                    gyroscopic_matrix,
+                    speed,
+                    angular_frequency,
+                )
+                sample_responses.append(
+                    np.linalg.solve(
+                        dynamic_stiffness,
+                        sample_force,
+                    )
+                )
+
+            all_responses.append(np.stack(sample_responses))
+
+        return {
+            "speeds": speeds,
+            "speeds_hz": speeds / (2.0 * np.pi),
+            "frequencies": angular_frequencies / (2.0 * np.pi),
+            "load_ids": selected_load_ids,
+            "response": np.stack(all_responses),
+        }
+
+    @staticmethod
+    def _validate_load_ids(model, load_ids, accepted_types, analysis):
+        """Validate and preserve one explicit load-record selection."""
+        try:
+            requested_ids = list(load_ids)
+        except TypeError:
+            raise TypeError("load_ids must be a sequence of integers") from None
+
+        if not requested_ids:
+            raise ValueError("load_ids must contain at least one ID")
+        if any(
+            isinstance(load_id, (bool, np.bool_))
+            or not isinstance(load_id, (int, np.integer))
+            for load_id in requested_ids
+        ):
+            raise TypeError("load_ids must contain only integers")
+
+        normalized_ids = tuple(int(load_id) for load_id in requested_ids)
+        if len(set(normalized_ids)) != len(normalized_ids):
+            raise ValueError("load_ids must not contain duplicate IDs")
+
+        available_loads = {
+            load.id: load for load in model.definitions[0].loads
+        }
+        unknown_ids = [
+            load_id for load_id in normalized_ids
+            if load_id not in available_loads
+        ]
+        if unknown_ids:
+            raise ValueError(f"load_ids contains unknown load ID {unknown_ids[0]}")
+
+        invalid_loads = [
+            available_loads[load_id]
+            for load_id in normalized_ids
+            if not isinstance(available_loads[load_id], accepted_types)
+        ]
+        if invalid_loads:
+            accepted_names = " or ".join(
+                accepted_type.__name__ for accepted_type in accepted_types
+            )
+            invalid_name = type(invalid_loads[0]).__name__
+            raise ValueError(
+                f"{analysis} accepts only {accepted_names} records, not "
+                f"{invalid_name}"
+            )
+
+        return normalized_ids
+
+    @staticmethod
+    def _load_coordinate_systems(definition):
+        """Return local-to-global rotations indexed by coordinate-system ID."""
+        rotations = {0: np.eye(3)}
+        for coordinate_system in definition.coordinate_systems:
+            rotations[coordinate_system.id] = _coordinate_system_matrix(
+                coordinate_system
+            )[1]
+        return rotations
+
+    @staticmethod
+    def _add_nodal_load(global_load, grid_position, rotation, local_load):
+        """Rotate and accumulate one six-component nodal load in place."""
+        offset = 6 * grid_position
+        global_load[offset : offset + 3] += rotation @ local_load[:3]
+        global_load[offset + 3 : offset + 6] += rotation @ local_load[3:]
+
+    @classmethod
+    def _assemble_harmonic_loads(cls, model, sample, load_ids):
+        """Assemble selected harmonic and rotating records into global DOFs."""
+        definition = model.definitions[sample]
+        records = {load.id: load for load in definition.loads}
+        rotations = cls._load_coordinate_systems(definition)
+        grid_positions = {
+            grid_id: position
+            for position, grid_id in enumerate(model.grid_ids)
+        }
+        global_load = np.zeros(model.ndof, dtype=complex)
+
+        for load_id in load_ids:
+            load = records[load_id]
+            rotation = rotations[load.coordinate_system]
+
+            if isinstance(load, HarmonicLoad):
+                local_load = np.concatenate((load.force, load.moment)).astype(
+                    complex
+                )
+                local_load *= np.exp(1j * float(load.phase))
+            else:
+                sense = 1.0 if load.sense == "positive" else -1.0
+                radial_phasor = float(load.force_magnitude) * np.exp(
+                    1j * sense * float(load.phase)
+                )
+                local_load = np.zeros(6, dtype=complex)
+                local_load[0] = radial_phasor
+                local_load[1] = -1j * sense * radial_phasor
+
+            cls._add_nodal_load(
+                global_load,
+                grid_positions[load.grid],
+                rotation,
+                local_load,
+            )
+
+        return global_load
+
+    @classmethod
+    def _assemble_unbalances(cls, model, sample, load_ids, speed):
+        """Assemble synchronous unbalance forces at one signed rotor speed."""
+        definition = model.definitions[sample]
+        records = {load.id: load for load in definition.loads}
+        rotations = cls._load_coordinate_systems(definition)
+        grid_positions = {
+            grid_id: position
+            for position, grid_id in enumerate(model.grid_ids)
+        }
+        spin_axis = np.asarray(definition.spin_axis, dtype=float)
+        spin_axis /= np.linalg.norm(spin_axis)
+        global_load = np.zeros(model.ndof, dtype=complex)
+
+        # At zero speed every unbalance force is exactly zero, independently
+        # of phase or frame orientation.
+        if speed == 0.0:
+            return global_load
+
+        for load_id in load_ids:
+            load = records[load_id]
+            rotation = rotations[load.coordinate_system]
+            axis_alignment = float(rotation[:, 2] @ spin_axis)
+            sense = 1.0 if speed * axis_alignment > 0.0 else -1.0
+            force_magnitude = float(load.mass_eccentricity) * speed**2
+            radial_phasor = force_magnitude * np.exp(
+                1j * sense * float(load.phase)
+            )
+            local_load = np.zeros(6, dtype=complex)
+            local_load[0] = radial_phasor
+            local_load[1] = -1j * sense * radial_phasor
+
+            cls._add_nodal_load(
+                global_load,
+                grid_positions[load.grid],
+                rotation,
+                local_load,
+            )
+
+        return global_load
+
+    @staticmethod
+    def _dynamic_stiffness(
+        stiffness,
+        mass,
+        damping,
+        gyroscopic,
+        speed,
+        angular_frequency,
+    ):
+        """Return ``K - omega**2 M + i omega (C + Omega G)``."""
+        return (
+            stiffness
+            - angular_frequency**2 * mass
+            + 1j * angular_frequency * (damping + speed * gyroscopic)
+        )
 
     def _solve_time_response(
         self,

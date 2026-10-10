@@ -45,5 +45,5 @@ $$
 $$
 
 `G` is a unit-speed matrix and is multiplied by angular speed `Omega` in the
-Campbell, frequency-response, and time-response analyses. Speeds are expressed
-in radians per second.
+Campbell, frequency-response, unbalance-response, and time-response analyses.
+Speeds are expressed in radians per second.

@@ -5,6 +5,7 @@
 - [Modal analysis](#modal-analysis)
 - [Campbell analysis](#campbell-analysis)
 - [Frequency response](#frequency-response)
+- [Unbalance response](#unbalance-response)
 - [Time response](#time-response)
 
 `Solver.solve` is the single analysis entry point. Supply the built model to the
@@ -140,8 +141,12 @@ order, allowing finite values to be summarized across realizations.
 
 ## Frequency response
 
-Input frequencies are in Hz. The force may contain either all global DOFs or
-only the free DOFs:
+Input frequencies are finite nonnegative values in Hz. Rotor `speed` is one
+signed operating speed in rad/s; it scales the gyroscopic matrix but does not
+set the independently swept forcing frequencies.
+
+The legacy `force` input may contain either all global DOFs or only the free
+DOFs:
 
 ```python
 force = [0.0] * model.ndof
@@ -156,8 +161,61 @@ result = solver.solve(
 )
 ```
 
+Alternatively, select one or more `HarmonicLoad` or `RotatingLoad` records
+already stored in the model definition:
+
+```python
+result = solver.solve(
+    "frequency_response",
+    fixed_dofs=fixed,
+    frequencies=[10.0, 20.0, 30.0],
+    load_ids=[1, 2],
+    speed=100.0,
+)
+```
+
+Supply exactly one of `force` and `load_ids`. Selected records are transformed
+from their own coordinate systems, added in global DOF order, and then reduced
+by `fixed_dofs`. Stochastic load parameters are assembled from each resolved
+realization rather than reused from sample zero. An `Unbalance` ID is rejected
+here because its amplitude and forcing frequency depend synchronously on rotor
+speed.
+
 `result["response"]` is complex and has shape
-`(samples, frequencies, free_dofs)`.
+`(samples, frequencies, free_dofs)`. The result also returns scalar `speed`
+and the selected `load_ids` as a tuple; the latter is empty for the raw-vector
+route.
+
+## Unbalance response
+
+Unbalance response sweeps signed rotor speeds in rad/s. At each point, the
+forcing frequency and magnitude are
+
+$$
+\omega=|\Omega|,
+\qquad
+F_u=m e\Omega^2.
+$$
+
+```python
+result = solver.solve(
+    "unbalance_response",
+    fixed_dofs=fixed,
+    speeds=[0.0, 100.0, 200.0],
+    load_ids=[3],
+)
+```
+
+`load_ids` must be a nonempty sequence selecting only `Unbalance` records.
+Multiple records are superimposed. Positive and negative speeds reverse the
+physical rotation sense and enter the gyroscopic term with their supplied
+sign. The load frame may have its local z-axis parallel or antiparallel to the
+model spin axis; the solver accounts for that alignment when constructing the
+rotating force.
+
+The result contains signed `speeds`, signed `speeds_hz`, nonnegative
+synchronous `frequencies`, the selected `load_ids` tuple, and complex
+`response` with shape `(samples, speeds, free_dofs)`.
 
 ## Time response
 

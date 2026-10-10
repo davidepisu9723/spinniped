@@ -15,6 +15,7 @@ python examples/02_simple_shaft_modal_with_bearings.py
 python examples/03_simple_shaft_complex_eigenvalues.py
 python examples/04_bearing_supported_shaft_with_disk_campbell.py
 python examples/05_stochastic_campbell.py
+python examples/06_unbalance_response.py
 ```
 
 These examples exercise normal public-API workflows rather than controlled
@@ -27,6 +28,10 @@ input is the direct stiffness $k_{xx}$, with the same realization used at both
 supports while $k_{yy}$ remains deterministic. It plots mean tracked branches,
 central empirical 90% bands, the 1x synchronous line, mean critical speeds,
 critical-speed intervals, and the individual realization crossings.
+
+Example 06 defines a declarative disk unbalance on an anisotropic Jeffcott
+rotor, sweeps synchronous rotor speed, and plots the complex response magnitude
+in both lateral directions.
 
 ## Analytical benchmarks
 

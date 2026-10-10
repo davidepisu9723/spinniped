@@ -244,6 +244,10 @@ toward local positive y about local positive z; `"negative"` reverses it.
 An `Unbalance` frame may point parallel or antiparallel to `spin_axis`, but its
 local x-y plane must be the rotor plane.
 
+Loads do not contribute to the structural matrices. Steady response analyses
+select records through their shared load IDs and assemble the corresponding
+sample-specific complex force vectors.
+
 ## Spin-axis convention
 
 `ModelDefinition.spin_axis` is a nonzero direction expressed in global

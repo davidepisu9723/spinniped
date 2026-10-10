@@ -24,7 +24,8 @@ parameters, calculates local matrices using the functions in
 
 Load records are resolved and validated with the other definition records but
 do not contribute to the structural matrices. They remain attached to each
-resolved definition for later analysis-specific force assembly.
+resolved definition for analysis-specific force assembly by the steady
+response solvers.
 
 A deterministic build has one realization. A stochastic build has $n_s$
 Monte Carlo realizations. Global numerical arrays therefore always retain a

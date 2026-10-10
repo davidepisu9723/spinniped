@@ -7,6 +7,7 @@
 - [Rotating forces](#rotating-forces)
 - [Unbalance](#unbalance)
 - [Builder behavior](#builder-behavior)
+- [Solver assembly](#solver-assembly)
 
 ## Record types
 
@@ -48,16 +49,19 @@ components having different phases.
 
 ## Rotating forces
 
-A positive `RotatingLoad` acts in the selected frame's x-y plane and rotates
-from positive x toward positive y about positive z. Its local phasor is
+A `RotatingLoad` acts in the selected frame's x-y plane. Let $s=+1$ denote
+positive rotation from positive x toward positive y about positive z, and let
+$s=-1$ denote the reverse sense. To preserve $\phi$ as the signed geometric
+angle at $t=0$, its local phasor is
 
 $$
-\widehat{\mathbf{p}}_{l,+}=F e^{i\phi}
-\begin{bmatrix}1 & -i & 0 & 0 & 0 & 0\end{bmatrix}^{T}.
+\widehat{\mathbf{p}}_{l,s}=F e^{is\phi}
+\begin{bmatrix}1 & -is & 0 & 0 & 0 & 0\end{bmatrix}^{T}.
 $$
 
-The negative sense replaces $-i$ with $+i$. Thus, a rotating force is a
-particular harmonic load: two equal orthogonal components in phase quadrature.
+Thus, a rotating force is a particular harmonic load: two equal orthogonal
+components in phase quadrature. At every frequency-response point it rotates
+at the requested forcing frequency, independently of rotor speed.
 
 ## Unbalance
 
@@ -71,8 +75,21 @@ $$
 
 The selected frame defines phase zero through its local positive x-axis. Its
 local z-axis must be parallel or antiparallel to `ModelDefinition.spin_axis`,
-so its x-y plane is the physical rotor plane. The alignment sign can determine
-the local circular sense when force assembly is implemented.
+so its x-y plane is the physical rotor plane. For load-frame rotation
+$\mathbf{R}$ and normalized spin direction $\widehat{\mathbf{s}}$, define
+
+$$
+a=\mathop{\mathrm{sign}}\left(
+\mathbf{R}_{:,z}^{T}\widehat{\mathbf{s}}
+\right),
+\qquad
+s=\mathop{\mathrm{sign}}(\Omega)a.
+$$
+
+At nonzero speed, unbalance uses the rotating-load phasor above with
+$F=F_u(\Omega)$. At zero speed its force is exactly zero. This construction
+handles reverse rotor speed and an antiparallel load-frame z-axis without
+reversing the intended global rotation accidentally.
 
 ## Builder behavior
 
@@ -83,6 +100,29 @@ for every realization. Loads do not modify $\mathbf{K}$, $\mathbf{M}$,
 $\mathbf{C}$, or $\mathbf{G}$ and are retained in each
 `BuiltModel.definitions` entry.
 
-The current response solvers still accept explicit force vectors. Conversion
-of these records into complex global force vectors is intentionally deferred
-to the load-enabled response implementation.
+## Solver assembly
+
+For a load-frame local-to-global rotation $\mathbf{R}$, the solver transforms
+one local nodal phasor according to
+
+$$
+\widehat{\mathbf{p}}_g=
+\begin{bmatrix}
+\mathbf{R} & \mathbf{0}\\
+\mathbf{0} & \mathbf{R}
+\end{bmatrix}
+\widehat{\mathbf{p}}_l.
+$$
+
+It adds all selected records at their grids in full global DOF order and only
+then removes fixed DOFs. No moment-arm term is required because each record is
+applied directly at its referenced grid. Assembly is repeated for every
+stochastic realization so resolved amplitudes, phases, and frames remain
+sample-specific.
+
+`frequency_response` accepts either one legacy complex force vector or a
+nonempty selection of `HarmonicLoad` and `RotatingLoad` IDs. It rejects
+`Unbalance` records. `unbalance_response` accepts a nonempty selection of
+`Unbalance` IDs and evaluates the synchronous force separately at every
+supplied rotor speed. Duplicate, unknown, noninteger, and analysis-incompatible
+IDs are rejected rather than ignored.
