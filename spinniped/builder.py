@@ -388,8 +388,7 @@ def _interpolate_speed_dependent_value(value, speeds, path):
         ) from error
     if requested.ndim != 1 or not requested.size:
         raise ValueError(
-            f"{path} evaluation speeds must be a non-empty one-dimensional "
-            "sequence"
+            f"{path} evaluation speeds must be a non-empty one-dimensional sequence"
         )
     if not np.isfinite(requested).all():
         raise ValueError(f"{path} evaluation speeds must be finite")
@@ -408,10 +407,7 @@ def _contains_speed_dependent_value(value):
     if isinstance(value, (tuple, list)):
         return any(_contains_speed_dependent_value(item) for item in value)
     if isinstance(value, dict):
-        return any(
-            _contains_speed_dependent_value(item)
-            for item in value.values()
-        )
+        return any(_contains_speed_dependent_value(item) for item in value.values())
     return False
 
 

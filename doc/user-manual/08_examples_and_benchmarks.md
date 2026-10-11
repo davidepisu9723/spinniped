@@ -16,6 +16,8 @@ python examples/03_simple_shaft_complex_eigenvalues.py
 python examples/04_bearing_supported_shaft_with_disk_campbell.py
 python examples/05_stochastic_campbell.py
 python examples/06_unbalance_response.py
+python examples/07_deterministic_speed_dependent_bearing.py
+python examples/08_deterministic_speed_dependent_load.py
 ```
 
 These examples exercise normal public-API workflows rather than controlled
@@ -32,6 +34,15 @@ critical-speed intervals, and the individual realization crossings.
 Example 06 defines a declarative disk unbalance on an anisotropic Jeffcott
 rotor, sweeps synchronous rotor speed, and plots the complex response magnitude
 in both lateral directions.
+
+Example 07 builds a deterministic Jeffcott model with tabulated bearing
+stiffness and damping. Its Campbell sweep evaluates K and C across the complete
+rotor-speed grid before solving.
+
+Example 08 keeps the structure constant and interpolates a deterministic
+harmonic-load amplitude from three representative CFD operating points. It
+calls frequency response once per scalar rotor speed while keeping the forcing
+frequency fixed, making the distinction between the two frequencies explicit.
 
 ## Analytical benchmarks
 
