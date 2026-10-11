@@ -1,8 +1,9 @@
-# Chapter 3 -- Random parameters
+# Chapter 4 -- Random parameters
 
 ## Table of contents
 
 - [Reference reuse at a glance](#reference-reuse-at-a-glance)
+- [Speed-dependent ordinates](#speed-dependent-ordinates)
 - [Deterministic build](#deterministic-build)
 - [Stochastic build](#stochastic-build)
 
@@ -61,6 +62,27 @@ flowchart LR
 
 This is shared uncertainty, not two independent bearing draws. Use distinct
 distribution IDs when the physical parameters must vary independently.
+
+## Speed-dependent ordinates
+
+Random references may also appear among the `values` of a
+`SpeedDependentValue`:
+
+```python
+from spinniped import SpeedDependentValue
+
+uncertain_curve = SpeedDependentValue(
+    speeds=(0.0, 100.0),
+    values=((17,), (18,)),
+)
+```
+
+Sampling and speed interpolation remain separate stages. The builder resolves
+each reference once for the current realization, producing one deterministic
+curve. The solver later interpolates that same curve at every requested rotor
+speed; it never redraws an ordinate inside a speed loop. Repeated references
+still reuse the same draw. See [Speed-dependent values](03_speed_dependent_values.md)
+for the supported fields and interpolation rules.
 
 The supported families are ``"normal"``, ``"uniform"``, and
 ``"multivariate_normal"``. Schemas are strict, all parameters must be finite,

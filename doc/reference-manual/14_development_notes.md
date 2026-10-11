@@ -1,4 +1,4 @@
-# Chapter 13 -- Development notes
+# Chapter 14 -- Development notes
 
 ## Table of contents
 

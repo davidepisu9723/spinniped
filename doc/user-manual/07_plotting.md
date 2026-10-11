@@ -1,4 +1,4 @@
-# Chapter 6 -- Plotting
+# Chapter 7 -- Plotting
 
 ## Table of contents
 

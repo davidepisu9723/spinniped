@@ -1,4 +1,4 @@
-# Chapter 9 -- Solvers
+# Chapter 10 -- Solvers
 
 ## Table of contents
 
@@ -238,11 +238,17 @@ shape through it.*
 unbalance-response, and time-response implementations. Fixed global DOFs are
 validated, deduplicated, and removed before solution.
 
-The modal route evaluates the real undamped generalized eigenproblem and
-requires symmetric stiffness and mass matrices. The Campbell route forms a
-first-order damped gyroscopic state matrix at each requested speed. Frequency
-and unbalance response solve complex dynamic-stiffness systems. Time response
-integrates the equivalent first-order system with SciPy.
+The modal route evaluates $\mathbf{K}(\Omega)$ at one scalar `speed` (default
+zero), solves the real undamped generalized eigenproblem, and requires
+symmetric stiffness and mass matrices. The Campbell route evaluates
+$\mathbf{K}(\Omega_i)$ and $\mathbf{C}(\Omega_i)$ before forming a first-order
+damped gyroscopic state matrix at each requested speed. Frequency response and
+time response evaluate K and C once at their scalar rotor speed. Unbalance
+response evaluates them over its complete signed speed grid.
+
+Every relevant table is validated and interpolated over the complete requested
+operating-speed set before the first eigensolution, linear solve, or time
+integration. Extrapolation therefore cannot leave a partially solved result.
 
 ## Harmonic response and load assembly
 
@@ -251,8 +257,8 @@ steady-response routes form
 
 $$
 \mathbf{Z}(\omega,\Omega)=
-\mathbf{K}-\omega^2\mathbf{M}
-+i\omega\left(\mathbf{C}+\Omega\mathbf{G}\right)
+\mathbf{K}(\Omega)-\omega^2\mathbf{M}
++i\omega\left(\mathbf{C}(\Omega)+\Omega\mathbf{G}\right)
 $$
 
 and solve
@@ -265,8 +271,9 @@ Frequency response keeps $\Omega$ fixed while sweeping independent finite
 nonnegative frequencies supplied in Hz. Its source is exactly one of a raw
 full/reduced complex vector or selected `HarmonicLoad` and `RotatingLoad`
 records. A declarative force is resolved and assembled separately for each
-stochastic realization but is constant across that realization's frequency
-sweep.
+stochastic realization. Its speed-dependent components are evaluated at the
+scalar rotor $\Omega$ before solving and remain constant across that
+realization's forcing-frequency sweep.
 
 Unbalance response instead evaluates one diagonal synchronous sweep:
 

@@ -7,7 +7,7 @@ from .records import (
     BearingElement, BearingProperty, CoordinateSystem, DiskElement,
     DiskProperty, Grid, HarmonicLoad, LumpedMassElement, LumpedMassProperty,
     Material, ModelDefinition, RandomDistribution, RotatingLoad, ShaftElement,
-    ShaftProperty, Unbalance,
+    ShaftProperty, SpeedDependentValue, Unbalance,
 )
 from .solver import Solver
 from .plotting import plot_campbell, plot_rotor
@@ -17,6 +17,6 @@ __all__ = [
     "DiskElement", "DiskProperty", "Grid", "HarmonicLoad",
     "LumpedMassElement", "LumpedMassProperty", "Material", "ModelBuilder",
     "ModelDefinition", "RandomDistribution", "RotatingLoad", "ShaftElement",
-    "ShaftProperty", "Solver", "Unbalance", "build_model", "plot_campbell",
-    "plot_rotor",
+    "ShaftProperty", "Solver", "SpeedDependentValue", "Unbalance",
+    "build_model", "plot_campbell", "plot_rotor",
 ]

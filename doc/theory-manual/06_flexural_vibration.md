@@ -23,7 +23,7 @@ Assume:
 
 These are Euler--Bernoulli assumptions. Timoshenko theory relaxes the
 normal-to-centerline assumption and retains shear deformation; it is discussed
-in the [shaft-element formulation](../reference-manual/10_shaft_element_formulation.md), not in this
+in the [shaft-element formulation](../reference-manual/11_shaft_element_formulation.md), not in this
 first analytical derivation.
 
 ## 6.2 Differential free body

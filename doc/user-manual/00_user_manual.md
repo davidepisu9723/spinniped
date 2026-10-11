@@ -30,13 +30,14 @@ separate manuals.
 
 1. [Installation](01_installation.md)
 2. [Model-definition API](02_model_definition.md)
-3. [Random parameters](03_random_parameters.md)
-4. [Built models](04_built_models.md)
-5. [Analyses](05_analyses.md)
-6. [Plotting](06_plotting.md)
-7. [Examples and benchmarks](07_examples_and_benchmarks.md)
-8. [Mapping analytical models to Spinniped](08_analytical_comparisons.md)
-9. [Current limitations](09_current_limitations.md)
+3. [Speed-dependent values](03_speed_dependent_values.md)
+4. [Random parameters](04_random_parameters.md)
+5. [Built models](05_built_models.md)
+6. [Analyses](06_analyses.md)
+7. [Plotting](07_plotting.md)
+8. [Examples and benchmarks](08_examples_and_benchmarks.md)
+9. [Mapping analytical models to Spinniped](09_analytical_comparisons.md)
+10. [Current limitations](10_current_limitations.md)
 
 ## Other manuals
 

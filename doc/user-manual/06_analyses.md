@@ -1,4 +1,4 @@
-# Chapter 5 -- Analyses
+# Chapter 6 -- Analyses
 
 ## Table of contents
 
@@ -39,6 +39,12 @@ documented shapes; unknown options are rejected. Results are regular NumPy
 arrays, never ragged object arrays. If an analysis cannot return a consistent
 mode count, it raises an error and asks for fewer or a fixed number of modes.
 
+Every `speed` and `speeds` input is signed rotor angular speed in rad/s. When
+the model contains `SpeedDependentValue` records, the solver interpolates all
+required structural operating points before the first eigensolution, linear
+solve, or time integration. It rejects the complete call if any point falls
+outside a table's range.
+
 ## Modal analysis
 
 ```python
@@ -47,6 +53,7 @@ result = solver.solve(
     fixed_dofs=fixed,
     modes=8,
     track_modes=True,
+    speed=100.0,
 )
 ```
 
@@ -54,7 +61,8 @@ Result values include:
 
 - `eigenvalues`: `(samples, modes)` values of $\omega^2$ in $\mathrm{s}^{-2}$;
 - `frequencies`: `(samples, modes)` frequencies in Hz;
-- `eigenvectors`: `(samples, free_dofs, modes)` reduced mode shapes.
+- `eigenvectors`: `(samples, free_dofs, modes)` reduced mode shapes;
+- `speed`: the scalar rotor speed used to evaluate stiffness.
 
 Eigenvalues within `zero_tolerance` of zero are treated as rigid modes and
 removed. The default tolerance is scaled from the eigenspectrum; it may be
@@ -67,6 +75,11 @@ Campbell route when cross-coupled bearing coefficients make stiffness
 non-symmetric. Damping and gyroscopic terms are not included in modal analysis.
 The requested `modes` count is strict: requesting more positive modes than are
 available raises an error.
+
+`speed` defaults to `0.0`. It selects $\mathbf{K}(\Omega)$ when bearing
+stiffness is speed-dependent, but it does not introduce damping or gyroscopic
+terms into this real modal route. The selected speed must lie within every
+stiffness table used by the model.
 
 For stochastic models, `track_modes=True` (the default) matches every later
 sample to sample zero by maximizing the Modal Assurance Criterion (MAC), then
@@ -104,6 +117,11 @@ Its analysis-specific results are:
 - `critical_speed_counts`: number of crossings found for each sample,
   harmonic, and mode, shape `(samples, harmonics, modes)`.
 
+Before entering the speed loop, the solver evaluates every bearing stiffness
+and damping table over the complete `speeds` input. At each loop position it
+uses $\mathbf{K}(\Omega_i)$ and $\mathbf{C}(\Omega_i)$ together with the fixed
+mass and unit-speed gyroscopic matrices.
+
 With `track_modes=True`, roots after the first speed are assigned to the
 previous speed by displacement-vector MAC and phase-aligned, forming continuous
 modal branches through crossings. Stochastic Campbell results are then matched
@@ -114,7 +132,7 @@ strict at every speed.
 Tracking physically permutes the result's mode axis: array position `j` holds
 the candidate assigned to reference position `j`, rather than necessarily the
 $j$th frequency at that speed. The
-[solver reference](../reference-manual/09_solvers.md#mode-correspondence)
+[solver reference](../reference-manual/10_solvers.md#mode-correspondence)
 documents the MAC matrix, assignment, array permutation, and phase alignment.
 
 When `harmonics` is supplied, critical speeds are intersections between each
@@ -143,7 +161,9 @@ order, allowing finite values to be summarized across realizations.
 
 Input frequencies are finite nonnegative values in Hz. Rotor `speed` is one
 signed operating speed in rad/s; it scales the gyroscopic matrix but does not
-set the independently swept forcing frequencies.
+set the independently swept forcing frequencies. It also selects any
+speed-dependent bearing coefficients and declarative load amplitudes once for
+the whole forcing-frequency sweep.
 
 The legacy `force` input may contain either all global DOFs or only the free
 DOFs:
@@ -181,6 +201,11 @@ realization rather than reused from sample zero. An `Unbalance` ID is rejected
 here because its amplitude and forcing frequency depend synchronously on rotor
 speed.
 
+When a selected `HarmonicLoad` component or `RotatingLoad.force_magnitude` is
+speed-dependent, it is interpolated at the scalar rotor `speed`, not at each
+entry of `frequencies`. All selected declarative loads are evaluated before the
+first dynamic-stiffness solve.
+
 `result["response"]` is complex and has shape
 `(samples, frequencies, free_dofs)`. The result also returns scalar `speed`
 and the selected `load_ids` as a tuple; the latter is empty for the raw-vector
@@ -213,6 +238,10 @@ sign. The load frame may have its local z-axis parallel or antiparallel to the
 model spin axis; the solver accounts for that alignment when constructing the
 rotating force.
 
+The complete speed grid is also used to precompute speed-dependent bearing
+stiffness and damping. `Unbalance.mass_eccentricity` itself does not accept a
+`SpeedDependentValue`; its $\Omega^2$ amplitude law is evaluated directly.
+
 The result contains signed `speeds`, signed `speeds_hz`, nonnegative
 synchronous `frequencies`, the selected `load_ids` tuple, and complex
 `response` with shape `(samples, speeds, free_dofs)`.
@@ -235,3 +264,8 @@ result = solver.solve(
 An optional `initial_state` contains the free-DOF displacements followed by
 the free-DOF velocities. The returned `displacement` and `velocity` arrays have
 shape `(samples, times, free_dofs)`.
+
+The scalar `speed` selects one structural operating point for the complete
+integration. Time response still accepts an explicit constant vector or
+callback rather than declarative load IDs, so speed-dependent declarative load
+records are not assembled by this route.

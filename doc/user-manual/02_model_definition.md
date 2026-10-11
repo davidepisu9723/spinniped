@@ -17,6 +17,8 @@ objects. Records refer to one another by integer IDs:
   physical data.
 - `ShaftElement`, `BearingElement`, and `DiskElement` define connectivity and
   reference a compatible property.
+- `SpeedDependentValue` tabulates selected linear coefficients against rotor
+  angular speed.
 - `HarmonicLoad`, `RotatingLoad`, and `Unbalance` define nodal excitation
   data.
 - `ModelDefinition` holds the record lists.
@@ -37,6 +39,7 @@ flowchart LR
         material["Material 1"] --> shaft_property["ShaftProperty 1"]
         shaft_property --> shaft_element["ShaftElement"]
         distribution["RandomDistribution 17"] --> bearing_property["BearingProperty: kxx = (17,)"]
+        speed_table["SpeedDependentValue"] --> bearing_property
         bearing_property --> bearing_element["BearingElement"]
         disk_property["DiskProperty 3"] --> disk_element["DiskElement"]
         grids["Grid IDs"] --> shaft_element
@@ -76,7 +79,13 @@ from spinniped import (
     RandomDistribution,
     ShaftElement,
     ShaftProperty,
+    SpeedDependentValue,
     Unbalance,
+)
+
+bearing_stiffness = SpeedDependentValue(
+    speeds=(0.0, 100.0, 200.0),
+    values=(1.00e8, 0.95e8, 0.85e8),
 )
 
 definition = ModelDefinition(
@@ -102,8 +111,8 @@ definition = ModelDefinition(
         ),
         BearingProperty(
             id=2,
-            kxx=1e8,
-            kyy=1e8,
+            kxx=bearing_stiffness,
+            kyy=bearing_stiffness,
             cxx=100.0,
             cyy=100.0,
         ),
@@ -172,6 +181,7 @@ and theory notes use SI.
 | `HarmonicLoad` | `id`; nodal `grid`; three-component `force` and `moment`; common `phase`; `coordinate_system` |
 | `RotatingLoad` | `id`; nodal `grid`; `force_magnitude`; `phase`; `sense`; `coordinate_system` |
 | `Unbalance` | `id`; nodal `grid`; `mass_eccentricity`; `phase`; `coordinate_system` |
+| `SpeedDependentValue` | strictly increasing rotor `speeds`; corresponding scalar `values` |
 | `RandomDistribution` | unique `id`; unique `name`; `distribution`; family-specific `parameters` |
 
 `ShaftProperty.theory` accepts `"timoshenko"` (the default) and `"euler"`.
@@ -179,6 +189,12 @@ Bending rotary inertia is enabled by default. Shaft and disk `damping` values
 are coefficients in the mass-proportional relation
 $\mathbf{C}=\alpha\mathbf{M}$. Bearing coefficients default to zero and occupy
 the translational x-y-z block.
+
+All bearing stiffness and damping coefficients accept a
+`SpeedDependentValue`. So do the individual force and moment components of a
+`HarmonicLoad` and `RotatingLoad.force_magnitude`. Other fields remain scalar
+or random parameters. [Chapter 3](03_speed_dependent_values.md) documents the
+supported placements, interpolation rules, and operating-speed convention.
 
 `ModelDefinition` groups the `grids`, `coordinate_systems`, `materials`,
 `properties`, `elements`, `distributions`, and `loads` lists; each defaults to

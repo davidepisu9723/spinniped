@@ -61,7 +61,7 @@ print(result["frequencies"][0])
 - [Rotordynamics theory manual](doc/theory-manual/00_theory_manual.md) develops
   the analytical mechanics from free-body diagrams through shaft vibration and
   the extended Jeffcott rotor.
-- [Examples and benchmarks](doc/user-manual/07_examples_and_benchmarks.md)
+- [Examples and benchmarks](doc/user-manual/08_examples_and_benchmarks.md)
   distinguishes normal API workflows from controlled reference calculations
   and finite-element comparisons.
 - [Testing and verification](tests/README.md) explains how those formulations

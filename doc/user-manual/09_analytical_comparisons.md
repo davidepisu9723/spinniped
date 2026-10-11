@@ -1,4 +1,4 @@
-# Chapter 8 -- Mapping analytical models to Spinniped
+# Chapter 9 -- Mapping analytical models to Spinniped
 
 ## Table of contents
 

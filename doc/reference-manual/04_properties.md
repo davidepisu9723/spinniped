@@ -29,6 +29,13 @@ viscous-damping coefficients for local $x$, $y$, and $z$. Coefficients are
 interpreted in the coordinate system selected by the associated bearing
 element. Bearing properties contribute no mass or gyroscopic terms.
 
+Each stiffness field `kxx`, `kyy`, `kzz`, `kxy`, and `kyx` and damping field
+`cxx`, `cyy`, `czz`, `cxy`, and `cyx` accepts either an ordinary parameter or
+a `SpeedDependentValue`. A tabulated coefficient is omitted from the constant
+base matrix and represented by a transformed unit-coefficient contribution.
+The solver later scales and adds that contribution at the requested signed
+rotor speed. Shaft and disk property fields do not accept speed tables.
+
 ## Disk properties
 
 `DiskProperty` stores mass, equal diametral inertia, polar inertia, and a

@@ -1,6 +1,6 @@
 """Model validation, random sampling, coordinate handling, and assembly."""
 
-from dataclasses import dataclass, fields, is_dataclass, replace
+from dataclasses import dataclass, field, fields, is_dataclass, replace
 
 import numpy as np
 
@@ -19,6 +19,7 @@ from .records import (
     RotatingLoad,
     ShaftElement,
     ShaftProperty,
+    SpeedDependentValue,
     Unbalance,
 )
 
@@ -28,13 +29,25 @@ DOFS_PER_GRID = 6
 
 
 @dataclass(frozen=True, slots=True)
+class _SpeedDependentMatrixContribution:
+    """Store one transformed unit-coefficient matrix contribution."""
+
+    value: SpeedDependentValue
+    matrix: np.ndarray
+    indices: tuple[int, ...]
+    path: str
+
+
+@dataclass(frozen=True, slots=True)
 class BuiltModel:
     """Numerical model or Monte Carlo ensemble produced by ``ModelBuilder``.
 
     Parameters
     ----------
     stiffness, mass, damping, gyroscopic : numpy.ndarray
-        Global matrices with shape ``(samples, ndof, ndof)``.
+        Global matrices with shape ``(samples, ndof, ndof)``. Stiffness and
+        damping contain the speed-independent base terms; gyroscopic is the
+        unit-speed matrix.
     grid_ids : tuple of int
         Grid IDs in global matrix order.
     coordinates : numpy.ndarray
@@ -45,6 +58,10 @@ class BuiltModel:
         Whether the model represents a sampled stochastic ensemble.
     seed : int or None
         Random seed used during construction.
+    _stiffness_speed_contributions, _damping_speed_contributions : tuple
+        Internal per-sample unit-matrix terms used to form transient
+        speed-dependent matrix deltas. The public equation matrices remain
+        three-dimensional.
     """
 
     stiffness: np.ndarray
@@ -56,6 +73,12 @@ class BuiltModel:
     definitions: tuple[ModelDefinition, ...]
     stochastic: bool
     seed: int | None
+    _stiffness_speed_contributions: tuple[
+        tuple[_SpeedDependentMatrixContribution, ...], ...
+    ] = field(default_factory=tuple, repr=False)
+    _damping_speed_contributions: tuple[
+        tuple[_SpeedDependentMatrixContribution, ...], ...
+    ] = field(default_factory=tuple, repr=False)
 
     def __post_init__(self):
         """Validate cross-field dimensions and finite numerical contents.
@@ -124,6 +147,107 @@ class BuiltModel:
                 "BuiltModel requires one resolved definition per sample"
             )
 
+        # Speed-dependent terms are stored per realization while the base
+        # matrices retain their established sample-first three-dimensional
+        # shape. An empty outer tuple remains valid for manually constructed
+        # static BuiltModel instances.
+        contribution_groups = (
+            self._stiffness_speed_contributions,
+            self._damping_speed_contributions,
+        )
+        for groups in contribution_groups:
+            if not isinstance(groups, tuple):
+                raise TypeError(
+                    "BuiltModel speed-dependent contributions must be tuples"
+                )
+            if groups and len(groups) != sample_count:
+                raise ValueError(
+                    "BuiltModel requires one speed-contribution group per sample"
+                )
+            for sample_terms in groups:
+                if not isinstance(sample_terms, tuple):
+                    raise TypeError(
+                        "BuiltModel sample speed contributions must be tuples"
+                    )
+                for term in sample_terms:
+                    if not isinstance(term, _SpeedDependentMatrixContribution):
+                        raise TypeError(
+                            "BuiltModel contains an invalid speed contribution"
+                        )
+                    if (
+                        not isinstance(term.matrix, np.ndarray)
+                        or term.matrix.ndim != 2
+                        or term.matrix.shape[0] != term.matrix.shape[1]
+                        or term.matrix.shape[0] != len(term.indices)
+                    ):
+                        raise ValueError(
+                            "Speed contribution matrices must be square and "
+                            "match their DOF indices"
+                        )
+                    if not np.isfinite(term.matrix).all():
+                        raise ValueError(
+                            "Speed contribution matrices must contain finite values"
+                        )
+                    if (
+                        len(set(term.indices)) != len(term.indices)
+                        or any(
+                            index < 0 or index >= row_count
+                            for index in term.indices
+                        )
+                    ):
+                        raise ValueError(
+                            "Speed contribution DOF indices are inconsistent "
+                            "with the model"
+                        )
+
+        # A manually instantiated BuiltModel must not silently discard tables
+        # present on bearing properties. Only ModelBuilder has the geometry
+        # and coordinate information needed to create these private bases.
+        stiffness_names = ("kxx", "kyy", "kzz", "kxy", "kyx")
+        damping_names = ("cxx", "cyy", "czz", "cxy", "cyx")
+        for sample, definition in enumerate(self.definitions):
+            if (
+                not isinstance(definition, ModelDefinition)
+                or not isinstance(definition.properties, (list, tuple))
+                or not isinstance(definition.elements, (list, tuple))
+            ):
+                continue
+            bearing_properties = {
+                item.id: item
+                for item in definition.properties
+                if isinstance(item, BearingProperty)
+            }
+            expected_counts = [0, 0]
+            for element in definition.elements:
+                if not isinstance(element, BearingElement):
+                    continue
+                property_record = bearing_properties.get(element.property)
+                if property_record is None:
+                    continue
+                expected_counts[0] += sum(
+                    isinstance(
+                        getattr(property_record, name),
+                        SpeedDependentValue,
+                    )
+                    for name in stiffness_names
+                )
+                expected_counts[1] += sum(
+                    isinstance(
+                        getattr(property_record, name),
+                        SpeedDependentValue,
+                    )
+                    for name in damping_names
+                )
+            actual_counts = [
+                len(groups[sample]) if groups else 0
+                for groups in contribution_groups
+            ]
+            if actual_counts != expected_counts:
+                raise ValueError(
+                    "Speed-dependent bearing definitions must be assembled "
+                    "by ModelBuilder"
+                )
+
         # Keep the stochastic flag unambiguous.
         if not isinstance(self.stochastic, bool):
             raise TypeError("BuiltModel stochastic must be a boolean")
@@ -158,7 +282,7 @@ class BuiltModel:
 
     @property
     def K(self):
-        """Return the global stiffness matrices.
+        """Return the speed-independent global base stiffness matrices.
 
         Returns
         -------
@@ -180,7 +304,7 @@ class BuiltModel:
 
     @property
     def C(self):
-        """Return the global damping matrices.
+        """Return the speed-independent global base damping matrices.
 
         Returns
         -------
@@ -199,6 +323,203 @@ class BuiltModel:
             Array with shape ``(samples, ndof, ndof)``.
         """
         return self.gyroscopic
+
+
+def _speed_dependent_arrays(value, path):
+    """Return validated knot and ordinate arrays for one resolved table."""
+    if not isinstance(value, SpeedDependentValue):
+        raise TypeError(f"{path} must be a SpeedDependentValue")
+
+    # Boolean values are numeric in Python but have no meaningful mechanical
+    # interpretation as a speed or coefficient.
+    if isinstance(value.speeds, (str, bytes)) or isinstance(
+        value.values,
+        (str, bytes),
+    ):
+        raise TypeError(
+            f"{path} speeds and values must be one-dimensional sequences"
+        )
+    try:
+        raw_speeds = list(value.speeds)
+        raw_values = list(value.values)
+    except TypeError:
+        raise TypeError(
+            f"{path} speeds and values must be one-dimensional sequences"
+        ) from None
+    if any(isinstance(item, (bool, np.bool_)) for item in raw_speeds):
+        raise TypeError(f"{path} speeds must contain only real numeric values")
+    if any(isinstance(item, (bool, np.bool_)) for item in raw_values):
+        raise TypeError(f"{path} values must contain only real numeric values")
+
+    try:
+        speeds = np.asarray(raw_speeds, dtype=float)
+        values = np.asarray(raw_values, dtype=float)
+    except (TypeError, ValueError) as error:
+        raise TypeError(
+            f"{path} speeds and values must contain only real numeric values"
+        ) from error
+
+    if speeds.ndim != 1 or values.ndim != 1:
+        raise ValueError(f"{path} speeds and values must be one-dimensional")
+    if len(speeds) < 2:
+        raise ValueError(f"{path} requires at least two speed points")
+    if values.shape != speeds.shape:
+        raise ValueError(f"{path} speeds and values must have the same length")
+    if not np.isfinite(speeds).all() or not np.isfinite(values).all():
+        raise ValueError(f"{path} speeds and values must be finite")
+    if np.any(np.diff(speeds) <= 0.0):
+        raise ValueError(f"{path} speeds must be strictly increasing")
+
+    return speeds, values
+
+
+def _interpolate_speed_dependent_value(value, speeds, path):
+    """Linearly evaluate one resolved speed table without extrapolation.
+
+    All requested speeds are checked before interpolation, allowing solvers to
+    preflight a complete operating-speed grid before the first numerical solve.
+    """
+    knots, values = _speed_dependent_arrays(value, path)
+    try:
+        requested = np.asarray(speeds, dtype=float)
+    except (TypeError, ValueError) as error:
+        raise TypeError(
+            f"{path} evaluation speeds must be real numeric values"
+        ) from error
+    if requested.ndim != 1 or not requested.size:
+        raise ValueError(
+            f"{path} evaluation speeds must be a non-empty one-dimensional "
+            "sequence"
+        )
+    if not np.isfinite(requested).all():
+        raise ValueError(f"{path} evaluation speeds must be finite")
+    if np.any(requested < knots[0]) or np.any(requested > knots[-1]):
+        raise ValueError(
+            f"{path} cannot be evaluated outside its speed range "
+            f"[{knots[0]}, {knots[-1]}] rad/s"
+        )
+    return np.interp(requested, knots, values)
+
+
+def _contains_speed_dependent_value(value):
+    """Return whether an arbitrarily nested record value contains a table."""
+    if isinstance(value, SpeedDependentValue):
+        return True
+    if isinstance(value, (tuple, list)):
+        return any(_contains_speed_dependent_value(item) for item in value)
+    if isinstance(value, dict):
+        return any(
+            _contains_speed_dependent_value(item)
+            for item in value.values()
+        )
+    return False
+
+
+def _reject_speed_dependent_value(value, path):
+    """Reject a speed table in a field whose formulation is not linear."""
+    if _contains_speed_dependent_value(value):
+        raise TypeError(f"{path} does not accept SpeedDependentValue")
+
+
+def _validate_speed_dependent_placements(definition):
+    """Restrict speed tables to supported linear bearing and load fields."""
+    for grid in definition.grids:
+        # Collection/type errors are reported later by the ordinary record
+        # validation path.  Avoid obscuring those established diagnostics.
+        if not isinstance(grid, Grid):
+            continue
+        for name in ("x", "y", "z"):
+            _reject_speed_dependent_value(
+                getattr(grid, name), f"Grid {grid.id} {name}"
+            )
+
+    for coordinate_system in definition.coordinate_systems:
+        if not isinstance(coordinate_system, CoordinateSystem):
+            continue
+        for name in ("origin", "x_axis", "xy_plane"):
+            _reject_speed_dependent_value(
+                getattr(coordinate_system, name),
+                f"Coordinate system {coordinate_system.id} {name}",
+            )
+
+    for material in definition.materials:
+        if not isinstance(material, Material):
+            continue
+        for name in ("density", "young_modulus", "poisson_ratio"):
+            _reject_speed_dependent_value(
+                getattr(material, name), f"Material {material.id} {name}"
+            )
+
+    for property_record in definition.properties:
+        if isinstance(property_record, BearingProperty):
+            continue
+        if not isinstance(property_record, (ShaftProperty, DiskProperty)):
+            continue
+        for record_field in fields(property_record):
+            _reject_speed_dependent_value(
+                getattr(property_record, record_field.name),
+                f"Property {property_record.id} {record_field.name}",
+            )
+
+    for load in definition.loads:
+        if not isinstance(load, (HarmonicLoad, RotatingLoad, Unbalance)):
+            continue
+        _reject_speed_dependent_value(load.phase, f"Load {load.id} phase")
+        if isinstance(load, Unbalance):
+            _reject_speed_dependent_value(
+                load.mass_eccentricity,
+                f"Unbalance {load.id} mass_eccentricity",
+            )
+
+    for distribution in definition.distributions:
+        if not isinstance(distribution, RandomDistribution):
+            continue
+        _reject_speed_dependent_value(
+            distribution.parameters,
+            f"Distribution {distribution.id} parameters",
+        )
+
+    _reject_speed_dependent_value(definition.spin_axis, "spin_axis")
+
+
+def _validate_resolved_speed_dependent_values(definition):
+    """Validate every supported table after random ordinates are resolved."""
+    bearing_names = (
+        "kxx", "kyy", "kzz", "kxy", "kyx",
+        "cxx", "cyy", "czz", "cxy", "cyx",
+    )
+    for property_record in definition.properties:
+        if isinstance(property_record, BearingProperty):
+            for name in bearing_names:
+                value = getattr(property_record, name)
+                if isinstance(value, SpeedDependentValue):
+                    _speed_dependent_arrays(
+                        value,
+                        f"Bearing property {property_record.id} {name}",
+                    )
+
+    for load in definition.loads:
+        if isinstance(load, HarmonicLoad):
+            for vector_name in ("force", "moment"):
+                try:
+                    components = list(getattr(load, vector_name))
+                except TypeError:
+                    # The ordinary load validator below reports its canonical
+                    # vector-shape error.
+                    continue
+                for component, value in enumerate(components):
+                    if isinstance(value, SpeedDependentValue):
+                        _speed_dependent_arrays(
+                            value,
+                            f"Harmonic load {load.id} {vector_name}[{component}]",
+                        )
+        elif isinstance(load, RotatingLoad) and isinstance(
+            load.force_magnitude, SpeedDependentValue
+        ):
+            _speed_dependent_arrays(
+                load.force_magnitude,
+                f"Rotating load {load.id} force_magnitude",
+            )
 
 
 def _distr_to_array(value, label, *, dimensions):
@@ -506,6 +827,27 @@ def _resolve(value, sampled_distributions, path="model"):
     if isinstance(value, RandomDistribution):
         return value
 
+    # A speed table owns two structural tuples. Resolve only its ordinates so
+    # a two-integer speed grid such as ``(0, 100)`` cannot be mistaken for a
+    # random-distribution reference by the generic tuple syntax.
+    if isinstance(value, SpeedDependentValue):
+        if isinstance(value.values, (str, bytes)):
+            return value
+        try:
+            table_values = list(value.values)
+        except TypeError:
+            # Structural validation later produces the dedicated table error.
+            return value
+        resolved_values = tuple(
+            _resolve(
+                item,
+                sampled_distributions,
+                f"{path}.values[{index}]",
+            )
+            for index, item in enumerate(table_values)
+        )
+        return replace(value, values=resolved_values)
+
     # Reference validation is isolated from the recursive traversal logic.
     if _is_distribution_reference(value):
         return _resolve_distribution_reference(
@@ -785,7 +1127,7 @@ def _shaft_transform(point_a, point_b):
 
 
 def _assemble(definition):
-    """Assemble one resolved definition into global K, M, C, and G matrices.
+    """Assemble one resolved definition into global K0, M, C0, and G matrices.
 
     Parameters
     ----------
@@ -795,12 +1137,20 @@ def _assemble(definition):
     Returns
     -------
     stiffness_matrix, mass_matrix, damping_matrix, gyroscopic_matrix : numpy.ndarray
-        Global ``(ndof, ndof)`` matrices.
+        Global ``(ndof, ndof)`` base matrices. Tabulated bearing terms are
+        omitted from stiffness and damping and returned separately.
     grid_ids : tuple of int
         Grid IDs in assembly order.
     coordinates : numpy.ndarray
         Resolved global grid coordinates.
+    stiffness_speed_contributions, damping_speed_contributions : tuple
+        Transformed unit-coefficient matrix terms evaluated by solvers at
+        requested rotor speeds.
     """
+    # Random references have already been resolved. Validate every speed table
+    # now so malformed or nonphysical knot data fail during model construction.
+    _validate_resolved_speed_dependent_values(definition)
+
     # Validate and index every record collection.
     grids = _unique(definition.grids, "grid", Grid)
     if not grids:
@@ -852,6 +1202,8 @@ def _assemble(definition):
     global_mass = np.zeros((number_of_dofs, number_of_dofs))
     global_damping = np.zeros((number_of_dofs, number_of_dofs))
     global_gyroscopic = np.zeros((number_of_dofs, number_of_dofs))
+    stiffness_speed_contributions = []
+    damping_speed_contributions = []
 
     def add(global_matrix, local_matrix, indices):
         """Accumulate one local matrix into selected global indices.
@@ -914,6 +1266,32 @@ def _assemble(definition):
             raise ValueError(f"{label} must contain only finite values")
         return vector
 
+    def finite_speed_scalar(value, label, *, nonnegative=False):
+        """Validate a scalar or a resolved speed-dependent scalar."""
+        if isinstance(value, SpeedDependentValue):
+            _, table_values = _speed_dependent_arrays(value, label)
+            if nonnegative and np.any(table_values < 0.0):
+                raise ValueError(f"{label} values must be nonnegative")
+            return value
+        scalar = finite_scalar(value, label)
+        if nonnegative and scalar < 0.0:
+            raise ValueError(f"{label} must be nonnegative")
+        return scalar
+
+    def finite_speed_vector(value, label):
+        """Validate three scalar or speed-dependent load components."""
+        try:
+            components = list(value)
+        except TypeError:
+            raise TypeError(f"{label} must contain three components") from None
+        if not any(isinstance(item, SpeedDependentValue) for item in components):
+            finite_vector(value, label)
+            return
+        if len(components) != 3:
+            raise ValueError(f"{label} must contain three components")
+        for component, item in enumerate(components):
+            finite_speed_scalar(item, f"{label}[{component}]")
+
     # Validate declarative excitations without adding them to structural
     # matrices. Response solvers assemble sample-specific load vectors.
     for load in loads.values():
@@ -935,19 +1313,15 @@ def _assemble(definition):
         finite_scalar(load.phase, f"Load {load.id} phase")
 
         if isinstance(load, HarmonicLoad):
-            finite_vector(load.force, f"Harmonic load {load.id} force")
-            finite_vector(load.moment, f"Harmonic load {load.id} moment")
+            finite_speed_vector(load.force, f"Harmonic load {load.id} force")
+            finite_speed_vector(load.moment, f"Harmonic load {load.id} moment")
 
         elif isinstance(load, RotatingLoad):
-            magnitude = finite_scalar(
+            finite_speed_scalar(
                 load.force_magnitude,
                 f"Rotating load {load.id} force_magnitude",
+                nonnegative=True,
             )
-            if magnitude < 0.0:
-                raise ValueError(
-                    f"Rotating load {load.id} force_magnitude must be "
-                    "nonnegative"
-                )
             if not isinstance(load.sense, str):
                 raise TypeError(
                     f"Rotating load {load.id} sense must be a string"
@@ -1102,21 +1476,29 @@ def _assemble(definition):
                     f"{element.coordinate_system}"
                 )
 
-            # Build the local bearing matrices from property coefficients.
-            local_stiffness = stiffness.bearing_stiffness(
-                kxx=element_property.kxx,
-                kyy=element_property.kyy,
-                kzz=element_property.kzz,
-                kxy=element_property.kxy,
-                kyx=element_property.kyx,
-            )
-            local_damping = damping.bearing_damping(
-                cxx=element_property.cxx,
-                cyy=element_property.cyy,
-                czz=element_property.czz,
-                cxy=element_property.cxy,
-                cyx=element_property.cyx,
-            )
+            # The base matrices contain only constant coefficients. Each
+            # tabulated coefficient is replaced by zero and represented by a
+            # transformed unit-coefficient basis stored below.
+            stiffness_names = ("kxx", "kyy", "kzz", "kxy", "kyx")
+            damping_names = ("cxx", "cyy", "czz", "cxy", "cyx")
+            stiffness_arguments = {
+                name: (
+                    0.0
+                    if isinstance(getattr(element_property, name), SpeedDependentValue)
+                    else getattr(element_property, name)
+                )
+                for name in stiffness_names
+            }
+            damping_arguments = {
+                name: (
+                    0.0
+                    if isinstance(getattr(element_property, name), SpeedDependentValue)
+                    else getattr(element_property, name)
+                )
+                for name in damping_names
+            }
+            local_stiffness = stiffness.bearing_stiffness(**stiffness_arguments)
+            local_damping = damping.bearing_damping(**damping_arguments)
             local_mass = mass.bearing_mass()
             local_gyroscopic = gyroscopic.bearing_gyroscopic()
 
@@ -1129,6 +1511,31 @@ def _assemble(definition):
                 transform.T @ local_damping @ transform,
                 transform.T @ local_gyroscopic @ transform,
             ]
+            speed_terms = []
+            for name in stiffness_names:
+                value = getattr(element_property, name)
+                if isinstance(value, SpeedDependentValue):
+                    unit_local = stiffness.bearing_stiffness(**{name: 1.0})
+                    speed_terms.append(
+                        (
+                            "stiffness",
+                            value,
+                            transform.T @ unit_local @ transform,
+                            f"Bearing property {element_property.id} {name}",
+                        )
+                    )
+            for name in damping_names:
+                value = getattr(element_property, name)
+                if isinstance(value, SpeedDependentValue):
+                    unit_local = damping.bearing_damping(**{name: 1.0})
+                    speed_terms.append(
+                        (
+                            "damping",
+                            value,
+                            transform.T @ unit_local @ transform,
+                            f"Bearing property {element_property.id} {name}",
+                        )
+                    )
 
             # Start with the six DOFs of the first grid.
             index_a = grid_index[element.grid]
@@ -1162,6 +1569,15 @@ def _assemble(definition):
                     relative_transform.T @ matrix @ relative_transform
                     for matrix in bearing_matrices
                 ]
+                speed_terms = [
+                    (
+                        target,
+                        value,
+                        relative_transform.T @ matrix @ relative_transform,
+                        path,
+                    )
+                    for target, value, matrix, path in speed_terms
+                ]
 
             # Add bearing K, M, C, and G in the same order as their globals.
             global_matrices = (
@@ -1174,6 +1590,20 @@ def _assemble(definition):
                 global_matrices, bearing_matrices, strict=True
             ):
                 add(global_matrix, local_matrix, bearing_indices)
+
+            # Store compact transformed local bases. Solvers expand them into
+            # global delta matrices only for the requested operating speeds.
+            for target, value, matrix, path in speed_terms:
+                contribution = _SpeedDependentMatrixContribution(
+                    value=value,
+                    matrix=matrix,
+                    indices=tuple(bearing_indices),
+                    path=path,
+                )
+                if target == "stiffness":
+                    stiffness_speed_contributions.append(contribution)
+                else:
+                    damping_speed_contributions.append(contribution)
 
         # Assemble a one-grid rigid disk or lumped mass.
         elif isinstance(element, DiskElement):
@@ -1257,6 +1687,8 @@ def _assemble(definition):
         global_gyroscopic,
         grid_ids,
         coordinates,
+        tuple(stiffness_speed_contributions),
+        tuple(damping_speed_contributions),
     )
 
 
@@ -1308,6 +1740,17 @@ class ModelBuilder:
         if not stochastic:
             samples = 1
 
+        # Placement is independent of random realizations, so validate it
+        # once while preserving the contextual diagnostics of the guarded
+        # per-sample build path below.
+        try:
+            _validate_speed_dependent_placements(definition)
+        except (TypeError, ValueError) as error:
+            sample_label = "sample 0" if stochastic else "deterministic model"
+            raise type(error)(
+                f"Failed to build {sample_label}: {error}"
+            ) from error
+
         # One generator supplies reproducible scalar and multivariate draws.
         random_generator = np.random.default_rng(seed)
 
@@ -1315,6 +1758,8 @@ class ModelBuilder:
         resolved_definitions = []
         assembled_matrices = []
         sample_coordinates = []
+        sample_stiffness_speed_contributions = []
+        sample_damping_speed_contributions = []
 
         for sample_index in range(samples):
             try:
@@ -1339,6 +1784,8 @@ class ModelBuilder:
                     gyroscopic_matrix,
                     grid_ids,
                     coordinates,
+                    stiffness_speed_contributions,
+                    damping_speed_contributions,
                 ) = _assemble(resolved_definition)
             except (TypeError, ValueError) as error:
                 # Attach the failing realization without hiding the root cause.
@@ -1362,6 +1809,12 @@ class ModelBuilder:
                 )
             )
             sample_coordinates.append(coordinates)
+            sample_stiffness_speed_contributions.append(
+                stiffness_speed_contributions
+            )
+            sample_damping_speed_contributions.append(
+                damping_speed_contributions
+            )
 
         # Stack each matrix family along the leading sample dimension.
         stiffness_matrices = np.stack(
@@ -1388,6 +1841,12 @@ class ModelBuilder:
             definitions=tuple(resolved_definitions),
             stochastic=stochastic,
             seed=seed,
+            _stiffness_speed_contributions=tuple(
+                sample_stiffness_speed_contributions
+            ),
+            _damping_speed_contributions=tuple(
+                sample_damping_speed_contributions
+            ),
         )
 
 

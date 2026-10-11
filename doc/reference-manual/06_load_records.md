@@ -16,13 +16,18 @@ The `Load` union contains three frozen, slotted records:
 | Record | Amplitude data | Intended excitation |
 |---|---|---|
 | `HarmonicLoad` | signed local force and moment vectors | fixed-direction harmonic load |
-| `RotatingLoad` | nonnegative force magnitude and rotation sense | constant-magnitude circular force |
+| `RotatingLoad` | nonnegative force magnitude and rotation sense | circular force |
 | `Unbalance` | nonnegative mass-eccentricity product | synchronous circular force proportional to speed squared |
 
 Every record has a positive integer `id`, references one `grid`, and selects a
 `coordinate_system`. Load IDs share one namespace across the three record
 types. Numeric amplitude and phase fields accept the same random-distribution
 references as other model parameters.
+
+Each `HarmonicLoad.force` and `HarmonicLoad.moment` component, and
+`RotatingLoad.force_magnitude`, may instead be a `SpeedDependentValue`.
+`phase` and every `Unbalance` field remain speed-independent. Tabulated load
+amplitudes use signed rotor speed $\Omega$, not forcing frequency $\omega$.
 
 ## Harmonic convention
 
@@ -99,6 +104,11 @@ bounds, and the unbalance plane. It also resolves random parameters separately
 for every realization. Loads do not modify $\mathbf{K}$, $\mathbf{M}$,
 $\mathbf{C}$, or $\mathbf{G}$ and are retained in each
 `BuiltModel.definitions` entry.
+
+For frequency response, all selected speed-dependent load components are
+interpolated at the call's scalar rotor `speed`, transformed, and summed before
+the first forcing-frequency solve. Out-of-range interpolation fails before a
+partial frequency sweep can be returned.
 
 ## Solver assembly
 

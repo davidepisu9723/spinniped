@@ -2,8 +2,12 @@
 
 import numpy as np
 
-from .builder import BuiltModel, _coordinate_system_matrix
-from .records import HarmonicLoad, RotatingLoad, Unbalance
+from .builder import (
+    BuiltModel,
+    _coordinate_system_matrix,
+    _interpolate_speed_dependent_value,
+)
+from .records import HarmonicLoad, RotatingLoad, SpeedDependentValue, Unbalance
 
 
 class Solver:
@@ -202,6 +206,71 @@ class Solver:
         # np.ix_ forms the Cartesian product of selected rows and columns.
         return matrix[sample][np.ix_(free_dofs, free_dofs)]
 
+    @staticmethod
+    def _scalar_speed(value):
+        """Return one finite signed rotor angular speed."""
+        if isinstance(value, (bool, np.bool_)):
+            raise TypeError("speed must be a real scalar")
+        try:
+            speed = float(value)
+        except (TypeError, ValueError):
+            raise TypeError("speed must be a real scalar") from None
+        if not np.isfinite(speed):
+            raise ValueError("speed must be finite")
+        return speed
+
+    @staticmethod
+    def _speed_matrix_deltas(model, contributions, speeds):
+        """Resolve all tabulated coefficients before constructing deltas.
+
+        The returned transient array has shape
+        ``(samples, speeds, ndof, ndof)``. It belongs to one analysis call and
+        never changes the permanent three-dimensional BuiltModel matrices.
+        """
+        if not contributions or not any(contributions):
+            return None
+
+        # First interpolate every table across the complete requested grid.
+        # No eigensolve or linear solve can begin until this pass succeeds.
+        resolved = []
+        for sample, sample_terms in enumerate(contributions):
+            for term in sample_terms:
+                coefficients = _interpolate_speed_dependent_value(
+                    term.value,
+                    speeds,
+                    term.path,
+                )
+                resolved.append((sample, term, coefficients))
+
+        deltas = np.zeros(
+            (model.samples, len(speeds), model.ndof, model.ndof),
+            dtype=float,
+        )
+        for sample, term, coefficients in resolved:
+            matrix_indices = np.ix_(term.indices, term.indices)
+            for speed_index, coefficient in enumerate(coefficients):
+                deltas[sample, speed_index][matrix_indices] += (
+                    coefficient * term.matrix
+                )
+        return deltas
+
+    @classmethod
+    def _reduced_at_speed(
+        cls,
+        base,
+        deltas,
+        sample,
+        speed_index,
+        free_dofs,
+    ):
+        """Return one reduced base matrix plus its optional speed delta."""
+        matrix = cls._reduced(base, sample, free_dofs)
+        if deltas is not None:
+            matrix = matrix + deltas[sample, speed_index][
+                np.ix_(free_dofs, free_dofs)
+            ]
+        return matrix
+
     def _solve_modal(
         self,
         model,
@@ -209,6 +278,7 @@ class Solver:
         modes=None,
         zero_tolerance=None,
         track_modes=True,
+        speed=0.0,
     ):
         """Solve real symmetric generalized eigenproblems.
 
@@ -224,6 +294,10 @@ class Solver:
             Absolute threshold used to remove rigid-body eigenvalues.
         track_modes : bool, optional
             Match stochastic modes to the first sample using the MAC.
+        speed : float, optional
+            Rotor angular speed in radians per second used to evaluate
+            speed-dependent stiffness. Modal analysis still omits damping and
+            gyroscopic terms.
 
         Returns
         -------
@@ -237,6 +311,15 @@ class Solver:
         requested_modes = self._validate_modes(modes)
         if not isinstance(track_modes, bool):
             raise TypeError("track_modes must be a boolean")
+        speed = self._scalar_speed(speed)
+
+        # Resolve every sample's stiffness at the operating point before the
+        # first generalized eigensolution is attempted.
+        stiffness_deltas = self._speed_matrix_deltas(
+            model,
+            model._stiffness_speed_contributions,
+            np.array([speed]),
+        )
 
         # Store one eigensolution per realization.
         sample_eigenvalues = []
@@ -244,7 +327,13 @@ class Solver:
 
         for sample in range(model.samples):
             # Extract the free-free stiffness and mass matrices.
-            stiffness_matrix = self._reduced(model.K, sample, free_dofs)
+            stiffness_matrix = self._reduced_at_speed(
+                model.K,
+                stiffness_deltas,
+                sample,
+                0,
+                free_dofs,
+            )
             mass_matrix = self._reduced(model.M, sample, free_dofs)
 
             # The Hermitian solver is valid only for symmetric matrices.
@@ -333,6 +422,7 @@ class Solver:
         ]
 
         return {
+            "speed": speed,
             "eigenvalues": self._stack(sample_eigenvalues),
             "frequencies": self._stack(sample_frequencies),
             "eigenvectors": self._stack(sample_eigenvectors),
@@ -407,6 +497,20 @@ class Solver:
                     "speeds"
                 )
 
+        # Resolve every requested operating point before the first state-space
+        # eigensolution. This also rejects extrapolation without returning a
+        # partially solved Campbell sweep.
+        stiffness_deltas = self._speed_matrix_deltas(
+            model,
+            model._stiffness_speed_contributions,
+            angular_speeds,
+        )
+        damping_deltas = self._speed_matrix_deltas(
+            model,
+            model._damping_speed_contributions,
+            angular_speeds,
+        )
+
         # Collect speed-dependent solutions for every stochastic sample.
         all_sample_values = []
         all_sample_vectors = []
@@ -414,8 +518,6 @@ class Solver:
         for sample in range(model.samples):
             # Extract this realization's reduced equation matrices.
             mass_matrix = self._reduced(model.M, sample, free_dofs)
-            stiffness_matrix = self._reduced(model.K, sample, free_dofs)
-            damping_matrix = self._reduced(model.C, sample, free_dofs)
             gyroscopic_matrix = self._reduced(model.G, sample, free_dofs)
 
             # Prepare constant state-space blocks.
@@ -427,7 +529,21 @@ class Solver:
             speed_values = []
             speed_vectors = []
 
-            for angular_speed in angular_speeds:
+            for speed_index, angular_speed in enumerate(angular_speeds):
+                stiffness_matrix = self._reduced_at_speed(
+                    model.K,
+                    stiffness_deltas,
+                    sample,
+                    speed_index,
+                    free_dofs,
+                )
+                damping_matrix = self._reduced_at_speed(
+                    model.C,
+                    damping_deltas,
+                    sample,
+                    speed_index,
+                    free_dofs,
+                )
                 # Form the first-order state matrix without explicitly inverting M.
                 lower_left = -np.linalg.solve(
                     mass_matrix,
@@ -728,15 +844,9 @@ class Solver:
                 "of finite nonnegative values"
             )
 
-        # Gyroscopic damping is scaled by one signed, finite angular speed.
-        if isinstance(speed, (bool, np.bool_)):
-            raise TypeError("speed must be a real scalar")
-        try:
-            speed = float(speed)
-        except (TypeError, ValueError):
-            raise TypeError("speed must be a real scalar") from None
-        if not np.isfinite(speed):
-            raise ValueError("speed must be finite")
+        # Gyroscopic damping and every SpeedDependentValue use the same signed
+        # rotor angular speed, independently of the forcing-frequency grid.
+        speed = self._scalar_speed(speed)
 
         # Preserve the raw-vector route while making declarative selection
         # explicit. Combining both sources would obscure accidental double
@@ -765,23 +875,58 @@ class Solver:
                 "frequency_response",
             )
 
+        # Precompute every structural and declarative-load operating-point
+        # value before the first dynamic-stiffness solve.
+        evaluation_speeds = np.array([speed])
+        stiffness_deltas = self._speed_matrix_deltas(
+            model,
+            model._stiffness_speed_contributions,
+            evaluation_speeds,
+        )
+        damping_deltas = self._speed_matrix_deltas(
+            model,
+            model._damping_speed_contributions,
+            evaluation_speeds,
+        )
+        declarative_forces = None
+        if selected_load_ids:
+            declarative_forces = np.stack(
+                [
+                    self._assemble_harmonic_loads(
+                        model,
+                        sample,
+                        selected_load_ids,
+                        speed=speed,
+                    )[free_dofs]
+                    for sample in range(model.samples)
+                ]
+            )
+
         # Solve the complex dynamic stiffness for each sample and frequency.
         all_responses = []
         angular_frequencies = 2.0 * np.pi * frequencies
 
         for sample in range(model.samples):
             mass_matrix = self._reduced(model.M, sample, free_dofs)
-            stiffness_matrix = self._reduced(model.K, sample, free_dofs)
-            damping_matrix = self._reduced(model.C, sample, free_dofs)
+            stiffness_matrix = self._reduced_at_speed(
+                model.K,
+                stiffness_deltas,
+                sample,
+                0,
+                free_dofs,
+            )
+            damping_matrix = self._reduced_at_speed(
+                model.C,
+                damping_deltas,
+                sample,
+                0,
+                free_dofs,
+            )
             gyroscopic_matrix = self._reduced(model.G, sample, free_dofs)
 
             # Declarative parameters are resolved independently per sample.
             if selected_load_ids:
-                sample_force = self._assemble_harmonic_loads(
-                    model,
-                    sample,
-                    selected_load_ids,
-                )[free_dofs]
+                sample_force = declarative_forces[sample]
             else:
                 sample_force = reduced_force
 
@@ -855,13 +1000,24 @@ class Solver:
             "unbalance_response",
         )
 
+        # Bearing tables are evaluated over the complete signed speed grid
+        # before any synchronous response solve begins.
+        stiffness_deltas = self._speed_matrix_deltas(
+            model,
+            model._stiffness_speed_contributions,
+            speeds,
+        )
+        damping_deltas = self._speed_matrix_deltas(
+            model,
+            model._damping_speed_contributions,
+            speeds,
+        )
+
         all_responses = []
         angular_frequencies = np.abs(speeds)
 
         for sample in range(model.samples):
             mass_matrix = self._reduced(model.M, sample, free_dofs)
-            stiffness_matrix = self._reduced(model.K, sample, free_dofs)
-            damping_matrix = self._reduced(model.C, sample, free_dofs)
             gyroscopic_matrix = self._reduced(model.G, sample, free_dofs)
 
             # Geometry, phase, and sampled mass eccentricity are constant
@@ -882,11 +1038,23 @@ class Solver:
             zero_force = np.zeros(len(free_dofs), dtype=complex)
 
             sample_responses = []
-            for speed, angular_frequency in zip(
-                speeds,
-                angular_frequencies,
-                strict=True,
+            for speed_index, (speed, angular_frequency) in enumerate(
+                zip(speeds, angular_frequencies, strict=True)
             ):
+                stiffness_matrix = self._reduced_at_speed(
+                    model.K,
+                    stiffness_deltas,
+                    sample,
+                    speed_index,
+                    free_dofs,
+                )
+                damping_matrix = self._reduced_at_speed(
+                    model.C,
+                    damping_deltas,
+                    sample,
+                    speed_index,
+                    free_dofs,
+                )
                 if speed > 0.0:
                     sample_force = speed**2 * positive_force_coefficient
                 elif speed < 0.0:
@@ -983,8 +1151,30 @@ class Solver:
         global_load[offset : offset + 3] += rotation @ local_load[:3]
         global_load[offset + 3 : offset + 6] += rotation @ local_load[3:]
 
+    @staticmethod
+    def _load_value_at_speed(value, speed, path):
+        """Return one scalar load value at the requested rotor speed."""
+        if isinstance(value, SpeedDependentValue):
+            if speed is None:
+                raise ValueError(f"{path} requires a rotor speed")
+            return float(
+                _interpolate_speed_dependent_value(
+                    value,
+                    np.array([speed]),
+                    path,
+                )[0]
+            )
+        return float(value)
+
     @classmethod
-    def _assemble_harmonic_loads(cls, model, sample, load_ids):
+    def _assemble_harmonic_loads(
+        cls,
+        model,
+        sample,
+        load_ids,
+        *,
+        speed=None,
+    ):
         """Assemble selected harmonic and rotating records into global DOFs."""
         definition = model.definitions[sample]
         records = {load.id: load for load in definition.loads}
@@ -1000,13 +1190,31 @@ class Solver:
             rotation = rotations[load.coordinate_system]
 
             if isinstance(load, HarmonicLoad):
-                local_load = np.concatenate((load.force, load.moment)).astype(
-                    complex
+                components = tuple(load.force) + tuple(load.moment)
+                local_load = np.asarray(
+                    [
+                        cls._load_value_at_speed(
+                            value,
+                            speed,
+                            (
+                                f"Harmonic load {load.id} "
+                                f"{'force' if component < 3 else 'moment'}"
+                                f"[{component if component < 3 else component - 3}]"
+                            ),
+                        )
+                        for component, value in enumerate(components)
+                    ],
+                    dtype=complex,
                 )
                 local_load *= np.exp(1j * float(load.phase))
             else:
                 sense = 1.0 if load.sense == "positive" else -1.0
-                radial_phasor = float(load.force_magnitude) * np.exp(
+                magnitude = cls._load_value_at_speed(
+                    load.force_magnitude,
+                    speed,
+                    f"Rotating load {load.id} force_magnitude",
+                )
+                radial_phasor = magnitude * np.exp(
                     1j * sense * float(load.phase)
                 )
                 local_load = np.zeros(6, dtype=complex)
@@ -1126,9 +1334,9 @@ class Solver:
                 "times must contain at least two strictly increasing values"
             )
 
-        # Gyroscopic damping requires a finite angular speed.
-        if not np.isfinite(speed):
-            raise ValueError("speed must be finite")
+        # The constant rotor speed selects one structural operating point for
+        # the complete integration.
+        speed = self._scalar_speed(speed)
 
         # The reduced state concatenates q and q_dot.
         reduced_size = len(free_dofs)
@@ -1172,14 +1380,40 @@ class Solver:
                 dtype=float,
             )
 
+        # Reject any out-of-range structural interpolation before invoking the
+        # first time integrator.
+        evaluation_speeds = np.array([speed])
+        stiffness_deltas = self._speed_matrix_deltas(
+            model,
+            model._stiffness_speed_contributions,
+            evaluation_speeds,
+        )
+        damping_deltas = self._speed_matrix_deltas(
+            model,
+            model._damping_speed_contributions,
+            evaluation_speeds,
+        )
+
         # Integrate every deterministic realization independently.
         sample_states = []
 
         for sample in range(model.samples):
             mass_matrix = self._reduced(model.M, sample, free_dofs)
-            stiffness_matrix = self._reduced(model.K, sample, free_dofs)
+            stiffness_matrix = self._reduced_at_speed(
+                model.K,
+                stiffness_deltas,
+                sample,
+                0,
+                free_dofs,
+            )
             effective_damping = (
-                self._reduced(model.C, sample, free_dofs)
+                self._reduced_at_speed(
+                    model.C,
+                    damping_deltas,
+                    sample,
+                    0,
+                    free_dofs,
+                )
                 + speed * self._reduced(model.G, sample, free_dofs)
             )
 

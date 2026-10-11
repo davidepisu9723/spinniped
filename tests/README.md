@@ -62,6 +62,7 @@ parametrized functions run once for every listed case.
 | [`test_element_matrices.py`](#test_element_matricespy) | 10 | Stateless shaft, bearing, and disk matrix kernels |
 | [`test_assembly.py`](#test_assemblypy) | 16 | Record validation, coordinate transforms, and global assembly |
 | [`test_declarative_api.py`](#test_declarative_apipy) | 28 | Distribution resolution and core public solver routes |
+| [`test_speed_dependence.py`](#test_speed_dependencepy) | 18 | Tabulated rotor-speed interpolation, stochastic curves, matrix deltas, and load deltas |
 | [`test_load_response.py`](#test_load_responsepy) | 6 | Declarative load phasors and steady-response routes |
 | [`test_plotting.py`](#test_plottingpy) | 8 | Rotor-section and Campbell-diagram rendering and plotting-input validation |
 | [`test_analytical_benchmarks.py`](#test_analytical_benchmarkspy) | 1 | Comparison with the Euler--Bernoulli beam solution |
@@ -473,6 +474,120 @@ based on the largest eigenvalue from discarding a small but physical mode.
 Passes a force vector whose length matches neither the full nor reduced model,
 then supplies only one time point to the transient solver. Both malformed
 inputs must raise focused errors before numerical solution.
+
+### `test_speed_dependence.py`
+
+This module verifies that tabulated coefficients remain declarative model data,
+are resolved into transient operating-point contributions, and never add a
+permanent speed dimension to the built matrices.
+
+#### `test_speed_dependent_value_is_public_frozen_and_linearly_interpolated`
+
+Checks the public frozen, slotted record and evaluates an unsorted sequence
+containing repeated and negative speeds. Exact knots and intermediate points
+must preserve request order and use linear interpolation. Mutable input lists
+are snapshotted as tuples so later caller mutation cannot alter the table.
+
+#### `test_builder_rejects_malformed_speed_dependent_values`
+
+Parametrizes insufficient and mismatched tables, repeated or descending knots,
+nonfinite entries, and Boolean entries. Every case must fail during model
+construction with the bearing field retained in the error context.
+
+#### `test_speed_dependent_value_rejects_extrapolation`
+
+Accepts both table endpoints and independently rejects requests immediately
+below and above the available signed rotor-speed interval.
+
+#### `test_builder_keeps_base_matrices_three_dimensional_and_adds_deltas`
+
+Combines constant and tabulated bearing coefficients. The permanent K, M, C,
+and G arrays must remain `(samples, ndof, ndof)`, K and C must contain only the
+constant terms, and a modal solve must add the interpolated stiffness exactly
+once.
+
+#### `test_rotated_two_grid_bearing_transforms_speed_dependent_deltas`
+
+Combines a rotated bearing frame with two-grid relative motion. Interpolated K
+and C deltas must act on the rotated global DOFs and retain the exact
+`[[+v, -v], [-v, +v]]` block pattern.
+
+#### `test_deterministic_build_resolves_random_speed_ordinates_to_means`
+
+References two scalar distributions from the table ordinates. A deterministic
+build must preserve the speed knots, replace both references by their means,
+and interpolate the resulting deterministic curve in modal analysis.
+
+#### `test_multivariate_speed_ordinates_are_correlated_and_reproducible`
+
+Uses two components of one multivariate normal distribution as the endpoint
+ordinates. Seeded ensembles must be identical and their sampled endpoint
+correlation must reproduce the requested correlation without expanding the
+built stiffness array to four dimensions.
+
+#### `test_repeated_random_reference_reuses_one_draw_at_every_speed_knot`
+
+Places the same scalar distribution reference at both knots. Each realization
+must contain two equal resolved ordinates and consequently return the same
+Campbell frequency at both operating speeds.
+
+#### `test_campbell_uses_interpolated_stiffness_and_damping_at_every_speed`
+
+Compares the complex eigenvalue of a damped single-DOF system at three speeds
+with the closed-form roots obtained from independently interpolated K and C.
+
+#### `test_frequency_response_uses_rotor_speed_not_forcing_frequency`
+
+Sweeps two excitation frequencies at one rotor speed and compares both complex
+responses with the same interpolated K and C. This distinguishes rotor-speed
+tables from the independent harmonic-frequency grid.
+
+#### `test_time_response_uses_one_interpolated_operating_point`
+
+Compares a tabulated model at one scalar speed with an otherwise identical
+constant-coefficient model. Their integrated displacement and velocity
+histories must coincide.
+
+#### `test_unbalance_response_uses_literal_signed_speed_for_bearing_tables`
+
+Uses asymmetric negative and positive knots in an isotropic two-DOF rotor.
+The synchronous response is checked against the signed-speed interpolation,
+including reverse-force sense and the existing speed-squared load law.
+
+#### `test_campbell_preflights_complete_speed_grid_before_first_solve`
+
+Requests one valid point followed by an out-of-range point while replacing the
+linear solver with a sentinel. Extrapolation must be rejected before even the
+first otherwise-valid Campbell point is solved.
+
+#### `test_harmonic_load_components_interpolate_transform_and_superimpose`
+
+Interpolates force and moment components, combines them with a constant load,
+applies a common complex phase, and rotates the complete nodal vector from its
+declared coordinate system into global coordinates.
+
+#### `test_frequency_response_interpolates_rotating_load_at_rotor_speed`
+
+Checks a negative-sense circular load whose magnitude is tabulated at rotor
+speed. The resulting two-component phasor and response are compared with the
+closed-form dynamic-stiffness solution.
+
+#### `test_selected_load_is_preflighted_but_unselected_tables_are_ignored`
+
+Shows that an out-of-range table does not affect an analysis that did not
+select its load ID. Selecting it must reject the operating speed before the
+first linear solve.
+
+#### `test_rotating_load_speed_table_must_remain_nonnegative`
+
+Rejects a rotating-load magnitude table containing a negative ordinate even
+when another ordinate is valid.
+
+#### `test_builder_rejects_speed_dependent_values_in_unsupported_fields`
+
+Parametrizes grids, materials, shaft and disk properties, phases, unbalance,
+and the model spin axis. These unsupported placements must fail explicitly
+instead of reaching unrelated numerical kernels.
 
 ### `test_load_response.py`
 

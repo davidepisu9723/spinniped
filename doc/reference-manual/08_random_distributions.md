@@ -1,4 +1,4 @@
-# Chapter 7 -- Random distributions
+# Chapter 8 -- Random distributions
 
 ## Table of contents
 
@@ -12,6 +12,9 @@
 `id`, a unique nonempty `name`, a family name, and a strict parameter
 dictionary. Numeric record fields use `(distribution_id,)` for a scalar or
 `(distribution_id, component_index)` for one multivariate component.
+
+The `values` tuple of a `SpeedDependentValue` accepts the same references.
+Its `speeds` tuple does not: speed knots are deterministic structural data.
 
 ## Implemented families
 
@@ -47,3 +50,7 @@ flowchart LR
 The cache key contains both the realization index and distribution ID.
 Reference resolution happens before element matrices are evaluated, which is
 why all consumers of one reference are coherent within that realization.
+For a speed table, the resolver preserves the knot sequence and resolves each
+ordinate from the same sample cache. The resulting deterministic curve is then
+validated and retained for later interpolation; no distribution is sampled in
+a solver speed loop.

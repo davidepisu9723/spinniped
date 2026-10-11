@@ -1,9 +1,10 @@
 """Declarative, NASTRAN-like records used to define a Spinniped model.
 
-All record fields contain only Python scalars, tuples, lists, dictionaries, or
-``None``. A numeric field may reference a registered random distribution with
-``(distribution_id,)`` or one multivariate component with
-``(distribution_id, component)``.
+All record fields contain only Python scalars, tuples, lists, dictionaries,
+dataclasses, or ``None``. A numeric field may reference a registered random
+distribution with ``(distribution_id,)`` or one multivariate component with
+``(distribution_id, component)``. Selected linear coefficients may instead be
+tabulated against rotor speed with :class:`SpeedDependentValue`.
 """
 
 from dataclasses import dataclass, field
@@ -13,6 +14,53 @@ from typing import TypeAlias
 RandomReference: TypeAlias = tuple[int] | tuple[int, int]
 Parameter: TypeAlias = int | float | RandomReference
 Vector3: TypeAlias = tuple[Parameter, Parameter, Parameter]
+
+
+@dataclass(frozen=True, slots=True)
+class SpeedDependentValue:
+    """Define one scalar value at tabulated rotor angular speeds.
+
+    Parameters
+    ----------
+    speeds : tuple of int or float
+        Strictly increasing rotor angular speeds in radians per second.
+    values : tuple of int, float, or random reference
+        Value at each corresponding speed. Random references are resolved once
+        per model realization before interpolation.
+
+    Notes
+    -----
+    Interpolation is linear and extrapolation is not permitted. This wrapper is
+    accepted only by explicitly documented linear bearing and load fields.
+    """
+
+    speeds: tuple[int | float, ...]
+    values: tuple[Parameter, ...]
+
+    def __post_init__(self):
+        """Snapshot ordinary input sequences to preserve value semantics.
+
+        Invalid non-sequence inputs are left in place so the builder can
+        report them together with the field path. Strings are likewise left
+        for the dedicated numeric-table validator to reject.
+        """
+        for name in ("speeds", "values"):
+            sequence = getattr(self, name)
+            if isinstance(sequence, (str, bytes)):
+                continue
+            try:
+                normalized = tuple(sequence)
+            except TypeError:
+                continue
+            object.__setattr__(self, name, normalized)
+
+
+SpeedDependentParameter: TypeAlias = Parameter | SpeedDependentValue
+SpeedDependentVector3: TypeAlias = tuple[
+    SpeedDependentParameter,
+    SpeedDependentParameter,
+    SpeedDependentParameter,
+]
 
 
 @dataclass(frozen=True, slots=True)
@@ -151,24 +199,24 @@ class BearingProperty:
     ----------
     id : int
         Unique property identifier.
-    kxx, kyy, kzz, kxy, kyx : int, float, or tuple, optional
+    kxx, kyy, kzz, kxy, kyx : int, float, tuple, or SpeedDependentValue, optional
         Direct and cross-coupled stiffness coefficients.
-    cxx, cyy, czz, cxy, cyx : int, float, or tuple, optional
+    cxx, cyy, czz, cxy, cyx : int, float, tuple, or SpeedDependentValue, optional
         Direct and cross-coupled viscous damping coefficients.
     """
 
     # Coefficients are expressed in the bearing element's coordinate system.
     id: int
-    kxx: Parameter = 0.0
-    kyy: Parameter = 0.0
-    kzz: Parameter = 0.0
-    kxy: Parameter = 0.0
-    kyx: Parameter = 0.0
-    cxx: Parameter = 0.0
-    cyy: Parameter = 0.0
-    czz: Parameter = 0.0
-    cxy: Parameter = 0.0
-    cyx: Parameter = 0.0
+    kxx: SpeedDependentParameter = 0.0
+    kyy: SpeedDependentParameter = 0.0
+    kzz: SpeedDependentParameter = 0.0
+    kxy: SpeedDependentParameter = 0.0
+    kyx: SpeedDependentParameter = 0.0
+    cxx: SpeedDependentParameter = 0.0
+    cyy: SpeedDependentParameter = 0.0
+    czz: SpeedDependentParameter = 0.0
+    cxy: SpeedDependentParameter = 0.0
+    cyx: SpeedDependentParameter = 0.0
 
 
 @dataclass(frozen=True, slots=True)
@@ -277,11 +325,12 @@ LumpedMassElement = DiskElement
 
 # Loads are independent records even where their physical behavior is related.
 # Keeping them as peers makes their different amplitude laws explicit: a
-# harmonic load has fixed signed components, a rotating load has a fixed
-# circular-force magnitude, and unbalance scales with rotor speed squared.
+# harmonic load has signed components, a rotating load has a circular-force
+# magnitude, and unbalance scales with rotor speed squared. The first two may
+# select their amplitudes from a rotor-speed table.
 @dataclass(frozen=True, slots=True)
 class HarmonicLoad:
-    """Define a fixed-amplitude harmonic nodal load.
+    """Define a harmonic nodal load.
 
     Parameters
     ----------
@@ -291,10 +340,12 @@ class HarmonicLoad:
         ID of the grid where the load is applied.
     force : tuple, optional
         Signed peak force amplitudes ``(fx, fy, fz)`` in the selected
-        coordinate system, in force units.
+        coordinate system, in force units. Each component may be a
+        :class:`SpeedDependentValue`.
     moment : tuple, optional
         Signed peak moment amplitudes ``(mx, my, mz)`` in the selected
-        coordinate system, in force-length units.
+        coordinate system, in force-length units. Each component may be a
+        :class:`SpeedDependentValue`.
     phase : int, float, or tuple, optional
         Common phase angle in radians.
     coordinate_system : int, optional
@@ -310,8 +361,8 @@ class HarmonicLoad:
 
     id: int
     grid: int
-    force: Vector3 = (0.0, 0.0, 0.0)
-    moment: Vector3 = (0.0, 0.0, 0.0)
+    force: SpeedDependentVector3 = (0.0, 0.0, 0.0)
+    moment: SpeedDependentVector3 = (0.0, 0.0, 0.0)
     phase: Parameter = 0.0
     coordinate_system: int = 0
 
@@ -326,7 +377,7 @@ class RotatingLoad:
         Unique load identifier.
     grid : int
         ID of the grid where the force is applied.
-    force_magnitude : int, float, or tuple
+    force_magnitude : int, float, tuple, or SpeedDependentValue
         Nonnegative peak radial force magnitude.
     phase : int, float, or tuple, optional
         Signed initial geometric angle in radians from the selected frame's
@@ -340,7 +391,7 @@ class RotatingLoad:
 
     id: int
     grid: int
-    force_magnitude: Parameter
+    force_magnitude: SpeedDependentParameter
     phase: Parameter = 0.0
     sense: str = "positive"
     coordinate_system: int = 0

@@ -1,8 +1,9 @@
-# Chapter 8 -- Model builder and assembly
+# Chapter 9 -- Model builder and assembly
 
 ## Table of contents
 
 - [Transformation and global assembly](#transformation-and-global-assembly)
+- [Speed-dependent bearing contributions](#speed-dependent-bearing-contributions)
 - [BuiltModel storage](#builtmodel-storage)
 
 ## Transformation and global assembly
@@ -109,11 +110,33 @@ for each resolved definition s:
 The final arrays have shape `(samples, ndof, ndof)`. The current builder uses
 dense assembly; sparse global storage is not yet implemented.
 
+## Speed-dependent bearing contributions
+
+For a tabulated bearing coefficient, the builder inserts zero for that
+coefficient in the constant base matrix. It separately constructs the local
+matrix for a unit coefficient, applies the same coordinate rotation and
+one-grid or two-grid connectivity transformation as the ordinary bearing, and
+stores the resulting compact basis with its global DOF indices. This gives
+
+$$
+\mathbf{K}^{(s)}(\Omega)=\mathbf{K}^{(s)}_0+
+\sum_j k_j^{(s)}(\Omega)\mathbf{B}_{K,j}^{(s)},
+\qquad
+\mathbf{C}^{(s)}(\Omega)=\mathbf{C}^{(s)}_0+
+\sum_j c_j^{(s)}(\Omega)\mathbf{B}_{C,j}^{(s)}.
+$$
+
+The resolved table and transformed basis are stored once per realization.
+Solvers validate and interpolate all required scalar coefficients for an
+analysis before its first numerical solve, then form transient matrix deltas.
+Neither the builder nor a solver cumulatively mutates the base matrices.
+
 ## BuiltModel storage
 
-`BuiltModel` is a frozen, slotted dataclass containing stiffness, mass, damping,
-and unit-speed gyroscopic arrays with shape
+`BuiltModel` is a frozen, slotted dataclass containing base stiffness, mass,
+base damping, and unit-speed gyroscopic arrays with shape
 `(samples, ndof, ndof)`. It also stores resolved coordinates, definitions,
-grid-ID order, the stochastic flag, and seed. Its post-initialization checks
-enforce common square shapes, six DOFs per grid, finite values, unique grid
-IDs, and one resolved definition per sample.
+grid-ID order, the stochastic flag, seed, and private compact speed-dependent
+bearing contributions. Its post-initialization checks enforce common square
+shapes, six DOFs per grid, finite values, unique grid IDs, one resolved
+definition per sample, and consistent contribution metadata.
