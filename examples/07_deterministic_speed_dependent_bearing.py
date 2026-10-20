@@ -13,6 +13,7 @@ from spinniped import (
     ModelDefinition,
     Solver,
     SpeedDependentValue,
+    plot_campbell,
 )
 
 
@@ -26,23 +27,23 @@ speed_knots = tuple(
 )
 
 # All four bearing coefficients are deterministic piecewise-linear functions
-# of rotor speed. Requests outside the knot interval would be rejected.
+# of rotor speed. The stiffness tables use a representative high-speed ball-
+# bearing softening trend; actual trends depend on bearing geometry, preload,
+# load direction, lubrication, and temperature. Requests outside the knot
+# interval would be rejected.
 kxx = SpeedDependentValue(
     speeds=speed_knots,
-    values=(1.00e6, 1.20e6, 1.50e6),
+    values=(1.50e6, 1.28e6, 1.00e6),
 )
-kyy = SpeedDependentValue(
+kyy =  SpeedDependentValue(
     speeds=speed_knots,
-    values=(1.20e6, 1.35e6, 1.55e6),
+    values=(1.55e6, 1.38e6, 0.80e6),
 )
 cxx = SpeedDependentValue(
     speeds=speed_knots,
     values=(400.0, 500.0, 650.0),
 )
-cyy = SpeedDependentValue(
-    speeds=speed_knots,
-    values=(450.0, 560.0, 700.0),
-)
+cyy = cxx
 
 # A one-grid Jeffcott model keeps the example focused on bearing interpolation.
 # No RandomDistribution records are present, so the build has one sample.
@@ -74,7 +75,7 @@ model = ModelBuilder().build(definition)
 # Keep only the lateral translations. The solver validates and interpolates
 # K(Omega) and C(Omega) over this complete grid before the first eigensolution.
 fixed_dofs = [2, 3, 4, 5]
-speeds_rpm = np.linspace(0.0, 6_000.0, 61)
+speeds_rpm = np.linspace(0.0, 6_000.0, 100)
 speeds = speeds_rpm * rpm_to_rad_per_second
 result = Solver(model).solve(
     "campbell",
@@ -84,15 +85,11 @@ result = Solver(model).solve(
 )
 
 # A deterministic result still retains a leading sample dimension of one.
-figure, axes = plt.subplots()
-for mode, frequencies in enumerate(result["frequencies"][0].T, start=1):
-    axes.plot(speeds_rpm, frequencies, label=f"mode {mode}")
-for speed_rpm in speed_knots_rpm:
-    axes.axvline(speed_rpm, color="black", linewidth=0.6, alpha=0.2)
-axes.set_xlabel("Rotor speed [rpm]")
-axes.set_ylabel("Natural frequency [Hz]")
-axes.set_title("Deterministic speed-dependent bearing")
-axes.grid(True, alpha=0.3)
-axes.legend()
+figure, axes = plot_campbell(
+    result,
+    title="Deterministic speed-dependent bearing",
+)
+axes.set_xlim(0.0, speeds_rpm[-1])
+axes.set_ylim(bottom=0.0)
 figure.tight_layout()
 plt.show()
