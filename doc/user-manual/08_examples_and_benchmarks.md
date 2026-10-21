@@ -18,6 +18,7 @@ python examples/05_stochastic_campbell.py
 python examples/06_unbalance_response.py
 python examples/07_deterministic_speed_dependent_bearing.py
 python examples/08_deterministic_speed_dependent_load.py
+python examples/09_stochastic_speed_dependent_campbell.py
 ```
 
 These examples exercise normal public-API workflows rather than controlled
@@ -43,6 +44,16 @@ Example 08 keeps the structure constant and interpolates a deterministic
 harmonic-load amplitude from three representative CFD operating points. It
 calls frequency response once per scalar rotor speed while keeping the forcing
 frequency fixed, making the distinction between the two frequencies explicit.
+
+Example 09 combines stochastic and speed-dependent bearing stiffness in a
+symmetric Jeffcott-style rotor with ten shaft elements, one central disk, and
+identical bearings at both ends. A multivariate normal distribution correlates
+the stiffness ordinates across rotor speed. It plots mean Campbell branches,
+empirical confidence bands, the 1x synchronous line, and the sampled critical-
+speed crossings. Its sweep begins at 1 rpm because the symmetric rotor has
+repeated forward/backward modes at exactly zero speed; Chapter 6 explains why
+that degeneracy can make pairwise stochastic mode tracking mix the separated
+whirl branches.
 
 ## Analytical benchmarks
 

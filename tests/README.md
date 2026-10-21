@@ -61,7 +61,7 @@ parametrized functions run once for every listed case.
 |---|---:|---|
 | [`test_element_matrices.py`](#test_element_matricespy) | 10 | Stateless shaft, bearing, and disk matrix kernels |
 | [`test_assembly.py`](#test_assemblypy) | 16 | Record validation, coordinate transforms, and global assembly |
-| [`test_declarative_api.py`](#test_declarative_apipy) | 28 | Distribution resolution and core public solver routes |
+| [`test_declarative_api.py`](#test_declarative_apipy) | 29 | Distribution resolution and core public solver routes |
 | [`test_speed_dependence.py`](#test_speed_dependencepy) | 18 | Tabulated rotor-speed interpolation, stochastic curves, matrix deltas, and load deltas |
 | [`test_load_response.py`](#test_load_responsepy) | 6 | Declarative load phasors and steady-response routes |
 | [`test_plotting.py`](#test_plottingpy) | 8 | Rotor-section and Campbell-diagram rendering and plotting-input validation |
@@ -397,6 +397,12 @@ speed sequence and requests 1x and 2x harmonics. Both modal branches must cross
 at 10 Hz for 1x and 5 Hz for 2x. Neither value is a supplied speed, proving
 that the solver linearly interpolates existing residuals without inserting or
 evaluating another speed.
+
+#### `test_campbell_warns_only_when_tracking_starts_at_zero_speed`
+
+Checks that tracked Campbell analysis emits the documented degeneracy warning
+when its first speed is exactly zero, while a nonzero start and disabled mode
+tracking remain warning-free.
 
 #### `test_campbell_preserves_stochastic_critical_speed_correspondence`
 

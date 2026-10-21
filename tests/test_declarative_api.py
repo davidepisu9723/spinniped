@@ -1,6 +1,7 @@
 """End-to-end tests for records, random sampling, and the unified solver."""
 
 from dataclasses import FrozenInstanceError
+import warnings
 
 import numpy as np
 import pytest
@@ -512,6 +513,42 @@ def test_campbell_solver_returns_modes_at_every_speed():
     assert np.isfinite(result["frequencies"]).all()
     assert result["harmonics"].shape == (0,)
     assert result["critical_speeds"].shape == (1, 0, 4, 0)
+
+
+def test_campbell_warns_only_when_tracking_starts_at_zero_speed():
+    """Warn about degenerate initial MAC references without false positives."""
+    model = ModelBuilder().build(_rotor_definition())
+    solver = Solver(model)
+
+    with pytest.warns(UserWarning, match="starts at exactly zero"):
+        solver.solve(
+            "campbell",
+            fixed_dofs=[2, 5],
+            speeds=[0.0, 1.0],
+            modes=2,
+        )
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        solver.solve(
+            "campbell",
+            fixed_dofs=[2, 5],
+            speeds=[1.0, 2.0],
+            modes=2,
+        )
+        solver.solve(
+            "campbell",
+            fixed_dofs=[2, 5],
+            speeds=[1.0, 0.0],
+            modes=2,
+        )
+        solver.solve(
+            "campbell",
+            fixed_dofs=[2, 5],
+            speeds=[0.0, 1.0],
+            modes=2,
+            track_modes=False,
+        )
 
 
 def test_campbell_calculates_sampled_speed_interpolated_critical_speeds():

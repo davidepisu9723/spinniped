@@ -1,5 +1,7 @@
 """Unified analyses for deterministic models and stochastic ensembles."""
 
+import warnings
+
 import numpy as np
 
 from .builder import (
@@ -326,6 +328,9 @@ class Solver:
         sample_eigenvectors = []
 
         for sample in range(model.samples):
+
+            print(f"Analyzing Sample {sample}")
+
             # Extract the free-free stiffness and mass matrices.
             stiffness_matrix = self._reduced_at_speed(
                 model.K,
@@ -482,6 +487,23 @@ class Solver:
         if not isinstance(track_modes, bool):
             raise TypeError("track_modes must be a boolean")
         harmonic_indices = self._validate_harmonics(harmonics)
+
+        # At zero spin, an axisymmetric rotor can have repeated forward- and
+        # backward-whirl modes whose individual eigenvectors are not unique.
+        # Pairwise MAC may then initialize inconsistent branch labels.
+        if track_modes and angular_speeds[0] == 0.0:
+            warnings.warn(
+                "Campbell mode tracking starts at exactly zero rotor speed. "
+                "In axisymmetric models, degenerate forward/backward modes "
+                "can make pairwise MAC correspondence ambiguous and produce "
+                "irregular branches or misleading stochastic bands. If the "
+                "diagram looks unexpected and the stationary point is not "
+                "required, start at a small nonzero speed, for example "
+                "1 rpm (approximately 0.10472 rad/s).",
+                UserWarning,
+                stacklevel=3,
+            )
+
         if harmonic_indices.size:
             if not track_modes:
                 raise ValueError(
@@ -516,6 +538,9 @@ class Solver:
         all_sample_vectors = []
 
         for sample in range(model.samples):
+            
+            print(f"Analyzing Sample {sample}")
+
             # Extract this realization's reduced equation matrices.
             mass_matrix = self._reduced(model.M, sample, free_dofs)
             gyroscopic_matrix = self._reduced(model.G, sample, free_dofs)
@@ -530,6 +555,7 @@ class Solver:
             speed_vectors = []
 
             for speed_index, angular_speed in enumerate(angular_speeds):
+                print(f"    Speed: {angular_speed:5.0f} rad/s")
                 stiffness_matrix = self._reduced_at_speed(
                     model.K,
                     stiffness_deltas,
@@ -907,6 +933,8 @@ class Solver:
         angular_frequencies = 2.0 * np.pi * frequencies
 
         for sample in range(model.samples):
+
+            print(f"Analyzing Sample {sample}")
             mass_matrix = self._reduced(model.M, sample, free_dofs)
             stiffness_matrix = self._reduced_at_speed(
                 model.K,
@@ -932,6 +960,9 @@ class Solver:
 
             sample_responses = []
             for angular_frequency in angular_frequencies:
+
+                print(f"    Angular Frequency: {angular_frequency:5.0f} rad/s")
+
                 dynamic_stiffness = self._dynamic_stiffness(
                     stiffness_matrix,
                     mass_matrix,
@@ -1017,6 +1048,9 @@ class Solver:
         angular_frequencies = np.abs(speeds)
 
         for sample in range(model.samples):
+
+            print(f"Analyzing Sample {sample}")
+
             mass_matrix = self._reduced(model.M, sample, free_dofs)
             gyroscopic_matrix = self._reduced(model.G, sample, free_dofs)
 
@@ -1041,6 +1075,7 @@ class Solver:
             for speed_index, (speed, angular_frequency) in enumerate(
                 zip(speeds, angular_frequencies, strict=True)
             ):
+                print(f"    Speed: {speed} rad/s")
                 stiffness_matrix = self._reduced_at_speed(
                     model.K,
                     stiffness_deltas,
@@ -1398,6 +1433,9 @@ class Solver:
         sample_states = []
 
         for sample in range(model.samples):
+            
+            print(f"Analyzing Sample {sample}")
+
             mass_matrix = self._reduced(model.M, sample, free_dofs)
             stiffness_matrix = self._reduced_at_speed(
                 model.K,

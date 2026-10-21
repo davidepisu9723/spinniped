@@ -135,6 +135,46 @@ $j$th frequency at that speed. The
 [solver reference](../reference-manual/10_solvers.md#mode-correspondence)
 documents the MAC matrix, assignment, array permutation, and phase alignment.
 
+### Starting a symmetric stochastic sweep near zero
+
+An isotropic rotor can have exactly repeated forward- and backward-whirl
+eigenvalues at zero speed. The repeated eigenspace is physically meaningful,
+but the individual eigenvectors returned by an eigensolver are not unique:
+any orthogonal basis of that subspace is valid. Consequently, pairwise MAC
+cannot always give those vectors consistent forward/backward labels across
+stochastic realizations when zero speed is the first Campbell point.
+
+The resulting Campbell plot can look much more uncertain than the underlying
+model. Different realizations carrying the same mode index may follow opposite
+whirl branches after they separate. A mean or confidence band then combines
+two physically distinct branches, producing a broad fan, an intermediate mean
+that is not itself a branch, or an apparent discontinuity. This is a mode-label
+ambiguity, not stiffness uncertainty created by speed interpolation.
+
+![The same stochastic Campbell calculation started at zero and one rpm; the zero-speed case assigns one mode label to opposite whirl branches, while the nonzero start keeps the branch correspondence narrow](images/stochastic_campbell_zero_speed_tracking.png)
+
+*Each thin line is the tracked fourth mode of one realization of the symmetric
+speed-dependent rotor from Example 09. With a first point of exactly zero rpm,
+the repeated initial eigenspace permits the same label to leave along either
+whirl branch. Starting at 1 rpm breaks that exact degeneracy before labels are
+established. The bearing ordinates in this comparison are perfectly correlated,
+so the split cannot be attributed to independent random interpolation knots.*
+
+For a one-direction positive-speed sweep of such a symmetric model, begin at a
+small positive speed, for example `1.0` rpm, and retain zero as a knot in every
+`SpeedDependentValue` table so interpolation remains valid. One rpm is not a
+universal tolerance; it is simply small relative to this example's 6,000 rpm
+range while large enough to distinguish the numerical whirl vectors. Verify
+that reducing the starting speed does not materially change the reported
+frequencies or critical speeds. Keep zero when the stationary solution itself
+is required, when the modes are not repeated, or when a future subspace-based
+tracking method is used.
+
+When `track_modes=True` and the first requested speed is exactly zero, the
+solver emits a `UserWarning` describing this ambiguity and suggesting a
+small nonzero starting speed. The warning is advisory: the solve continues,
+because zero remains valid and may be intentionally required.
+
 When `harmonics` is supplied, critical speeds are intersections between each
 tracked modal branch and
 

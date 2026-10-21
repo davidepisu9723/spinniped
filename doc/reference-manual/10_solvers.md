@@ -221,6 +221,21 @@ though individual vectors rotate within it; subspace tracking would be more
 appropriate. Spinniped currently performs pairwise MAC assignment and does not
 refine the user's speed sequence automatically.
 
+This limitation is especially visible for stochastic Campbell sweeps of an
+isotropic rotor that start at exactly zero speed. Forward- and backward-whirl
+modes can share one eigenvalue there, so their individual initial eigenvectors
+do not have unique identities. Different realizations may therefore attach the
+same tracked position to opposite branches after spin separates them. Starting
+a one-direction sweep at a small nonzero speed removes the exact initial
+degeneracy; see the
+[user-manual discussion](../user-manual/06_analyses.md#starting-a-symmetric-stochastic-sweep-near-zero)
+and its comparison figure. This changes the reference point used for tracking,
+not the interpolation or random sampling rules.
+
+The Campbell route emits a `UserWarning` when `track_modes=True` and the
+first requested speed equals zero. It does not warn when tracking is disabled
+or when zero appears only after a nonzero first point.
+
 Mode counts must be consistent. The solver raises rather than returning ragged
 object arrays when a requested count is unavailable or result shapes differ.
 

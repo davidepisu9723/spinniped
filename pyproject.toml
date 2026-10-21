@@ -50,3 +50,6 @@ include = ["spinniped*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+filterwarnings = [
+    "ignore:Campbell mode tracking starts at exactly zero rotor speed:UserWarning",
+]
