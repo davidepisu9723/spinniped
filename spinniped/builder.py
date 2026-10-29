@@ -326,51 +326,16 @@ class BuiltModel:
 
 
 def _speed_dependent_arrays(value, path):
-    """Return validated knot and ordinate arrays for one resolved table."""
+    """Convert one already validated, resolved table to numerical arrays."""
     if not isinstance(value, SpeedDependentValue):
         raise TypeError(f"{path} must be a SpeedDependentValue")
-
-    # Boolean values are numeric in Python but have no meaningful mechanical
-    # interpretation as a speed or coefficient.
-    if isinstance(value.speeds, (str, bytes)) or isinstance(
-        value.values,
-        (str, bytes),
-    ):
-        raise TypeError(
-            f"{path} speeds and values must be one-dimensional sequences"
-        )
-    try:
-        raw_speeds = list(value.speeds)
-        raw_values = list(value.values)
-    except TypeError:
-        raise TypeError(
-            f"{path} speeds and values must be one-dimensional sequences"
-        ) from None
-    if any(isinstance(item, (bool, np.bool_)) for item in raw_speeds):
-        raise TypeError(f"{path} speeds must contain only real numeric values")
-    if any(isinstance(item, (bool, np.bool_)) for item in raw_values):
-        raise TypeError(f"{path} values must contain only real numeric values")
-
-    try:
-        speeds = np.asarray(raw_speeds, dtype=float)
-        values = np.asarray(raw_values, dtype=float)
-    except (TypeError, ValueError) as error:
-        raise TypeError(
-            f"{path} speeds and values must contain only real numeric values"
-        ) from error
-
-    if speeds.ndim != 1 or values.ndim != 1:
-        raise ValueError(f"{path} speeds and values must be one-dimensional")
-    if len(speeds) < 2:
-        raise ValueError(f"{path} requires at least two speed points")
-    if values.shape != speeds.shape:
-        raise ValueError(f"{path} speeds and values must have the same length")
-    if not np.isfinite(speeds).all() or not np.isfinite(values).all():
-        raise ValueError(f"{path} speeds and values must be finite")
-    if np.any(np.diff(speeds) <= 0.0):
-        raise ValueError(f"{path} speeds must be strictly increasing")
-
-    return speeds, values
+    # SpeedDependentValue owns structural and numeric validation. At this
+    # stage random ordinates have also been resolved, so only conversion is
+    # needed for interpolation and field-specific physical checks.
+    return (
+        np.asarray(value.speeds, dtype=float),
+        np.asarray(value.values, dtype=float),
+    )
 
 
 def _interpolate_speed_dependent_value(value, speeds, path):
@@ -476,46 +441,6 @@ def _validate_speed_dependent_placements(definition):
         )
 
     _reject_speed_dependent_value(definition.spin_axis, "spin_axis")
-
-
-def _validate_resolved_speed_dependent_values(definition):
-    """Validate every supported table after random ordinates are resolved."""
-    bearing_names = (
-        "kxx", "kyy", "kzz", "kxy", "kyx",
-        "cxx", "cyy", "czz", "cxy", "cyx",
-    )
-    for property_record in definition.properties:
-        if isinstance(property_record, BearingProperty):
-            for name in bearing_names:
-                value = getattr(property_record, name)
-                if isinstance(value, SpeedDependentValue):
-                    _speed_dependent_arrays(
-                        value,
-                        f"Bearing property {property_record.id} {name}",
-                    )
-
-    for load in definition.loads:
-        if isinstance(load, HarmonicLoad):
-            for vector_name in ("force", "moment"):
-                try:
-                    components = list(getattr(load, vector_name))
-                except TypeError:
-                    # The ordinary load validator below reports its canonical
-                    # vector-shape error.
-                    continue
-                for component, value in enumerate(components):
-                    if isinstance(value, SpeedDependentValue):
-                        _speed_dependent_arrays(
-                            value,
-                            f"Harmonic load {load.id} {vector_name}[{component}]",
-                        )
-        elif isinstance(load, RotatingLoad) and isinstance(
-            load.force_magnitude, SpeedDependentValue
-        ):
-            _speed_dependent_arrays(
-                load.force_magnitude,
-                f"Rotating load {load.id} force_magnitude",
-            )
 
 
 def _distr_to_array(value, label, *, dimensions):
@@ -827,20 +752,13 @@ def _resolve(value, sampled_distributions, path="model"):
     # a two-integer speed grid such as ``(0, 100)`` cannot be mistaken for a
     # random-distribution reference by the generic tuple syntax.
     if isinstance(value, SpeedDependentValue):
-        if isinstance(value.values, (str, bytes)):
-            return value
-        try:
-            table_values = list(value.values)
-        except TypeError:
-            # Structural validation later produces the dedicated table error.
-            return value
         resolved_values = tuple(
             _resolve(
                 item,
                 sampled_distributions,
                 f"{path}.values[{index}]",
             )
-            for index, item in enumerate(table_values)
+            for index, item in enumerate(value.values)
         )
         return replace(value, values=resolved_values)
 
@@ -1143,10 +1061,6 @@ def _assemble(definition):
         Transformed unit-coefficient matrix terms evaluated by solvers at
         requested rotor speeds.
     """
-    # Random references have already been resolved. Validate every speed table
-    # now so malformed or nonphysical knot data fail during model construction.
-    _validate_resolved_speed_dependent_values(definition)
-
     # Validate and index every record collection.
     grids = _unique(definition.grids, "grid", Grid)
     if not grids:

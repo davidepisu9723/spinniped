@@ -504,11 +504,11 @@ must preserve request order and use linear interpolation.
 Passes a list for each speed-table sequence in turn. Both must be rejected at
 record construction because `speeds` and `values` require immutable tuples.
 
-#### `test_builder_rejects_malformed_speed_dependent_values`
+#### `test_speed_dependent_value_rejects_malformed_inputs`
 
 Parametrizes insufficient and mismatched tables, repeated or descending knots,
-nonfinite entries, and Boolean entries. Every case must fail during model
-construction with the bearing field retained in the error context.
+nonfinite entries, Boolean entries, and malformed random references. Every
+case must fail immediately during `SpeedDependentValue` construction.
 
 #### `test_speed_dependent_value_rejects_extrapolation`
 

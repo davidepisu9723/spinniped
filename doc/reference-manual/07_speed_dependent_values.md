@@ -56,17 +56,18 @@ resolves only the items in `values`. One distribution is sampled once per
 realization through the normal sample cache, so repeated references retain
 their established reuse semantics.
 
-After resolution, the builder converts both sequences to one-dimensional
-floating-point arrays and enforces all of the following:
+Record construction enforces all of the following local invariants:
 
 - at least two knots;
 - equal knot and ordinate lengths;
-- finite real values, excluding Boolean values;
+- finite real speeds and numeric ordinates, excluding Boolean values;
 - strictly increasing, and therefore unique, speed knots.
+- structurally valid random ordinate references.
 
-For `RotatingLoad.force_magnitude`, every table ordinate must also be
-nonnegative. Invalid data identify the record and field path and, for a
-stochastic build, the failing sample.
+When random ordinate references are resolved, constructing the resolved record
+validates the resulting numeric values again. The builder retains only checks
+that require surrounding context: supported field placement, reference lookup,
+and constraints such as nonnegative `RotatingLoad.force_magnitude` ordinates.
 
 ## Interpolation contract
 

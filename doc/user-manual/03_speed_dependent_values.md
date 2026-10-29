@@ -33,10 +33,12 @@ bearing = BearingProperty(
 )
 ```
 
-The builder requires at least two points. `speeds` and `values` must be
-one-dimensional, have equal lengths, contain finite real numbers after random
-references are resolved, and list speeds in strictly increasing order.
-Boolean values are rejected as mechanical numbers.
+The record requires at least two points. `speeds` and `values` must have equal
+lengths, contain finite real numbers or valid random references, and list
+speeds in strictly increasing order. Boolean values are rejected as mechanical
+numbers. These local checks run immediately when `SpeedDependentValue` is
+constructed; the builder later resolves random references and validates
+field-specific constraints.
 
 ## Supported fields
 

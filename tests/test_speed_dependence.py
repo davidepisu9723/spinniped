@@ -120,56 +120,85 @@ def test_speed_dependent_value_requires_tuple_inputs(
 
 
 @pytest.mark.parametrize(
-    ("value", "exception", "message"),
+    ("speeds", "values", "exception", "message"),
     [
         (
-            SpeedDependentValue((0.0,), (1.0,)),
+            (0.0,),
+            (1.0,),
             ValueError,
-            "at least two speed points",
+            "at least two speeds",
         ),
         (
-            SpeedDependentValue((0.0, 1.0), (1.0,)),
+            (0.0, 1.0),
+            (1.0,),
             ValueError,
             "same length",
         ),
         (
-            SpeedDependentValue((0.0, 0.0), (1.0, 2.0)),
+            (0.0, 0.0),
+            (1.0, 2.0),
             ValueError,
             "strictly increasing",
         ),
         (
-            SpeedDependentValue((1.0, 0.0), (1.0, 2.0)),
+            (1.0, 0.0),
+            (1.0, 2.0),
             ValueError,
             "strictly increasing",
         ),
         (
-            SpeedDependentValue((0.0, np.inf), (1.0, 2.0)),
+            (0.0, np.inf),
+            (1.0, 2.0),
             ValueError,
-            "must be finite",
+            "finite",
         ),
         (
-            SpeedDependentValue((0.0, 1.0), (1.0, np.nan)),
+            (0.0, 1.0),
+            (1.0, np.nan),
             ValueError,
-            "must be finite",
+            "finite",
         ),
         (
-            SpeedDependentValue((False, 1.0), (1.0, 2.0)),
+            (False, 1.0),
+            (1.0, 2.0),
             TypeError,
             "speeds must contain only real numeric values",
         ),
         (
-            SpeedDependentValue((0.0, 1.0), (1.0, True)),
+            (0.0, 1.0),
+            (1.0, True),
             TypeError,
-            "values must contain only real numeric values",
+            "real numeric values or random references",
+        ),
+        (
+            (0.0, 1.0),
+            ((1, 0, 2), 1.0),
+            TypeError,
+            "random references",
+        ),
+        (
+            (0.0, 1.0),
+            ((0,), 1.0),
+            ValueError,
+            "positive distribution ID",
+        ),
+        (
+            (0.0, 1.0),
+            ((1, -1), 1.0),
+            ValueError,
+            "nonnegative component index",
         ),
     ],
 )
-def test_builder_rejects_malformed_speed_dependent_values(
-    value, exception, message
+def test_speed_dependent_value_rejects_malformed_inputs(
+    speeds,
+    values,
+    exception,
+    message,
 ):
-    """Verify malformed tables fail with their bearing-field context."""
+    """Verify malformed speed tables fail during record construction."""
     with pytest.raises(exception, match=message):
-        ModelBuilder().build(_one_dof_definition(stiffness=value))
+        SpeedDependentValue(speeds=speeds, values=values)
 
 
 @pytest.mark.parametrize("speed", [-0.01, 100.01])

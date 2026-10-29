@@ -8,6 +8,8 @@ tabulated against rotor speed with :class:`SpeedDependentValue`.
 """
 
 from dataclasses import dataclass, field
+from math import isfinite
+from numbers import Real
 from typing import TypeAlias
 
 
@@ -38,11 +40,63 @@ class SpeedDependentValue:
     values: tuple[Parameter, ...]
 
     def __post_init__(self):
-        """Validate that speeds and values are tuples."""
+        """Validate the complete local speed-table contract."""
+        # Tables are immutable paired sequences, so their structure can be
+        # rejected immediately without any surrounding model information.
         if not isinstance(self.speeds, tuple):
             raise TypeError("speeds must be a tuple")
         if not isinstance(self.values, tuple):
             raise TypeError("values must be a tuple")
+        if len(self.speeds) < 2:
+            raise ValueError("SpeedDependentValue requires at least two speeds")
+        if len(self.values) != len(self.speeds):
+            raise ValueError("speeds and values must have the same length")
+
+        # Knots are deterministic. Validate their numerical domain and order
+        # before the table can be placed in another record.
+        if any(
+            isinstance(speed, bool) or not isinstance(speed, Real)
+            for speed in self.speeds
+        ):
+            raise TypeError("speeds must contain only real numeric values")
+        if not all(isfinite(speed) for speed in self.speeds):
+            raise ValueError("speeds must contain only finite values")
+        if any(
+            current <= previous
+            for previous, current in zip(
+                self.speeds,
+                self.speeds[1:],
+            )
+        ):
+            raise ValueError("speeds must be strictly increasing")
+
+        # Values may be finite numbers or unresolved random references.
+        # Reference existence and upper component bounds require ModelBuilder.
+        for value in self.values:
+            if isinstance(value, tuple):
+                if (
+                    len(value) not in (1, 2)
+                    or any(
+                        isinstance(item, bool) or not isinstance(item, int)
+                        for item in value
+                    )
+                ):
+                    raise TypeError(
+                        "values must contain only real numeric values or "
+                        "random references"
+                    )
+                if value[0] <= 0 or (len(value) == 2 and value[1] < 0):
+                    raise ValueError(
+                        "random references require a positive distribution "
+                        "ID and a nonnegative component index"
+                    )
+            elif isinstance(value, bool) or not isinstance(value, Real):
+                raise TypeError(
+                    "values must contain only real numeric values or random "
+                    "references"
+                )
+            elif not isfinite(value):
+                raise ValueError("values must contain only finite values")
 
 
 SpeedDependentParameter: TypeAlias = Parameter | SpeedDependentValue
