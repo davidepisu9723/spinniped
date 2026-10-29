@@ -12,6 +12,8 @@ from math import isfinite
 from numbers import Real
 from typing import TypeAlias
 
+import numpy as np
+
 
 RandomReference: TypeAlias = tuple[int] | tuple[int, int]
 Parameter: TypeAlias = int | float | RandomReference
@@ -131,6 +133,99 @@ class RandomDistribution:
     name: str
     distribution: str
     parameters: dict[str, object]
+
+    def __post_init__(self):
+        """Validate the complete local distribution specification."""
+        # Identity and naming are intrinsic to the record. Registry-wide
+        # uniqueness remains the responsibility of ModelBuilder.
+        if isinstance(self.id, bool) or not isinstance(self.id, int):
+            raise TypeError("Distribution IDs must be integers")
+        if self.id <= 0:
+            raise ValueError("Distribution IDs must be positive")
+        if not isinstance(self.name, str) or not self.name.strip():
+            raise ValueError("Distribution names must be non-empty strings")
+        if not isinstance(self.distribution, str):
+            raise TypeError("Distribution type must be a string")
+        if not isinstance(self.parameters, dict):
+            raise TypeError("Distribution parameters must be a dictionary")
+
+        def finite_array(value, label, dimensions):
+            """Return one finite numeric parameter array."""
+            try:
+                array = np.asarray(value, dtype=float)
+            except (TypeError, ValueError) as error:
+                raise TypeError(
+                    f"{label} must contain only numeric values"
+                ) from error
+            if array.ndim not in dimensions:
+                raise ValueError(f"{label} has an invalid shape")
+            if not np.isfinite(array).all():
+                raise ValueError(f"{label} must contain only finite values")
+            return array
+
+        # Family schemas and parameter relationships require no model context,
+        # so reject malformed specifications before registration or sampling.
+        family = self.distribution.lower()
+        parameters = self.parameters
+        if family == "normal":
+            if set(parameters) != {"mean", "stdv"}:
+                raise ValueError(
+                    "A normal distribution requires only 'mean' and 'stdv'"
+                )
+            finite_array(parameters["mean"], "mean", (0,))
+            deviation = finite_array(parameters["stdv"], "stdv", (0,))
+            if deviation < 0:
+                raise ValueError(
+                    "Distribution standard deviation cannot be negative"
+                )
+        elif family == "uniform":
+            if set(parameters) != {"low", "high"}:
+                raise ValueError(
+                    "A uniform distribution requires only 'low' and 'high'"
+                )
+            lower = finite_array(parameters["low"], "low", (0,))
+            upper = finite_array(parameters["high"], "high", (0,))
+            if upper < lower:
+                raise ValueError("Uniform distribution requires high >= low")
+        elif family == "multivariate_normal":
+            required = {"mean", "stdv", "correlation"}
+            if set(parameters) != required:
+                raise ValueError(
+                    "A multivariate normal distribution requires only "
+                    "'mean', 'stdv', and 'correlation'"
+                )
+            mean = finite_array(parameters["mean"], "mean", (1,))
+            deviation = finite_array(parameters["stdv"], "stdv", (1,))
+            correlation = finite_array(
+                parameters["correlation"], "correlation", (2,)
+            )
+            component_count = mean.size
+            if component_count == 0:
+                raise ValueError(
+                    "A multivariate distribution needs at least one component"
+                )
+            if deviation.shape != mean.shape:
+                raise ValueError("mean and stdv must have the same length")
+            if correlation.shape != (component_count, component_count):
+                raise ValueError(
+                    "correlation shape must match the number of components"
+                )
+            if np.any(deviation < 0):
+                raise ValueError(
+                    "Distribution standard deviations cannot be negative"
+                )
+            if not np.allclose(correlation, correlation.T):
+                raise ValueError("correlation must be symmetric")
+            if not np.allclose(np.diag(correlation), 1.0):
+                raise ValueError("correlation diagonal entries must equal one")
+            if np.any(np.abs(correlation) > 1.0):
+                raise ValueError(
+                    "correlation coefficients must lie between -1 and 1"
+                )
+            if np.linalg.eigvalsh(correlation).min() < -1e-12:
+                raise ValueError("correlation must be positive semidefinite")
+        else:
+            raise ValueError(f"Unsupported distribution {family!r}")
 
 
 @dataclass(frozen=True, slots=True)

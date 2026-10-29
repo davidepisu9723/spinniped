@@ -443,44 +443,8 @@ def _validate_speed_dependent_placements(definition):
     _reject_speed_dependent_value(definition.spin_axis, "spin_axis")
 
 
-def _distr_to_array(value, label, *, dimensions):
-    """Convert distribution parameters to a finite floating-point array.
-
-    Parameters
-    ----------
-    value : object
-        Scalar or sequence to convert.
-    label : str
-        Parameter name used in validation messages.
-    dimensions : tuple of int
-        Permitted numbers of array dimensions.
-
-    Returns
-    -------
-    numpy.ndarray
-        Validated floating-point array.
-
-    Raises
-    ------
-    TypeError
-        If the parameter cannot be converted to floating point.
-    ValueError
-        If its shape or contents are invalid.
-    """
-    # Normalize scalars and sequences before checking their common properties.
-    try:
-        array = np.asarray(value, dtype=float)
-    except (TypeError, ValueError) as error:
-        raise TypeError(f"{label} must contain only numeric values") from error
-    if array.ndim not in dimensions:
-        raise ValueError(f"{label} has an invalid shape")
-    if not np.isfinite(array).all():
-        raise ValueError(f"{label} must contain only finite values")
-    return array
-
-
 def _sample_distribution(specification, rng, stochastic):
-    """Generate one scalar or vector realization from a distribution.
+    """Generate one realization from a validated distribution record.
 
     Parameters
     ----------
@@ -496,86 +460,30 @@ def _sample_distribution(specification, rng, stochastic):
     tuple of float
         One value for a scalar distribution or one value per component.
 
-    Raises
-    ------
-    TypeError
-        If the distribution record or parameters have invalid types.
-    ValueError
-        If the distribution definition is incomplete or inconsistent.
     """
-    if not isinstance(specification, RandomDistribution):
-        raise TypeError("distributions must contain RandomDistribution records")
-    if not isinstance(specification.name, str) or not specification.name.strip():
-        raise ValueError("Distribution names must be non-empty strings")
-    if not isinstance(specification.distribution, str):
-        raise TypeError("Distribution type must be a string")
-    if not isinstance(specification.parameters, dict):
-        raise TypeError("Distribution parameters must be a dictionary")
-
-    # Family names are case-insensitive, while parameter names remain strict.
+    # RandomDistribution owns schema validation. Sampling only converts its
+    # already valid parameters and selects stochastic draws or expected values.
     distribution_name = specification.distribution.lower()
     parameters = specification.parameters
 
-    # A scalar normal distribution produces exactly one component.
     if distribution_name == "normal":
-        if set(parameters) != {"mean", "stdv"}:
-            raise ValueError("A normal distribution requires only 'mean' and 'stdv'")
-        mean = _distr_to_array(parameters["mean"], "mean", dimensions=(0,))
-        deviation = _distr_to_array(parameters["stdv"], "stdv", dimensions=(0,))
-        if deviation < 0:
-            raise ValueError("Distribution standard deviation cannot be negative")
+        mean = float(parameters["mean"])
+        deviation = float(parameters["stdv"])
         draw = rng.normal(mean, deviation) if stochastic else mean
-
-    # A scalar uniform distribution is represented by its two bounds.
     elif distribution_name == "uniform":
-        if set(parameters) != {"low", "high"}:
-            raise ValueError("A uniform distribution requires only 'low' and 'high'")
-        lower = _distr_to_array(parameters["low"], "low", dimensions=(0,))
-        upper = _distr_to_array(parameters["high"], "high", dimensions=(0,))
-        if upper < lower:
-            raise ValueError("Uniform distribution requires high >= low")
+        lower = float(parameters["low"])
+        upper = float(parameters["high"])
         draw = (
             rng.uniform(lower, upper)
             if stochastic
             else (lower + upper) / 2.0
         )
-
-    # A multivariate normal jointly generates all correlated components.
-    elif distribution_name == "multivariate_normal":
-        required = {"mean", "stdv", "correlation"}
-        if set(parameters) != required:
-            raise ValueError(
-                "A multivariate normal distribution requires only "
-                "'mean', 'stdv', and 'correlation'"
-            )
-        mean = _distr_to_array(parameters["mean"], "mean", dimensions=(1,))
-        deviation = _distr_to_array(parameters["stdv"], "stdv", dimensions=(1,))
-        correlation = _distr_to_array(
-            parameters["correlation"], "correlation", dimensions=(2,)
-        )
-        component_count = mean.size
-        if component_count == 0:
-            raise ValueError("A multivariate distribution needs at least one component")
-        if deviation.shape != mean.shape:
-            raise ValueError("mean and stdv must have the same length")
-        if correlation.shape != (component_count, component_count):
-            raise ValueError("correlation shape must match the number of components")
-        if np.any(deviation < 0):
-            raise ValueError("Distribution standard deviations cannot be negative")
-        if not np.allclose(correlation, correlation.T):
-            raise ValueError("correlation must be symmetric")
-        if not np.allclose(np.diag(correlation), 1.0):
-            raise ValueError("correlation diagonal entries must equal one")
-        if np.any(np.abs(correlation) > 1.0):
-            raise ValueError("correlation coefficients must lie between -1 and 1")
-        if np.linalg.eigvalsh(correlation).min() < -1e-12:
-            raise ValueError("correlation must be positive semidefinite")
-        # Convert standard deviations and correlation into covariance units.
+    else:
+        mean = np.asarray(parameters["mean"], dtype=float)
+        deviation = np.asarray(parameters["stdv"], dtype=float)
+        correlation = np.asarray(parameters["correlation"], dtype=float)
         covariance = np.outer(deviation, deviation) * correlation
         draw = rng.multivariate_normal(mean, covariance) if stochastic else mean
-
-    else:
-        raise ValueError(f"Unsupported distribution {distribution_name!r}")
 
     # Internally, scalar and vector distributions share one tuple representation.
     values = np.atleast_1d(draw).astype(float)
@@ -607,10 +515,6 @@ def _sample_distributions(distributions, rng, stochastic):
         # Registry entries must be explicit public distribution records.
         if not isinstance(specification, RandomDistribution):
             raise TypeError("distributions must contain RandomDistribution records")
-        if isinstance(specification.id, bool) or not isinstance(specification.id, int):
-            raise TypeError("Distribution IDs must be integers")
-        if specification.id <= 0:
-            raise ValueError("Distribution IDs must be positive")
         if specification.id in sampled:
             raise ValueError(f"Duplicate distribution ID {specification.id}")
         if specification.name in names:

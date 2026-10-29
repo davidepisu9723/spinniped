@@ -88,7 +88,9 @@ The supported families are ``"normal"``, ``"uniform"``, and
 ``"multivariate_normal"``. Schemas are strict, all parameters must be finite,
 standard deviations must be nonnegative, and correlation matrices must be
 symmetric and positive semidefinite with a unit diagonal. Distribution IDs and
-names must both be unique.
+names must both be unique. Local schema errors are raised immediately when a
+`RandomDistribution` is constructed; registry-wide uniqueness and reference
+checks occur when the model is built.
 
 Resolved records and numerical inputs are validated for type, shape, finite
 values, references, and physical bounds. For example, shaft length, density,

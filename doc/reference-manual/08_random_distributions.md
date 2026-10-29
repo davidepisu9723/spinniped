@@ -13,6 +13,12 @@
 dictionary. Numeric record fields use `(distribution_id,)` for a scalar or
 `(distribution_id, component_index)` for one multivariate component.
 
+Record construction validates the positive integer ID, nonempty name,
+supported family, exact parameter keys, finite numeric shapes and bounds, and
+the complete multivariate correlation contract. The builder subsequently
+checks registry-wide ID and name uniqueness, resolves references, and samples
+each valid record.
+
 The `values` tuple of a `SpeedDependentValue` accepts the same references.
 Its `speeds` tuple does not: speed knots are deterministic structural data.
 
@@ -24,10 +30,10 @@ Its `speeds` tuple does not: speed knots are deterministic structural data.
 | `uniform` | `low`, `high` | interval midpoint |
 | `multivariate_normal` | `mean`, `stdv`, `correlation` | mean vector |
 
-The builder rejects unexpected keys, nonfinite values, negative standard
-deviations, reversed uniform bounds, and invalid correlation matrices.
-Correlation matrices must be square, symmetric, positive semidefinite, and
-have a unit diagonal.
+The record rejects unexpected keys, nonfinite values, negative standard
+deviations, reversed uniform bounds, and invalid correlation matrices during
+construction. Correlation matrices must be square, symmetric, positive
+semidefinite, and have a unit diagonal.
 
 ## Sampling and reuse
 

@@ -364,54 +364,58 @@ def test_stochastic_build_produces_reproducible_model_realizations():
 
 
 @pytest.mark.parametrize(
-    ("distribution", "message"),
+    ("arguments", "exception", "message"),
     [
-        (RandomDistribution(1, "bad", "normal", {"mean": 1.0}), "requires only"),
         (
-            RandomDistribution(
-                1, "bad", "normal", {"mean": 1.0, "stdv": -0.1}
-            ),
+            (1, "bad", "normal", {"mean": 1.0}),
+            ValueError,
+            "requires only",
+        ),
+        (
+            (1, "bad", "normal", {"mean": 1.0, "stdv": -0.1}),
+            ValueError,
             "cannot be negative",
         ),
         (
-            RandomDistribution(
-                1, "bad", "uniform", {"low": 2.0, "high": 1.0}
-            ),
+            (1, "bad", "uniform", {"low": 2.0, "high": 1.0}),
+            ValueError,
             "high >= low",
         ),
         (
-            RandomDistribution(
-                1, "bad", "triangular", {"low": 0.0, "high": 1.0}
-            ),
+            (1, "bad", "triangular", {"low": 0.0, "high": 1.0}),
+            ValueError,
             "Unsupported distribution",
         ),
         (
-            RandomDistribution(
-                1, "bad", "normal", {"mean": np.nan, "stdv": 0.1}
-            ),
+            (1, "bad", "normal", {"mean": np.nan, "stdv": 0.1}),
+            ValueError,
             "finite values",
         ),
         (
-            RandomDistribution(
+            (
                 1,
                 "bad",
                 "normal",
                 {"mean": 1.0, "stdv": 0.1, "units": "m"},
             ),
+            ValueError,
             "requires only",
         ),
+        ((True, "bad", "normal", {"mean": 1.0, "stdv": 0.1}), TypeError, "IDs"),
+        ((0, "bad", "normal", {"mean": 1.0, "stdv": 0.1}), ValueError, "positive"),
+        ((1, "", "normal", {"mean": 1.0, "stdv": 0.1}), ValueError, "non-empty"),
+        ((1, "bad", 1, {"mean": 1.0, "stdv": 0.1}), TypeError, "type"),
+        ((1, "bad", "normal", (1.0, 0.1)), TypeError, "dictionary"),
     ],
 )
-def test_invalid_distribution_specifications_are_rejected(distribution, message):
-    """Verify malformed distribution records are rejected."""
-    definition = _rotor_definition()
-    definition.properties[0] = ShaftProperty(
-        1, material=1, outer_diameter=(1,)
-    )
-    definition.distributions.append(distribution)
-
-    with pytest.raises(ValueError, match=message):
-        ModelBuilder().build(definition)
+def test_invalid_distribution_specifications_are_rejected(
+    arguments,
+    exception,
+    message,
+):
+    """Verify malformed distributions fail during record construction."""
+    with pytest.raises(exception, match=message):
+        RandomDistribution(*arguments)
 
 
 def test_multivariate_components_preserve_requested_correlation():

@@ -311,8 +311,9 @@ shape `(6, 18, 18)`.
 
 Parametrizes incomplete normal data, negative standard deviation, reversed
 uniform bounds, an unsupported triangular family, nonfinite parameters, and
-an unexpected parameter key. Each malformed record must fail validation with
-a message identifying the violated distribution contract.
+an unexpected parameter key, plus invalid identity and field types. Each
+malformed record must fail immediately during `RandomDistribution`
+construction with a message identifying the violated contract.
 
 #### `test_multivariate_components_preserve_requested_correlation`
 
