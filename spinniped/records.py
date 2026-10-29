@@ -96,31 +96,8 @@ class SpeedDependentValue:
 
         # Values may be finite numbers or unresolved random references.
         # Reference existence and upper component bounds require ModelBuilder.
-        for value in self.values:
-            if isinstance(value, tuple):
-                if (
-                    len(value) not in (1, 2)
-                    or any(
-                        isinstance(item, bool) or not isinstance(item, int)
-                        for item in value
-                    )
-                ):
-                    raise TypeError(
-                        "values must contain only real numeric values or "
-                        "random references"
-                    )
-                if value[0] <= 0 or (len(value) == 2 and value[1] < 0):
-                    raise ValueError(
-                        "random references require a positive distribution "
-                        "ID and a nonnegative component index"
-                    )
-            elif isinstance(value, bool) or not isinstance(value, Real):
-                raise TypeError(
-                    "values must contain only real numeric values or random "
-                    "references"
-                )
-            elif not isfinite(value):
-                raise ValueError("values must contain only finite values")
+        for index, value in enumerate(self.values):
+            _validate_parameter(value, f"values[{index}]")
 
 
 SpeedDependentParameter: TypeAlias = Parameter | SpeedDependentValue

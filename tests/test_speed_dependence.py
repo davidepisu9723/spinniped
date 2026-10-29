@@ -168,13 +168,13 @@ def test_speed_dependent_value_requires_tuple_inputs(
             (0.0, 1.0),
             (1.0, True),
             TypeError,
-            "real numeric values or random references",
+            "real number or random reference",
         ),
         (
             (0.0, 1.0),
             ((1, 0, 2), 1.0),
             TypeError,
-            "random references",
+            "random reference",
         ),
         (
             (0.0, 1.0),
