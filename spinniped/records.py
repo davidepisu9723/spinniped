@@ -20,6 +20,28 @@ Parameter: TypeAlias = int | float | RandomReference
 Vector3: TypeAlias = tuple[Parameter, Parameter, Parameter]
 
 
+def _validate_parameter(value, label):
+    """Validate one finite scalar or structurally valid random reference."""
+    if isinstance(value, tuple):
+        if (
+            len(value) not in (1, 2)
+            or any(
+                isinstance(item, bool) or not isinstance(item, int)
+                for item in value
+            )
+        ):
+            raise TypeError(f"{label} must be a real number or random reference")
+        if value[0] <= 0 or (len(value) == 2 and value[1] < 0):
+            raise ValueError(
+                f"{label} random reference requires a positive distribution "
+                "ID and a nonnegative component index"
+            )
+    elif isinstance(value, bool) or not isinstance(value, Real):
+        raise TypeError(f"{label} must be a real number or random reference")
+    elif not isfinite(value):
+        raise ValueError(f"{label} must be finite")
+
+
 @dataclass(frozen=True, slots=True)
 class SpeedDependentValue:
     """Define one scalar value at tabulated rotor angular speeds.
@@ -252,6 +274,28 @@ class Grid:
 
     # Coordinate system zero denotes the implicit global frame.
     coordinate_system: int = 0
+
+    def __post_init__(self):
+        """Validate the complete local grid specification."""
+        # Grid identity is intrinsic; collection-wide uniqueness is checked
+        # when ModelBuilder registers the record.
+        if isinstance(self.id, bool) or not isinstance(self.id, int):
+            raise TypeError("Grid IDs must be integers")
+        if self.id <= 0:
+            raise ValueError("Grid IDs must be positive")
+
+        # Coordinates may remain symbolic random references until build time,
+        # but their scalar/reference structure is locally decidable.
+        for name in ("x", "y", "z"):
+            _validate_parameter(getattr(self, name), f"Grid {self.id} {name}")
+
+        # Frame zero is the global system; user-defined frame IDs are positive.
+        if isinstance(self.coordinate_system, bool) or not isinstance(
+            self.coordinate_system, int
+        ):
+            raise TypeError("Grid coordinate_system must be an integer ID")
+        if self.coordinate_system < 0:
+            raise ValueError("Grid coordinate_system cannot be negative")
 
 
 @dataclass(frozen=True, slots=True)

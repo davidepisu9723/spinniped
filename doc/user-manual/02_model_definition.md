@@ -215,6 +215,11 @@ element must reference a `ShaftProperty`, a bearing element a
 references a material ID. Harmonic, rotating, and unbalance records share one
 load-ID namespace. The builder validates these relationships.
 
+`Grid` validates its own positive integer ID, coordinate parameter structure,
+and coordinate-system reference type when it is constructed. Model-wide
+checks such as duplicate grid IDs and unknown coordinate-system references
+remain builder responsibilities.
+
 ## Coordinate systems
 
 `Grid.x`, `Grid.y`, and `Grid.z` are interpreted in the coordinate system

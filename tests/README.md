@@ -270,12 +270,17 @@ Places both shaft grids at the same coordinates. The builder must detect the
 resulting zero-length element and raise a `coincident` error before attempting
 a direction transform or kernel evaluation.
 
+#### `test_grid_rejects_invalid_local_inputs`
+
+Parametrizes invalid grid IDs, nonfinite coordinates, and invalid coordinate-
+system references. Each malformed grid must fail immediately during `Grid`
+construction.
+
 #### `test_builder_strictly_validates_record_types_and_finite_geometry`
 
-Exercises six root-model validation failures: no grids, Boolean and nonpositive
-IDs, a grid incorrectly stored as a material, an infinite coordinate, and a
-zero spin axis. Besides rejecting bad values, the expected exception types
-protect strict API semantics such as not accepting `True` as integer ID 1.
+Exercises the remaining root-model validation failures: no grids, a grid
+incorrectly stored as a material, and a zero spin axis. Grid-local failures are
+covered independently at record construction.
 
 #### `test_builder_requires_a_boolean_stochastic_flag`
 
@@ -605,6 +610,11 @@ when another ordinate is valid.
 Parametrizes grids, materials, shaft and disk properties, phases, unbalance,
 and the model spin axis. These unsupported placements must fail explicitly
 instead of reaching unrelated numerical kernels.
+
+#### `test_grid_rejects_speed_dependent_coordinates_at_declaration`
+
+Places a speed table in a grid coordinate. The `Grid` record must reject it
+immediately because coordinates accept scalar parameters only.
 
 ### `test_load_response.py`
 

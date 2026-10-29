@@ -27,6 +27,10 @@ The direction vectors need not have unit length, but they must be nonzero and
 non-collinear. The builder orthonormalizes them into a rotation matrix. A
 `Grid` stores coordinates in the frame selected by its `coordinate_system`
 field, and the builder resolves them into global coordinates before assembly.
+Grid construction validates its positive integer ID, finite scalar or random-
+reference coordinates, and nonnegative integer coordinate-system reference.
+The builder subsequently checks grid-ID uniqueness and whether the referenced
+coordinate system exists.
 
 For each shaft, the element-local $z_e$ axis points from `grid_a` to `grid_b`.
 The local matrices are transformed into the global frame. Thus the formulas in

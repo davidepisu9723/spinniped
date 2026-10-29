@@ -462,20 +462,29 @@ def test_coincident_shaft_grids_are_rejected(shaft_properties):
 
 
 @pytest.mark.parametrize(
+    ("arguments", "exception", "message"),
+    [
+        ((True,), TypeError, "IDs must be integers"),
+        ((0,), ValueError, "IDs must be positive"),
+        ((1, np.inf), ValueError, "must be finite"),
+        ((1, 0.0, 0.0, 0.0, True), TypeError, "integer ID"),
+        ((1, 0.0, 0.0, 0.0, -1), ValueError, "cannot be negative"),
+    ],
+)
+def test_grid_rejects_invalid_local_inputs(arguments, exception, message):
+    """Verify malformed grids fail during record construction."""
+    with pytest.raises(exception, match=message):
+        Grid(*arguments)
+
+
+@pytest.mark.parametrize(
     ("definition", "exception", "message"),
     [
         (ModelDefinition(), ValueError, "at least one grid"),
-        (ModelDefinition(grids=[Grid(True)]), TypeError, "IDs must be integers"),
-        (ModelDefinition(grids=[Grid(0)]), ValueError, "IDs must be positive"),
         (
             ModelDefinition(grids=[Grid(1)], materials=[Grid(2)]),
             TypeError,
             "Every material record",
-        ),
-        (
-            ModelDefinition(grids=[Grid(1, x=np.inf)]),
-            ValueError,
-            "coordinates must be finite",
         ),
         (
             ModelDefinition(grids=[Grid(1)], spin_axis=(0.0, 0.0, 0.0)),

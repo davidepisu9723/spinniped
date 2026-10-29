@@ -689,7 +689,6 @@ def test_rotating_load_speed_table_must_remain_nonnegative():
 @pytest.mark.parametrize(
     "definition",
     [
-        ModelDefinition(grids=[Grid(1, x=SpeedDependentValue((0, 1), (0, 1)))]),
         ModelDefinition(
             grids=[Grid(1)],
             materials=[
@@ -755,3 +754,11 @@ def test_builder_rejects_speed_dependent_values_in_unsupported_fields(
     """Verify tables cannot silently enter nonlinear or unsupported records."""
     with pytest.raises(TypeError, match="does not accept SpeedDependentValue"):
         ModelBuilder().build(definition)
+
+
+def test_grid_rejects_speed_dependent_coordinates_at_declaration():
+    """Verify grid coordinates accept scalar parameters, not speed tables."""
+    table = SpeedDependentValue((0, 1), (0, 1))
+
+    with pytest.raises(TypeError, match="real number or random reference"):
+        Grid(1, x=table)

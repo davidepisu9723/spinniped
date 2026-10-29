@@ -384,16 +384,6 @@ def _reject_speed_dependent_value(value, path):
 
 def _validate_speed_dependent_placements(definition):
     """Restrict speed tables to supported linear bearing and load fields."""
-    for grid in definition.grids:
-        # Collection/type errors are reported later by the ordinary record
-        # validation path.  Avoid obscuring those established diagnostics.
-        if not isinstance(grid, Grid):
-            continue
-        for name in ("x", "y", "z"):
-            _reject_speed_dependent_value(
-                getattr(grid, name), f"Grid {grid.id} {name}"
-            )
-
     for coordinate_system in definition.coordinate_systems:
         if not isinstance(coordinate_system, CoordinateSystem):
             continue
@@ -696,7 +686,7 @@ def _resolve(value, sampled_distributions, path="model"):
     return value
 
 
-def _unique(items, label, expected_type=None):
+def _unique(items, label, expected_type=None, *, validate_id=True):
     """Index records by ID while validating type and uniqueness.
 
     Parameters
@@ -707,6 +697,8 @@ def _unique(items, label, expected_type=None):
         Record-family name used in error messages.
     expected_type : type or tuple of type, optional
         Accepted record class or classes.
+    validate_id : bool, optional
+        Validate IDs for record classes that do not yet own that invariant.
 
     Returns
     -------
@@ -735,13 +727,14 @@ def _unique(items, label, expected_type=None):
                 f"Every {label} record must be a dataclass with an ID"
             )
 
-        # Boolean values are intentionally excluded even though bool subclasses int.
-        if isinstance(item.id, bool) or not isinstance(item.id, int):
-            raise TypeError(f"{label.capitalize()} IDs must be integers")
+        if validate_id:
+            # Boolean values are excluded even though bool subclasses int.
+            if isinstance(item.id, bool) or not isinstance(item.id, int):
+                raise TypeError(f"{label.capitalize()} IDs must be integers")
 
-        # ID zero is reserved only for the implicit global coordinate system.
-        if item.id < 0 or (item.id == 0 and label != "coordinate system"):
-            raise ValueError(f"{label.capitalize()} IDs must be positive")
+            # ID zero is reserved for the implicit global coordinate system.
+            if item.id < 0 or (item.id == 0 and label != "coordinate system"):
+                raise ValueError(f"{label.capitalize()} IDs must be positive")
 
         # Duplicate IDs would make reference resolution ambiguous.
         if item.id in records_by_id:
@@ -852,15 +845,6 @@ def _grid_coordinates(definition):
     # Transform grid-local coordinates into global coordinates.
     global_coordinates = []
     for grid in definition.grids:
-        # Coordinate-system references are integer IDs.
-        if (
-            isinstance(grid.coordinate_system, bool)
-            or not isinstance(grid.coordinate_system, int)
-        ):
-            raise TypeError(
-                f"Grid {grid.id} coordinate_system must be an integer ID"
-            )
-
         # Every referenced input frame must exist.
         if grid.coordinate_system not in systems:
             raise ValueError(
@@ -868,11 +852,9 @@ def _grid_coordinates(definition):
                 f"{grid.coordinate_system}"
             )
 
-        # Retrieve the selected frame and validate the local coordinate.
+        # Retrieve the selected frame and transform the validated coordinate.
         origin, rotation = systems[grid.coordinate_system]
         local_coordinate = np.array([grid.x, grid.y, grid.z], dtype=float)
-        if not np.isfinite(local_coordinate).all():
-            raise ValueError(f"Grid {grid.id} coordinates must be finite")
 
         # Apply x_global = origin + R * x_local.
         global_coordinates.append(origin + rotation @ local_coordinate)
@@ -966,7 +948,7 @@ def _assemble(definition):
         requested rotor speeds.
     """
     # Validate and index every record collection.
-    grids = _unique(definition.grids, "grid", Grid)
+    grids = _unique(definition.grids, "grid", Grid, validate_id=False)
     if not grids:
         raise ValueError("A model requires at least one grid")
 
