@@ -140,6 +140,23 @@ def test_load_records_are_public_immutable_declarative_data():
     assert second.loads == []
 
 
+@pytest.mark.parametrize(
+    "factory",
+    [
+        lambda: CoordinateSystem(1, origin=[0.0, 0.0, 0.0]),
+        lambda: CoordinateSystem(1, x_axis=[1.0, 0.0, 0.0]),
+        lambda: CoordinateSystem(1, xy_plane=[0.0, 1.0, 0.0]),
+        lambda: HarmonicLoad(1, grid=1, force=[1.0, 0.0, 0.0]),
+        lambda: HarmonicLoad(1, grid=1, moment=[0.0, 1.0, 0.0]),
+        lambda: ModelDefinition(spin_axis=[0.0, 0.0, 1.0]),
+    ],
+)
+def test_fixed_vector_fields_require_tuples(factory):
+    """Verify atomic vectors reject mutable list inputs immediately."""
+    with pytest.raises(TypeError, match="must be a tuple"):
+        factory()
+
+
 def test_builder_resolves_and_preserves_declarative_loads():
     """Verify load references share the ordinary parameter-resolution path."""
     definition = _rotor_definition()

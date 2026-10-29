@@ -30,6 +30,12 @@ do not contribute to the structural matrices. They remain attached to each
 resolved definition for analysis-specific force assembly by the steady
 response solvers.
 
+Declarative record collections use lists so a definition can be assembled
+incrementally. Atomic value sequences use tuples and reject mutable lists.
+This applies to speed-table sequences, coordinate-system vectors, harmonic
+force and moment vectors, and the model spin axis. The builder converts the
+completed definition into tuples and NumPy arrays in `BuiltModel`.
+
 Speed-dependent bearing terms remain attached to the built model as compact
 per-sample contributions. Solvers interpolate their coefficients over the
 requested rotor-speed operating points before numerical solution. This keeps

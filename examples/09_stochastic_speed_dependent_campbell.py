@@ -32,7 +32,8 @@ disk_grid = number_of_grids // 2 + 1
 # The bearing stiffness softens with speed. Its three ordinates reference one
 # multivariate distribution, so every realization contains a correlated curve
 # rather than three independent random values. Rotor speeds are deterministic
-# and expressed in rad/s, as required by SpeedDependentValue.
+# and expressed in rad/s, as required by SpeedDependentValue. Both table
+# sequences are explicit tuples.
 speed_knots_rpm = (0.0, 3_000.0, 6_000.0)
 rpm_to_rad_per_second = 2.0 * np.pi / 60.0
 speed_knots = tuple(

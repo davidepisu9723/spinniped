@@ -19,6 +19,9 @@ SpeedDependentValue(
 )
 ```
 
+Both fields must be tuples. Mutable lists and other sequence types are
+rejected at record construction rather than converted implicitly.
+
 Despite the conventional lowercase variable names in the example, each
 abscissa represents signed rotor angular speed $\Omega$ in rad/s, not forcing
 angular frequency $\omega$. `speeds` contains numeric knots. `values` contains

@@ -28,6 +28,8 @@ Each `HarmonicLoad.force` and `HarmonicLoad.moment` component, and
 `RotatingLoad.force_magnitude`, may instead be a `SpeedDependentValue`.
 `phase` and every `Unbalance` field remain speed-independent. Tabulated load
 amplitudes use signed rotor speed $\Omega$, not forcing frequency $\omega$.
+The outer `force` and `moment` vectors must be three-component tuples; mutable
+lists are rejected at record construction.
 
 ## Harmonic convention
 

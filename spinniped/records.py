@@ -38,21 +38,11 @@ class SpeedDependentValue:
     values: tuple[Parameter, ...]
 
     def __post_init__(self):
-        """Snapshot ordinary input sequences to preserve value semantics.
-
-        Invalid non-sequence inputs are left in place so the builder can
-        report them together with the field path. Strings are likewise left
-        for the dedicated numeric-table validator to reject.
-        """
-        for name in ("speeds", "values"):
-            sequence = getattr(self, name)
-            if isinstance(sequence, (str, bytes)):
-                continue
-            try:
-                normalized = tuple(sequence)
-            except TypeError:
-                continue
-            object.__setattr__(self, name, normalized)
+        """Validate that speeds and values are tuples."""
+        if not isinstance(self.speeds, tuple):
+            raise TypeError("speeds must be a tuple")
+        if not isinstance(self.values, tuple):
+            raise TypeError("values must be a tuple")
 
 
 SpeedDependentParameter: TypeAlias = Parameter | SpeedDependentValue
@@ -136,6 +126,14 @@ class CoordinateSystem:
     origin: tuple[Parameter, Parameter, Parameter] = (0.0, 0.0, 0.0)
     x_axis: tuple[Parameter, Parameter, Parameter] = (1.0, 0.0, 0.0)
     xy_plane: tuple[Parameter, Parameter, Parameter] = (0.0, 1.0, 0.0)
+
+    def __post_init__(self):
+        if not isinstance(self.origin, tuple):
+            raise TypeError("origin must be a tuple")
+        if not isinstance(self.x_axis, tuple):
+            raise TypeError("x_axis must be a tuple")
+        if not isinstance(self.xy_plane, tuple):
+            raise TypeError("xy_plane must be a tuple")
 
 
 @dataclass(frozen=True, slots=True)
@@ -366,6 +364,13 @@ class HarmonicLoad:
     phase: Parameter = 0.0
     coordinate_system: int = 0
 
+    def __post_init__(self):
+        """Validate that force and moment are tuples."""
+        if not isinstance(self.force, tuple):
+            raise TypeError("force must be a tuple")
+        if not isinstance(self.moment, tuple):
+            raise TypeError("moment must be a tuple")
+
 
 @dataclass(frozen=True, slots=True)
 class RotatingLoad:
@@ -469,3 +474,8 @@ class ModelDefinition:
     spin_axis: tuple[Parameter, Parameter, Parameter] = (0.0, 0.0, 1.0)
     # Appended to preserve the positional order of the pre-existing fields.
     loads: list[Load] = field(default_factory=list)
+
+    def __post_init__(self):
+        """Validate that the spin axis is a tuple."""
+        if not isinstance(self.spin_axis, tuple):
+            raise TypeError("spin_axis must be a tuple")

@@ -352,6 +352,12 @@ package root. It checks their component, phase, sense, and coordinate-system
 defaults, verifies frozen slotted storage, and confirms that separate
 `ModelDefinition` instances do not share a mutable load list.
 
+#### `test_fixed_vector_fields_require_tuples`
+
+Passes mutable lists to coordinate-system vectors, harmonic force and moment
+vectors, and the model spin axis. Every atomic vector must reject the list at
+record construction and require an explicit tuple.
+
 #### `test_builder_resolves_and_preserves_declarative_loads`
 
 References registered distributions from harmonic-force components, rotating
@@ -491,8 +497,12 @@ permanent speed dimension to the built matrices.
 
 Checks the public frozen, slotted record and evaluates an unsorted sequence
 containing repeated and negative speeds. Exact knots and intermediate points
-must preserve request order and use linear interpolation. Mutable input lists
-are snapshotted as tuples so later caller mutation cannot alter the table.
+must preserve request order and use linear interpolation.
+
+#### `test_speed_dependent_value_requires_tuple_inputs`
+
+Passes a list for each speed-table sequence in turn. Both must be rejected at
+record construction because `speeds` and `values` require immutable tuples.
 
 #### `test_builder_rejects_malformed_speed_dependent_values`
 

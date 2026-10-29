@@ -17,8 +17,9 @@ from spinniped import (
 )
 
 
-# SpeedDependentValue uses signed rotor angular speed in rad/s. Convert these
-# readable source knots from rpm once when defining the tables.
+# SpeedDependentValue requires tuple inputs and uses signed rotor angular speed
+# in rad/s. Convert these readable source knots from rpm once when defining the
+# tables.
 speed_knots_rpm = (0.0, 3_000.0, 6_000.0)
 rpm_to_rad_per_second = 2.0 * np.pi / 60.0
 speed_knots = tuple(

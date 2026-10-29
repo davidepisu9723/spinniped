@@ -83,14 +83,10 @@ def _two_dof_unbalance_model(stiffness, damping):
 
 def test_speed_dependent_value_is_public_frozen_and_linearly_interpolated():
     """Verify public record behavior, signed knots, order, and repetition."""
-    input_speeds = [-100, 0, 100]
-    input_values = [10, 20, 50]
     value = SpeedDependentValue(
-        speeds=input_speeds,
-        values=input_values,
+        speeds=(-100, 0, 100),
+        values=(10, 20, 50),
     )
-    input_speeds[-1] = 200
-    input_values[-1] = 80
 
     assert not hasattr(value, "__dict__")
     assert value.speeds == (-100, 0, 100)
@@ -104,6 +100,24 @@ def test_speed_dependent_value_is_public_frozen_and_linearly_interpolated():
         "test value",
     )
     assert np.array_equal(evaluated, [50.0, 15.0, 20.0, 15.0])
+
+
+@pytest.mark.parametrize(
+    ("speeds", "values", "message"),
+    [
+        ([-100, 0, 100], (10, 20, 50), "speeds must be a tuple"),
+        ((-100, 0, 100), [10, 20, 50], "values must be a tuple"),
+    ],
+)
+def test_speed_dependent_value_requires_tuple_inputs(
+    speeds,
+    values,
+    message,
+):
+    """Verify speed-table sequences are explicit immutable tuples."""
+    with pytest.raises(TypeError, match=message):
+        SpeedDependentValue(speeds=speeds, values=values)
+
 
 @pytest.mark.parametrize(
     ("value", "exception", "message"),

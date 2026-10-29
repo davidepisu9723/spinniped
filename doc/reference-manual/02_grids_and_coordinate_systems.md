@@ -20,6 +20,9 @@ Coordinate system ID `0` is reserved for the global frame. A
 - `x_axis`: the direction of its positive local x-axis, expressed globally;
 - `xy_plane`: a second global direction lying in its local x-y plane.
 
+All three coordinate-system vectors and `ModelDefinition.spin_axis` must be
+three-component tuples. Mutable lists are rejected at record construction.
+
 The direction vectors need not have unit length, but they must be nonzero and
 non-collinear. The builder orthonormalizes them into a rotation matrix. A
 `Grid` stores coordinates in the frame selected by its `coordinate_system`

@@ -201,6 +201,14 @@ supported placements, interpolation rules, and operating-speed convention.
 an empty list. Its `spin_axis` field is the global spin direction and defaults
 to `(0.0, 0.0, 1.0)`.
 
+Lists and tuples have distinct roles in the declarative API. The fields above
+are lists because they are record collections that may be assembled
+incrementally. Fixed value sequences must be tuples: `SpeedDependentValue`
+`speeds` and `values`, the three `CoordinateSystem` vectors,
+`HarmonicLoad.force` and `moment`, and `ModelDefinition.spin_axis`. Mutable
+lists are rejected for these atomic value fields rather than converted
+implicitly.
+
 IDs must be unique positive integers within each record category. A shaft
 element must reference a `ShaftProperty`, a bearing element a
 `BearingProperty`, and a disk element a `DiskProperty`. A shaft property also

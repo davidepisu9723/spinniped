@@ -18,8 +18,8 @@ from spinniped import (
 
 
 # Treat these amplitudes as deterministic CFD results at three rotor speeds.
-# SpeedDependentValue requires angular speed in rad/s, although rpm is retained
-# here for the input-data labels and plot axis.
+# SpeedDependentValue requires tuple inputs and angular speed in rad/s,
+# although rpm is retained here for the input-data labels and plot axis.
 speed_knots_rpm = (0.0, 3_000.0, 6_000.0)
 fluid_force_values = (50.0, 120.0, 200.0)
 rpm_to_rad_per_second = 2.0 * np.pi / 60.0
