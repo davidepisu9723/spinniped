@@ -19,8 +19,11 @@ multiple compatible elements.
 `ShaftProperty` stores `id`, the referenced material ID, outer and inner
 diameters, the beam-theory selector, the rotary-inertia switch, and a
 mass-proportional damping coefficient. The implemented theory values are
-`"timoshenko"` and `"euler"`. The builder requires
-`outer_diameter > inner_diameter >= 0`.
+`"timoshenko"` and `"euler"`. Record construction requires a positive ID and
+material reference, `outer_diameter > inner_diameter >= 0`, nonnegative
+damping, a supported theory, and a Boolean rotary-inertia switch. Random
+parameters are checked again when their resolved record is reconstructed;
+property-ID uniqueness and material lookup remain builder responsibilities.
 
 ## Bearing properties
 

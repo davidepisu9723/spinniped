@@ -288,6 +288,12 @@ Parametrizes invalid material IDs, nonfinite or nonpositive elastic data, and
 an out-of-range Poisson ratio. Each malformed material must fail immediately
 during `Material` construction.
 
+#### `test_shaft_property_rejects_invalid_local_inputs`
+
+Parametrizes invalid IDs, material references, annular geometry, theory, and
+rotary-inertia switches. Each malformed shaft property must fail immediately
+during `ShaftProperty` construction.
+
 #### `test_builder_strictly_validates_record_types_and_finite_geometry`
 
 Exercises the remaining root-model validation failures: no grids, a grid
@@ -632,6 +638,11 @@ immediately because coordinates accept scalar parameters only.
 
 Places a speed table in material density. The `Material` record must reject it
 immediately because its fields accept scalar parameters only.
+
+#### `test_shaft_property_rejects_speed_dependence_at_declaration`
+
+Places a speed table in shaft diameter. The `ShaftProperty` record must reject
+it immediately because shaft-property fields accept scalar parameters only.
 
 ### `test_load_response.py`
 

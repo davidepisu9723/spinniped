@@ -412,6 +412,38 @@ class ShaftProperty:
     rotary_inertia: bool = True
     damping: Parameter = 0.0
 
+    def __post_init__(self):
+        """Validate the complete local shaft-property specification."""
+        if isinstance(self.id, bool) or not isinstance(self.id, int):
+            raise TypeError("Shaft property IDs must be integers")
+        if self.id <= 0:
+            raise ValueError("Shaft property IDs must be positive")
+        if isinstance(self.material, bool) or not isinstance(self.material, int):
+            raise TypeError("Shaft property material must be an integer ID")
+        if self.material <= 0:
+            raise ValueError("Shaft property material ID must be positive")
+
+        # Sampled properties are reconstructed and rechecked against the same
+        # annular-section and damping bounds.
+        for name in ("outer_diameter", "inner_diameter", "damping"):
+            _validate_parameter(getattr(self, name), f"Shaft property {self.id} {name}")
+        if isinstance(self.outer_diameter, Real) and self.outer_diameter <= 0.0:
+            raise ValueError("Shaft outer_diameter must be positive")
+        if isinstance(self.inner_diameter, Real) and self.inner_diameter < 0.0:
+            raise ValueError("Shaft inner_diameter cannot be negative")
+        if isinstance(self.damping, Real) and self.damping < 0.0:
+            raise ValueError("Shaft damping cannot be negative")
+        if isinstance(self.outer_diameter, Real) and isinstance(
+            self.inner_diameter, Real
+        ) and self.inner_diameter >= self.outer_diameter:
+            raise ValueError("Shaft outer_diameter must exceed inner_diameter")
+        if not isinstance(self.theory, str):
+            raise TypeError("Shaft theory must be a string")
+        if self.theory not in {"timoshenko", "euler"}:
+            raise ValueError("Shaft theory must be 'timoshenko' or 'euler'")
+        if not isinstance(self.rotary_inertia, bool):
+            raise TypeError("Shaft rotary_inertia must be a boolean")
+
 
 @dataclass(frozen=True, slots=True)
 class BearingProperty:

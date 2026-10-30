@@ -385,7 +385,7 @@ def _reject_speed_dependent_value(value, path):
 def _validate_speed_dependent_placements(definition):
     """Restrict speed tables to supported linear bearing and load fields."""
     for property_record in definition.properties:
-        if isinstance(property_record, BearingProperty):
+        if isinstance(property_record, (ShaftProperty, BearingProperty)):
             continue
         if not isinstance(property_record, (ShaftProperty, DiskProperty)):
             continue
@@ -669,7 +669,14 @@ def _resolve(value, sampled_distributions, path="model"):
     return value
 
 
-def _unique(items, label, expected_type=None, *, validate_id=True):
+def _unique(
+    items,
+    label,
+    expected_type=None,
+    *,
+    validate_id=True,
+    validated_id_types=(),
+):
     """Index records by ID while validating type and uniqueness.
 
     Parameters
@@ -710,7 +717,7 @@ def _unique(items, label, expected_type=None, *, validate_id=True):
                 f"Every {label} record must be a dataclass with an ID"
             )
 
-        if validate_id:
+        if validate_id and not isinstance(item, validated_id_types):
             # Boolean values are excluded even though bool subclasses int.
             if isinstance(item.id, bool) or not isinstance(item.id, int):
                 raise TypeError(f"{label.capitalize()} IDs must be integers")
@@ -916,6 +923,7 @@ def _assemble(definition):
         definition.properties,
         "property",
         (ShaftProperty, BearingProperty, DiskProperty),
+        validated_id_types=(ShaftProperty,),
     )
     _unique(
         definition.elements,

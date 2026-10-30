@@ -529,6 +529,26 @@ def test_material_rejects_invalid_local_inputs(arguments, exception, message):
 
 
 @pytest.mark.parametrize(
+    ("arguments", "exception", "message"),
+    [
+        ((True, 1, 0.1), TypeError, "IDs must be integers"),
+        ((1, 0, 0.1), ValueError, "material ID must be positive"),
+        ((1, 1, 0.0), ValueError, "outer_diameter must be positive"),
+        ((1, 1, 0.1, -0.01), ValueError, "cannot be negative"),
+        ((1, 1, 0.1, 0.1), ValueError, "must exceed"),
+        ((1, 1, 0.1, 0.0, "bad"), ValueError, "theory"),
+        ((1, 1, 0.1, 0.0, "euler", 1), TypeError, "boolean"),
+    ],
+)
+def test_shaft_property_rejects_invalid_local_inputs(
+    arguments, exception, message
+):
+    """Verify malformed shaft properties fail during construction."""
+    with pytest.raises(exception, match=message):
+        ShaftProperty(*arguments)
+
+
+@pytest.mark.parametrize(
     ("definition", "exception", "message"),
     [
         (ModelDefinition(), ValueError, "at least one grid"),
