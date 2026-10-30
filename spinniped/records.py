@@ -918,6 +918,34 @@ class ModelDefinition:
     loads: list[Load] = field(default_factory=list)
 
     def __post_init__(self):
-        """Validate that the spin axis is a tuple."""
+        """Validate the model container and its immutable spin-axis field."""
+        # Record collections intentionally remain mutable so definitions can
+        # be assembled incrementally. Require explicit lists here; ModelBuilder
+        # revalidates their contents because callers may mutate them later.
+        for name in (
+            "grids",
+            "coordinate_systems",
+            "materials",
+            "properties",
+            "elements",
+            "distributions",
+            "loads",
+        ):
+            if not isinstance(getattr(self, name), list):
+                raise TypeError(f"{name} must be a list")
+
+        # The spin axis is an atomic vector and cannot be replaced on this
+        # frozen record, so its complete local contract belongs here.
         if not isinstance(self.spin_axis, tuple):
             raise TypeError("spin_axis must be a tuple")
+        if len(self.spin_axis) != 3:
+            raise ValueError("spin_axis must contain three components")
+        for index, component in enumerate(self.spin_axis):
+            _validate_parameter(component, f"spin_axis[{index}]")
+
+        # Random components cannot be evaluated until resolution. Rebuilding
+        # the resolved ModelDefinition repeats this check on numeric values.
+        if all(not isinstance(component, tuple) for component in self.spin_axis):
+            spin_norm = np.linalg.norm(np.asarray(self.spin_axis, dtype=float))
+            if spin_norm < 1.0e-14:
+                raise ValueError("spin_axis cannot be zero")

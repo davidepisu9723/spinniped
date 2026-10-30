@@ -648,11 +648,6 @@ def test_shaft_element_rejects_invalid_local_inputs(
             TypeError,
             "Every material record",
         ),
-        (
-            ModelDefinition(grids=[Grid(1)], spin_axis=(0.0, 0.0, 0.0)),
-            ValueError,
-            "spin_axis cannot be zero",
-        ),
     ],
 )
 def test_builder_strictly_validates_record_types_and_finite_geometry(
@@ -661,6 +656,41 @@ def test_builder_strictly_validates_record_types_and_finite_geometry(
     """Verify strict validation of record types and finite geometry."""
     with pytest.raises(exception, match=message):
         ModelBuilder().build(definition)
+
+
+@pytest.mark.parametrize(
+    "field",
+    [
+        "grids",
+        "coordinate_systems",
+        "materials",
+        "properties",
+        "elements",
+        "distributions",
+        "loads",
+    ],
+)
+def test_model_definition_requires_list_collections(field):
+    """Verify mutable record collections require explicit list containers."""
+    with pytest.raises(TypeError, match=rf"{field} must be a list"):
+        ModelDefinition(**{field: ()})
+
+
+@pytest.mark.parametrize(
+    ("spin_axis", "exception", "message"),
+    [
+        ((1.0, 0.0), ValueError, "three components"),
+        ((1.0, 0.0, np.inf), ValueError, "must be finite"),
+        ((1.0, 0.0, "z"), TypeError, "real number or random reference"),
+        ((0.0, 0.0, 0.0), ValueError, "cannot be zero"),
+    ],
+)
+def test_model_definition_rejects_invalid_spin_axis(
+    spin_axis, exception, message
+):
+    """Verify malformed spin axes fail during definition construction."""
+    with pytest.raises(exception, match=message):
+        ModelDefinition(spin_axis=spin_axis)
 
 
 @pytest.mark.parametrize("stochastic", [0, 1, None, "yes"])

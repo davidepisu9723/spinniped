@@ -27,6 +27,11 @@ constant, random, and tabulated coefficients, while `DiskProperty` validates
 its nonnegative mass, inertia, and damping parameters. `ShaftElement` validates
 its local identity and connectivity contract; `BearingElement` validates its
 optional two-grid connectivity and frame reference as well.
+`ModelDefinition` requires explicit list containers for its mutable record
+collections and validates the complete local contract of its immutable
+three-component spin axis. Because collection contents and distribution
+parameter dictionaries remain mutable, `ModelBuilder` revalidates them before
+every build.
 `ModelBuilder` resolves
 random parameters, validates table placement and field-specific constraints,
 calculates constant local matrices and unit-coefficient bearing bases using the
@@ -38,7 +43,7 @@ do not contribute to the structural matrices. They remain attached to each
 resolved definition for analysis-specific force assembly by the steady
 response solvers.
 
-Declarative record collections use lists so a definition can be assembled
+Declarative record collections require lists so a definition can be assembled
 incrementally. Atomic value sequences use tuples and reject mutable lists.
 This applies to speed-table sequences, coordinate-system vectors, harmonic
 force and moment vectors, and the model spin axis. The builder converts the

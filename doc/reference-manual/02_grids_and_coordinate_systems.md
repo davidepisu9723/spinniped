@@ -22,6 +22,9 @@ Coordinate system ID `0` is reserved for the global frame. A
 
 All three coordinate-system vectors and `ModelDefinition.spin_axis` must be
 three-component tuples. Mutable lists are rejected at record construction.
+`ModelDefinition` also validates each spin-axis component as a finite scalar or
+random reference and rejects a resolved zero vector. The builder only
+normalizes the already validated resolved axis for numerical assembly.
 
 `CoordinateSystem` construction also validates its positive integer ID,
 deterministic finite components, nonzero x-axis, and non-collinear directions.
@@ -43,8 +46,8 @@ The local matrices are transformed into the global frame. Thus the formulas in
 the shaft theory note apply in the local element system even when the shaft is
 not parallel to global $z$.
 
-`ModelDefinition.spin_axis` supplies the global spin direction. If the supplied
-nonzero vector is $\mathbf{s}$, the builder uses
+`ModelDefinition.spin_axis` supplies the global spin direction. If its
+validated nonzero vector is $\mathbf{s}$, the builder uses
 
 $$
 \widehat{\mathbf{s}}=\frac{\mathbf{s}}{\lVert\mathbf{s}\rVert},

@@ -679,21 +679,27 @@ def test_rotating_load_speed_table_must_remain_nonnegative():
         )
 
 
-@pytest.mark.parametrize(
-    "definition",
-    [
-        ModelDefinition(
-            grids=[Grid(1)],
-            spin_axis=(0.0, 0.0, SpeedDependentValue((0, 1), (1.0, 2.0))),
-        ),
-    ],
-)
-def test_builder_rejects_speed_dependent_values_in_unsupported_fields(
-    definition,
-):
-    """Verify tables cannot silently enter nonlinear or unsupported records."""
+def test_builder_rejects_mutated_speed_dependent_distribution_parameters():
+    """Verify mutable distribution dictionaries remain guarded at build time."""
+    distribution = RandomDistribution(
+        1,
+        "mutable",
+        "normal",
+        {"mean": 0.0, "stdv": 1.0},
+    )
+    distribution.parameters["mean"] = SpeedDependentValue((0, 1), (1.0, 2.0))
+    definition = ModelDefinition(grids=[Grid(1)], distributions=[distribution])
+
     with pytest.raises(TypeError, match="does not accept SpeedDependentValue"):
         ModelBuilder().build(definition)
+
+
+def test_model_definition_rejects_speed_dependent_spin_axis_at_declaration():
+    """Verify the immutable spin axis cannot contain a rotor-speed table."""
+    table = SpeedDependentValue((0, 1), (1.0, 2.0))
+
+    with pytest.raises(TypeError, match="real number or random reference"):
+        ModelDefinition(spin_axis=(0.0, 0.0, table))
 
 
 @pytest.mark.parametrize("field", ["mass_eccentricity", "phase"])

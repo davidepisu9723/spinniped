@@ -44,8 +44,9 @@ assembled quantity linearly:
 
 All other placements are rejected before sampling. Record constructors reject
 tables in grids, coordinate systems, materials, shaft and disk properties,
-load phases, and `Unbalance.mass_eccentricity`. Context-level validation covers
-distribution parameters and `ModelDefinition.spin_axis`.
+load phases, `Unbalance.mass_eccentricity`, distribution parameters, and
+`ModelDefinition.spin_axis`. Builder validation additionally protects mutable
+distribution dictionaries that callers change after record construction.
 
 ## Resolution and validation
 

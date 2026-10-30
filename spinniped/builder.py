@@ -392,8 +392,6 @@ def _validate_speed_dependent_placements(definition):
             f"Distribution {distribution.id} parameters",
         )
 
-    _reject_speed_dependent_value(definition.spin_axis, "spin_axis")
-
 
 def _sample_distribution(specification, rng, stochastic):
     """Generate one realization from a validated distribution record.
@@ -937,11 +935,7 @@ def _assemble(definition):
 
     # Normalize the model-wide physical spin direction.
     spin_axis = np.asarray(definition.spin_axis, dtype=float)
-    if spin_axis.shape != (3,) or not np.isfinite(spin_axis).all():
-        raise ValueError("spin_axis must contain three finite values")
     spin_norm = np.linalg.norm(spin_axis)
-    if spin_norm < 1.0e-14:
-        raise ValueError("spin_axis cannot be zero")
     spin_axis /= spin_norm
 
     # Allocate dense global matrices for this realization.

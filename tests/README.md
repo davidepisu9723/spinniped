@@ -60,9 +60,9 @@ parametrized functions run once for every listed case.
 | Test file | Tests | Scope |
 |---|---:|---|
 | [`test_element_matrices.py`](#test_element_matricespy) | 10 | Stateless shaft, bearing, and disk matrix kernels |
-| [`test_assembly.py`](#test_assemblypy) | 16 | Record validation, coordinate transforms, and global assembly |
+| [`test_assembly.py`](#test_assemblypy) | 18 | Record validation, coordinate transforms, and global assembly |
 | [`test_declarative_api.py`](#test_declarative_apipy) | 31 | Distribution resolution and core public solver routes |
-| [`test_speed_dependence.py`](#test_speed_dependencepy) | 18 | Tabulated rotor-speed interpolation, stochastic curves, matrix deltas, and load deltas |
+| [`test_speed_dependence.py`](#test_speed_dependencepy) | 19 | Tabulated rotor-speed interpolation, stochastic curves, matrix deltas, and load deltas |
 | [`test_load_response.py`](#test_load_responsepy) | 6 | Declarative load phasors and steady-response routes |
 | [`test_plotting.py`](#test_plottingpy) | 8 | Rotor-section and Campbell-diagram rendering and plotting-input validation |
 | [`test_analytical_benchmarks.py`](#test_analytical_benchmarkspy) | 1 | Comparison with the Euler--Bernoulli beam solution |
@@ -327,8 +327,19 @@ construction.
 #### `test_builder_strictly_validates_record_types_and_finite_geometry`
 
 Exercises the remaining root-model validation failures: no grids, a grid
-incorrectly stored as a material, and a zero spin axis. Grid-local failures are
-covered independently at record construction.
+incorrectly stored as a material. The builder must retain these completeness
+and mutable-collection checks.
+
+#### `test_model_definition_requires_list_collections`
+
+Passes a tuple to each record-collection field in turn. Every collection must
+require an explicit mutable list so definitions preserve their incremental
+construction contract without implicit conversion.
+
+#### `test_model_definition_rejects_invalid_spin_axis`
+
+Parametrizes wrong-length, nonfinite, nonnumeric, and zero spin axes. Each
+malformed atomic vector must fail during `ModelDefinition` construction.
 
 #### `test_builder_requires_a_boolean_stochastic_flag`
 
@@ -671,10 +682,16 @@ Constructs a rotating load with a magnitude table containing a negative
 ordinate. The record must reject it immediately even when another ordinate is
 valid.
 
-#### `test_builder_rejects_speed_dependent_values_in_unsupported_fields`
+#### `test_builder_rejects_mutated_speed_dependent_distribution_parameters`
 
-Places a speed table in the model spin axis. This context-level unsupported
-placement must fail explicitly instead of reaching numerical assembly.
+Mutates a previously valid distribution parameter dictionary to contain a
+speed table. The builder must revalidate mutable nested data and reject the
+unsupported placement before sampling.
+
+#### `test_model_definition_rejects_speed_dependent_spin_axis_at_declaration`
+
+Places a speed table in the immutable model spin axis. `ModelDefinition` must
+reject the unsupported component immediately.
 
 #### `test_unbalance_rejects_speed_dependence_at_declaration`
 
