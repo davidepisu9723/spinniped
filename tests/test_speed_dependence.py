@@ -692,16 +692,6 @@ def test_rotating_load_speed_table_must_remain_nonnegative():
         ModelDefinition(
             grids=[Grid(1)],
             loads=[
-                HarmonicLoad(
-                    1,
-                    grid=1,
-                    phase=SpeedDependentValue((0, 1), (0.0, 1.0)),
-                )
-            ],
-        ),
-        ModelDefinition(
-            grids=[Grid(1)],
-            loads=[
                 Unbalance(
                     1,
                     grid=1,
@@ -724,6 +714,14 @@ def test_builder_rejects_speed_dependent_values_in_unsupported_fields(
     """Verify tables cannot silently enter nonlinear or unsupported records."""
     with pytest.raises(TypeError, match="does not accept SpeedDependentValue"):
         ModelBuilder().build(definition)
+
+
+def test_harmonic_load_rejects_speed_dependent_phase_at_declaration():
+    """Verify harmonic phase cannot contain a rotor-speed table."""
+    table = SpeedDependentValue((0, 1), (0.0, 1.0))
+
+    with pytest.raises(TypeError, match="real number or random reference"):
+        HarmonicLoad(1, grid=1, phase=table)
 
 
 def test_grid_rejects_speed_dependent_coordinates_at_declaration():

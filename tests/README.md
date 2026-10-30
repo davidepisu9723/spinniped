@@ -422,8 +422,14 @@ matrix families identical to a load-free model.
 #### `test_builder_rejects_invalid_load_records`
 
 Checks the shared load-ID namespace, accepted record types, grid and
-coordinate-system references, vector shape, finite components and phase,
-rotation sense, and nonnegative rotating-force and unbalance magnitudes.
+coordinate-system existence, rotation sense, and nonnegative rotating-force
+and unbalance magnitudes.
+
+#### `test_harmonic_load_rejects_invalid_local_inputs`
+
+Parametrizes invalid harmonic-load identity, references, vector shapes,
+components, and phase. Each malformed load must fail immediately during
+`HarmonicLoad` construction.
 
 #### `test_unbalance_plane_must_be_normal_to_the_spin_axis`
 

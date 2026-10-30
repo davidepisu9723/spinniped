@@ -31,6 +31,11 @@ amplitudes use signed rotor speed $\Omega$, not forcing frequency $\omega$.
 The outer `force` and `moment` vectors must be three-component tuples; mutable
 lists are rejected at record construction.
 
+`HarmonicLoad` construction validates its positive identity and grid reference,
+nonnegative frame reference, phase parameter, vector shapes, and every
+constant, random, or tabulated component. The builder retains grid/frame
+existence and load-ID uniqueness checks.
+
 ## Harmonic convention
 
 Harmonic quantities use

@@ -199,6 +199,25 @@ def test_builder_resolves_and_preserves_declarative_loads():
 
 
 @pytest.mark.parametrize(
+    ("arguments", "keywords", "exception", "message"),
+    [
+        ((True, 2), {}, TypeError, "id must be an integer"),
+        ((1, 0), {}, ValueError, "grid must be positive"),
+        ((1, 2), {"force": (1.0, 2.0)}, ValueError, "three components"),
+        ((1, 2), {"moment": (0.0, np.inf, 0.0)}, ValueError, "must be finite"),
+        ((1, 2), {"phase": np.nan}, ValueError, "must be finite"),
+        ((1, 2), {"coordinate_system": -1}, ValueError, "cannot be negative"),
+    ],
+)
+def test_harmonic_load_rejects_invalid_local_inputs(
+    arguments, keywords, exception, message
+):
+    """Verify malformed harmonic loads fail during construction."""
+    with pytest.raises(exception, match=message):
+        HarmonicLoad(*arguments, **keywords)
+
+
+@pytest.mark.parametrize(
     ("loads", "exception", "message"),
     [
         ([DiskElement(9, 2, 3)], TypeError, "Every load record"),
@@ -215,21 +234,6 @@ def test_builder_resolves_and_preserves_declarative_loads():
             [HarmonicLoad(1, grid=2, coordinate_system=99)],
             ValueError,
             "unknown coordinate system",
-        ),
-        (
-            [HarmonicLoad(1, grid=2, force=(1.0, 2.0))],
-            ValueError,
-            "three components",
-        ),
-        (
-            [HarmonicLoad(1, grid=2, moment=(0.0, np.inf, 0.0))],
-            ValueError,
-            "finite values",
-        ),
-        (
-            [HarmonicLoad(1, grid=2, phase=np.nan)],
-            ValueError,
-            "phase must be finite",
         ),
         (
             [RotatingLoad(1, grid=2, force_magnitude=-1.0)],

@@ -706,11 +706,32 @@ class HarmonicLoad:
     coordinate_system: int = 0
 
     def __post_init__(self):
-        """Validate that force and moment are tuples."""
+        """Validate the complete local harmonic-load specification."""
+        for name in ("id", "grid"):
+            value = getattr(self, name)
+            if isinstance(value, bool) or not isinstance(value, int):
+                raise TypeError(f"Harmonic load {name} must be an integer ID")
+            if value <= 0:
+                raise ValueError(f"Harmonic load {name} must be positive")
+        if isinstance(self.coordinate_system, bool) or not isinstance(
+            self.coordinate_system, int
+        ):
+            raise TypeError("Harmonic load coordinate_system must be an integer ID")
+        if self.coordinate_system < 0:
+            raise ValueError("Harmonic load coordinate_system cannot be negative")
+        _validate_parameter(self.phase, f"Harmonic load {self.id} phase")
+
         if not isinstance(self.force, tuple):
             raise TypeError("force must be a tuple")
         if not isinstance(self.moment, tuple):
             raise TypeError("moment must be a tuple")
+        for name in ("force", "moment"):
+            vector = getattr(self, name)
+            if len(vector) != 3:
+                raise ValueError(f"{name} must contain three components")
+            for index, component in enumerate(vector):
+                if not isinstance(component, SpeedDependentValue):
+                    _validate_parameter(component, f"{name}[{index}]")
 
 
 @dataclass(frozen=True, slots=True)

@@ -387,7 +387,8 @@ def _validate_speed_dependent_placements(definition):
     for load in definition.loads:
         if not isinstance(load, (HarmonicLoad, RotatingLoad, Unbalance)):
             continue
-        _reject_speed_dependent_value(load.phase, f"Load {load.id} phase")
+        if not isinstance(load, HarmonicLoad):
+            _reject_speed_dependent_value(load.phase, f"Load {load.id} phase")
         if isinstance(load, Unbalance):
             _reject_speed_dependent_value(
                 load.mass_eccentricity,
@@ -928,6 +929,7 @@ def _assemble(definition):
         definition.loads,
         "load",
         (HarmonicLoad, RotatingLoad, Unbalance),
+        validated_id_types=(HarmonicLoad,),
     )
 
     # Record insertion order determines global grid and DOF order.
@@ -1052,11 +1054,12 @@ def _assemble(definition):
     # Validate declarative excitations without adding them to structural
     # matrices. Response solvers assemble sample-specific load vectors.
     for load in loads.values():
-        integer_reference(load.grid, f"Load {load.id} grid")
-        integer_reference(
-            load.coordinate_system,
-            f"Load {load.id} coordinate_system",
-        )
+        if not isinstance(load, HarmonicLoad):
+            integer_reference(load.grid, f"Load {load.id} grid")
+            integer_reference(
+                load.coordinate_system,
+                f"Load {load.id} coordinate_system",
+            )
         if load.grid not in grid_index:
             raise ValueError(
                 f"Load {load.id} references unknown grid {load.grid}"
@@ -1067,13 +1070,10 @@ def _assemble(definition):
                 f"{load.coordinate_system}"
             )
 
-        finite_scalar(load.phase, f"Load {load.id} phase")
+        if not isinstance(load, HarmonicLoad):
+            finite_scalar(load.phase, f"Load {load.id} phase")
 
-        if isinstance(load, HarmonicLoad):
-            finite_speed_vector(load.force, f"Harmonic load {load.id} force")
-            finite_speed_vector(load.moment, f"Harmonic load {load.id} moment")
-
-        elif isinstance(load, RotatingLoad):
+        if isinstance(load, RotatingLoad):
             finite_speed_scalar(
                 load.force_magnitude,
                 f"Rotating load {load.id} force_magnitude",
