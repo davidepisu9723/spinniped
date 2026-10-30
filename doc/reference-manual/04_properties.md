@@ -39,6 +39,12 @@ base matrix and represented by a transformed unit-coefficient contribution.
 The solver later scales and adds that contribution at the requested signed
 rotor speed. Shaft and disk property fields do not accept speed tables.
 
+Record construction validates the positive integer bearing-property ID and
+every finite constant, random-reference, or tabulated coefficient. Coefficients
+remain signed because cross-coupled terms and some identified bearing models
+may legitimately use either sign. Property-ID uniqueness and element/property
+compatibility remain builder responsibilities.
+
 ## Disk properties
 
 `DiskProperty` stores mass, equal diametral inertia, polar inertia, and a

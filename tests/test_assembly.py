@@ -549,6 +549,26 @@ def test_shaft_property_rejects_invalid_local_inputs(
 
 
 @pytest.mark.parametrize(
+    ("arguments", "exception", "message"),
+    [
+        ((True,), TypeError, "IDs must be integers"),
+        ((0,), ValueError, "IDs must be positive"),
+        ((1, np.inf), ValueError, "must be finite"),
+        ((1, True), TypeError, "real number or random reference"),
+        ((1, (0,)), ValueError, "positive distribution ID"),
+    ],
+)
+def test_bearing_property_rejects_invalid_local_inputs(
+    arguments,
+    exception,
+    message,
+):
+    """Verify malformed bearing properties fail during construction."""
+    with pytest.raises(exception, match=message):
+        BearingProperty(*arguments)
+
+
+@pytest.mark.parametrize(
     ("definition", "exception", "message"),
     [
         (ModelDefinition(), ValueError, "at least one grid"),

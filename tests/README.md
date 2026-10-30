@@ -294,6 +294,12 @@ Parametrizes invalid IDs, material references, annular geometry, theory, and
 rotary-inertia switches. Each malformed shaft property must fail immediately
 during `ShaftProperty` construction.
 
+#### `test_bearing_property_rejects_invalid_local_inputs`
+
+Parametrizes invalid bearing-property IDs and malformed constant or random
+coefficients. Each malformed property must fail immediately during
+`BearingProperty` construction.
+
 #### `test_builder_strictly_validates_record_types_and_finite_geometry`
 
 Exercises the remaining root-model validation failures: no grids, a grid

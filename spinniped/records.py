@@ -472,6 +472,27 @@ class BearingProperty:
     cxy: SpeedDependentParameter = 0.0
     cyx: SpeedDependentParameter = 0.0
 
+    def __post_init__(self):
+        """Validate the complete local bearing-property specification."""
+        if isinstance(self.id, bool) or not isinstance(self.id, int):
+            raise TypeError("Bearing property IDs must be integers")
+        if self.id <= 0:
+            raise ValueError("Bearing property IDs must be positive")
+
+        # Signed direct and cross-coupled coefficients may be constant, random,
+        # or tabulated. Each nested speed table validates its own contract.
+        names = (
+            "kxx", "kyy", "kzz", "kxy", "kyx",
+            "cxx", "cyy", "czz", "cxy", "cyx",
+        )
+        for name in names:
+            value = getattr(self, name)
+            if not isinstance(value, SpeedDependentValue):
+                _validate_parameter(
+                    value,
+                    f"Bearing property {self.id} {name}",
+                )
+
 
 @dataclass(frozen=True, slots=True)
 class DiskProperty:

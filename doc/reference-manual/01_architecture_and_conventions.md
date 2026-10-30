@@ -22,7 +22,8 @@ These records store identifiers, connectivity, and Python-valued parameters.
 `ModelDefinition` list. Definition records do not own or calculate element
 matrices. `SpeedDependentValue`, `RandomDistribution`, `Grid`,
 `CoordinateSystem`, `Material`, and `ShaftProperty` validate their local
-contracts during record construction.
+contracts during record construction. `BearingProperty` does the same for its
+constant, random, and tabulated coefficients.
 `ModelBuilder` resolves
 random parameters, validates table placement and field-specific constraints,
 calculates constant local matrices and unit-coefficient bearing bases using the

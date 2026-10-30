@@ -689,6 +689,10 @@ def _unique(
         Accepted record class or classes.
     validate_id : bool, optional
         Validate IDs for record classes that do not yet own that invariant.
+    validated_id_types : tuple of type, optional
+        Record classes whose constructors already validate their IDs.
+    validated_id_types : tuple of type, optional
+        Record classes whose constructors already validate their IDs.
 
     Returns
     -------
@@ -923,7 +927,7 @@ def _assemble(definition):
         definition.properties,
         "property",
         (ShaftProperty, BearingProperty, DiskProperty),
-        validated_id_types=(ShaftProperty,),
+        validated_id_types=(ShaftProperty, BearingProperty),
     )
     _unique(
         definition.elements,
