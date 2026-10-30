@@ -35,7 +35,7 @@ critical-speed intervals, and the individual realization crossings.
 
 Example 06 defines a declarative disk unbalance on an anisotropic Jeffcott
 rotor, sweeps synchronous rotor speed, and plots the complex response magnitude
-in both lateral directions.
+in both lateral directions with `plot_frequency_response`.
 
 Example 07 builds a deterministic Jeffcott model with tabulated bearing
 stiffness and damping. Its Campbell sweep evaluates K and C across the complete
@@ -43,8 +43,9 @@ rotor-speed grid before solving.
 
 Example 08 keeps the structure constant and interpolates a deterministic
 harmonic-load amplitude from three representative CFD operating points. It
-calls frequency response once per scalar rotor speed while keeping the forcing
-frequency fixed, making the distinction between the two frequencies explicit.
+solves and plots a complete forcing-frequency response at each of those scalar
+rotor speeds, making the distinction between operating speed and excitation
+frequency explicit.
 
 Example 09 combines stochastic and speed-dependent bearing stiffness in a
 symmetric Jeffcott-style rotor with ten shaft elements, one central disk, and
@@ -59,7 +60,8 @@ whirl branches.
 Example 10 defines a 2x `SynchronousLoad` using the ordinary harmonic force
 vector convention. It passes the complete rotor-speed vector to one frequency-
 response call without a `frequencies` argument, then plots both displacement
-amplitude and the order-derived forcing frequency.
+amplitude through `plot_frequency_response` and the order-derived forcing
+frequency on a secondary axis.
 
 ## Analytical benchmarks
 

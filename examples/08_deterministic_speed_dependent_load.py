@@ -14,6 +14,7 @@ from spinniped import (
     ModelDefinition,
     Solver,
     SpeedDependentValue,
+    plot_frequency_response,
 )
 
 
@@ -67,49 +68,38 @@ definition = ModelDefinition(
 model = ModelBuilder().build(definition)
 solver = Solver(model)
 
-# Frequency response accepts one scalar rotor speed per call. The forcing
-# frequency stays fixed at 30 Hz, demonstrating that it is independent of the
-# rotor speed used to interpolate the CFD load table.
+# Frequency response accepts one scalar rotor speed per call. Solve one full
+# forcing-frequency sweep at each CFD table knot to compare the response
+# curves produced by the three tabulated load amplitudes.
 fixed_dofs = [2, 3, 4, 5]
-forcing_frequency_hz = 30.0
-speeds_rpm = np.linspace(0.0, 6_000.0, 61)
-speeds = speeds_rpm * rpm_to_rad_per_second
-x_amplitude = []
-for speed in speeds:
+forcing_frequencies = np.linspace(0.0, 80.0, 321)
+figure, response_axes = plt.subplots()
+
+for speed_rpm, speed, force_value in zip(
+    speed_knots_rpm,
+    speed_knots,
+    fluid_force_values,
+    strict=True,
+):
     result = solver.solve(
         "frequency_response",
         fixed_dofs=fixed_dofs,
-        frequencies=[forcing_frequency_hz],
-        speed=float(speed),
+        frequencies=forcing_frequencies,
+        speed=speed,
         load_ids=[1],
     )
-    x_amplitude.append(abs(result["response"][0, 0, 0]))
+    plot_frequency_response(
+        result,
+        dofs=[0],
+        labels=[f"{speed_rpm:g} rpm, {force_value:g} N"],
+        ax=response_axes,
+        title=None,
+        legend=False,
+    )
 
-figure, response_axes = plt.subplots()
-response_line = response_axes.plot(
-    speeds_rpm,
-    x_amplitude,
-    label="x response",
-)[0]
-response_axes.set_xlabel("Rotor speed [rpm]")
 response_axes.set_ylabel("x amplitude [m]")
-response_axes.set_title(
-    f"Speed-dependent harmonic load at {forcing_frequency_hz:g} Hz"
-)
-response_axes.grid(True, alpha=0.3)
-
-# Show the input CFD values on a second axis. Straight segments reflect the
-# interpolation law used by the solver between the tabulated points.
-load_axes = response_axes.twinx()
-load_line = load_axes.plot(
-    speed_knots_rpm,
-    fluid_force_values,
-    "o--",
-    color="tab:orange",
-    label="tabulated force",
-)[0]
-load_axes.set_ylabel("Force amplitude [N]")
-response_axes.legend(handles=[response_line, load_line])
+response_axes.set_title("Speed-dependent harmonic-load response")
+response_axes.legend()
 
 figure.tight_layout()
 plt.show()

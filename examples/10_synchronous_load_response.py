@@ -13,6 +13,7 @@ from spinniped import (
     ModelDefinition,
     Solver,
     SynchronousLoad,
+    plot_frequency_response,
 )
 
 
@@ -58,19 +59,17 @@ result = solver.solve(
     speeds=speeds,
     load_ids=[1],
 )
-response_amplitudes = np.abs(result["response"][0, :, 0])
 forcing_frequencies = result["frequencies"]
 
-figure, response_axes = plt.subplots()
-response_line = response_axes.plot(
-    speeds_rpm,
-    response_amplitudes,
-    label="x response",
-)[0]
-response_axes.set_xlabel("Rotor speed [rpm]")
+figure, response_axes = plot_frequency_response(
+    result,
+    dofs=[0],
+    labels=["x response"],
+    title="2x synchronous harmonic response",
+    legend=False,
+)
 response_axes.set_ylabel("x amplitude [m]")
-response_axes.set_title("2x synchronous harmonic response")
-response_axes.grid(True, alpha=0.3)
+response_line = response_axes.lines[0]
 
 frequency_axes = response_axes.twinx()
 frequency_line = frequency_axes.plot(

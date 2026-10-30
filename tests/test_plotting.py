@@ -17,6 +17,7 @@ from spinniped import (
     ShaftElement,
     ShaftProperty,
     plot_campbell,
+    plot_frequency_response,
     plot_rotor,
 )
 
@@ -65,6 +66,25 @@ def _critical_campbell_result():
         "harmonics": np.array([1.0, 2.0]),
         "critical_speeds": 2.0 * np.pi * critical_speeds_hz,
     }
+
+
+def _frequency_response_result(*, analysis="frequency_response", speeds=None):
+    """Return a two-sample complex response with two nonadjacent free DOFs."""
+    result = {
+        "analysis": analysis,
+        "frequencies": np.array([10.0, 20.0, 30.0]),
+        "free_dofs": np.array([0, 2]),
+        "response": np.array(
+            [
+                [[1.0, 4.0j], [2.0, 5.0j], [3.0, 6.0j]],
+                [[3.0j, 6.0], [4.0j, 7.0], [5.0j, 8.0]],
+            ],
+            dtype=complex,
+        ),
+    }
+    if speeds is not None:
+        result["speeds"] = np.asarray(speeds, dtype=float)
+    return result
 
 
 def _rotor_model():
@@ -231,6 +251,130 @@ def test_plot_campbell_draws_stochastic_critical_speed_statistics():
         "Critical-speed error bars: ±1 std. dev."
     ]
     plt.close(figure)
+
+
+def test_plot_frequency_response_selects_global_dofs_and_frequency_axis():
+    """Verify ordinary response uses frequency and preserves DOF ordering."""
+    import matplotlib.pyplot as plt
+
+    result = _frequency_response_result()
+    result["response"] = result["response"][:1]
+    figure, axes = plot_frequency_response(
+        result,
+        dofs=[2, 0],
+        labels=["transverse y", "transverse x"],
+    )
+
+    assert figure is axes.figure
+    assert len(axes.lines) == 2
+    assert np.array_equal(axes.lines[0].get_xdata(), [10.0, 20.0, 30.0])
+    assert np.array_equal(axes.lines[0].get_ydata(), [4.0, 5.0, 6.0])
+    assert np.array_equal(axes.lines[1].get_ydata(), [1.0, 2.0, 3.0])
+    assert [line.get_label() for line in axes.lines] == [
+        "transverse y",
+        "transverse x",
+    ]
+    assert axes.get_xlabel() == "Excitation frequency [Hz]"
+    assert axes.get_ylabel() == "Response amplitude"
+    plt.close(figure)
+
+
+@pytest.mark.parametrize("analysis", ["frequency_response", "unbalance_response"])
+def test_plot_frequency_response_uses_speed_for_synchronous_results(analysis):
+    """Verify synchronous result types automatically use their speed grid."""
+    import matplotlib.pyplot as plt
+
+    speeds = np.array([-2.0 * np.pi, 0.0, 4.0 * np.pi])
+    result = _frequency_response_result(analysis=analysis, speeds=speeds)
+    result["response"] = result["response"][:1]
+    figure, axes = plot_frequency_response(
+        result,
+        dofs=[0],
+        speed_unit="hz",
+    )
+
+    assert np.allclose(axes.lines[0].get_xdata(), [-1.0, 0.0, 2.0])
+    assert axes.get_xlabel() == "Speed [Hz]"
+    plt.close(figure)
+
+
+def test_plot_frequency_response_draws_stochastic_statistics_and_bands():
+    """Verify magnitude statistics, confidence bands, and extrema curves."""
+    import matplotlib.pyplot as plt
+
+    result = _frequency_response_result()
+    figure, axes = plot_frequency_response(
+        result,
+        dofs=[0],
+        statistic="mean",
+        confidence=0.5,
+        show_extremes=True,
+        legend=False,
+    )
+
+    amplitudes = np.abs(result["response"][:, :, 0])
+    assert len(axes.lines) == 3
+    assert len(axes.collections) == 1
+    assert np.array_equal(axes.lines[0].get_ydata(), np.mean(amplitudes, axis=0))
+    assert np.array_equal(axes.lines[1].get_ydata(), np.min(amplitudes, axis=0))
+    assert np.array_equal(axes.lines[2].get_ydata(), np.max(amplitudes, axis=0))
+    assert axes.lines[1].get_linestyle() == "--"
+    assert axes.lines[2].get_linestyle() == "--"
+    assert axes.get_legend() is None
+    assert [text.get_text() for text in axes.texts] == [
+        "Displayed statistic: mean\n"
+        "Confidence interval: 50%\n"
+        "Response extremes: sample min\N{EN DASH}max"
+    ]
+    plt.close(figure)
+
+
+def test_plot_frequency_response_validates_results_and_dof_selection():
+    """Verify malformed result mappings and DOF selections fail early."""
+    with pytest.raises(TypeError, match="result mapping"):
+        plot_frequency_response([])
+
+    wrong_analysis = _frequency_response_result()
+    wrong_analysis["analysis"] = "campbell"
+    with pytest.raises(ValueError, match="must come from"):
+        plot_frequency_response(wrong_analysis)
+
+    wrong_shape = _frequency_response_result()
+    wrong_shape["response"] = wrong_shape["response"][:, :-1]
+    with pytest.raises(ValueError, match="shape"):
+        plot_frequency_response(wrong_shape)
+
+    result = _frequency_response_result()
+    with pytest.raises(ValueError, match="not present"):
+        plot_frequency_response(result, dofs=[1])
+    with pytest.raises(ValueError, match="duplicate"):
+        plot_frequency_response(result, dofs=[0, 0])
+    with pytest.raises(ValueError, match="one entry"):
+        plot_frequency_response(result, dofs=[0, 2], labels=["x"])
+    with pytest.raises(ValueError, match="one finite result speed"):
+        plot_frequency_response(result, x_axis="speed")
+
+
+@pytest.mark.parametrize(
+    ("options", "exception", "message"),
+    [
+        ({"sample": 2}, IndexError, "out of range"),
+        ({"sample": 0.5}, TypeError, "integer index"),
+        ({"statistic": "average"}, ValueError, "statistic"),
+        ({"confidence": 0.0}, ValueError, "between zero and one"),
+        ({"confidence": True}, TypeError, "number between zero and one"),
+        ({"show_extremes": 1}, TypeError, "show_extremes must be a boolean"),
+        ({"x_axis": "time"}, ValueError, "x_axis"),
+        ({"speed_unit": "mph"}, ValueError, "speed_unit"),
+        ({"legend": 1}, TypeError, "legend must be a boolean"),
+    ],
+)
+def test_plot_frequency_response_validates_plot_options(
+    options, exception, message
+):
+    """Verify invalid frequency-response plot options have focused errors."""
+    with pytest.raises(exception, match=message):
+        plot_frequency_response(_frequency_response_result(), **options)
 
 
 def test_plot_rotor_draws_exact_shaft_sections_disks_and_bearings():

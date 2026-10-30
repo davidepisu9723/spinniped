@@ -3,6 +3,7 @@
 ## Table of contents
 
 - [Rotor-section plotting implementation](#rotor-section-plotting-implementation)
+- [Frequency-response plotting implementation](#frequency-response-plotting-implementation)
 - [Campbell plotting implementation](#campbell-plotting-implementation)
 - [Critical-speed plotting](#critical-speed-plotting)
 
@@ -39,6 +40,31 @@ Matplotlib is imported when `spinniped.plotting` is loaded and is a core
 project dependency. The function validates the model type, sample index, axes
 object, title, and Boolean display options before creating artists. It returns
 the caller-owned or newly created figure and axes without displaying them.
+
+## Frequency-response plotting implementation
+
+`spinniped.plotting.plot_frequency_response` consumes the mapping returned by
+`frequency_response` or `unbalance_response`. Both routes store complex
+response arrays with shape `(samples, points, free_dofs)`. Requested `dofs`
+are global indices matched against the result's `free_dofs` metadata, so their
+meaning does not change when constraints alter the reduced-vector positions.
+
+The function plots `abs(response)`. It computes stochastic mean, median,
+empirical confidence limits, and sample extrema after taking the magnitude;
+complex phasors from different realizations are never averaged before their
+amplitudes are formed.
+
+With `x_axis="auto"`, ordinary harmonic response uses the solver's excitation
+frequencies in Hz. A synchronous `frequency_response` result contains a
+complete `speeds` array, so it uses rotor speed, as does
+`unbalance_response`. Speed coordinates may be displayed in rpm, rad/s, or
+Hz. An explicit `x_axis="frequency"` can instead display the order-derived
+excitation frequencies for synchronous results.
+
+The implementation validates analysis identity, frequency, response, and
+free-DOF shapes, requested DOFs and labels, axis data, sample selections,
+statistics, and presentation options before drawing. It can reuse caller-
+owned axes and returns the figure and axes without displaying them.
 
 ## Campbell plotting implementation
 

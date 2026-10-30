@@ -64,7 +64,7 @@ parametrized functions run once for every listed case.
 | [`test_declarative_api.py`](#test_declarative_apipy) | 33 | Distribution resolution and core public solver routes |
 | [`test_speed_dependence.py`](#test_speed_dependencepy) | 20 | Tabulated rotor-speed interpolation, stochastic curves, matrix deltas, and load deltas |
 | [`test_load_response.py`](#test_load_responsepy) | 11 | Declarative load phasors and steady-response routes |
-| [`test_plotting.py`](#test_plottingpy) | 8 | Rotor-section and Campbell-diagram rendering and plotting-input validation |
+| [`test_plotting.py`](#test_plottingpy) | 13 | Rotor-section, frequency-response, and Campbell rendering and input validation |
 | [`test_analytical_benchmarks.py`](#test_analytical_benchmarkspy) | 1 | Comparison with the Euler--Bernoulli beam solution |
 | [`test_jeffcott_benchmark.py`](#test_jeffcott_benchmarkpy) | 2 | Jeffcott frequency and critical-speed comparison |
 | [`test_convergence.py`](#test_convergencepy) | 2 | Accuracy under mesh refinement |
@@ -837,6 +837,37 @@ Plots three realizations through the mean-statistic route. It checks the mean
 critical point, the capped diagonal one-sample-standard-deviation error bar,
 the optional underlying sample scatter, and legend suppression. Missing
 crossings remain excluded from the finite statistics.
+
+#### `test_plot_frequency_response_selects_global_dofs_and_frequency_axis`
+
+Plots an ordinary harmonic result with nonadjacent free DOFs. It checks that
+the selected global indices preserve caller order, custom labels follow that
+order, complex values become magnitudes, and excitation frequency is the
+default horizontal coordinate.
+
+#### `test_plot_frequency_response_uses_speed_for_synchronous_results`
+
+Parametrizes synchronous harmonic and unbalance results over a signed speed
+grid. Both routes must automatically select rotor speed and convert rad/s to
+the requested display unit without changing the response ordering.
+
+#### `test_plot_frequency_response_draws_stochastic_statistics_and_bands`
+
+Plots the mean magnitude of a two-sample complex response with an empirical
+confidence band and sampled extrema. It checks the central, minimum, and
+maximum ordinates, dashed extrema, information text, and legend suppression.
+
+#### `test_plot_frequency_response_validates_results_and_dof_selection`
+
+Rejects a nonmapping input, an incompatible analysis, a malformed response
+shape, unavailable or duplicate global DOFs, mismatched labels, and a speed
+axis without one speed per response point.
+
+#### `test_plot_frequency_response_validates_plot_options`
+
+Exercises invalid samples, statistics, confidence levels, axis choices, speed
+units, and Boolean display options. Each case must fail with a focused error
+before plotting.
 
 #### `test_plot_rotor_draws_exact_shaft_sections_disks_and_bearings`
 

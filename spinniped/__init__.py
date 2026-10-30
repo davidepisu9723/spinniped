@@ -10,7 +10,7 @@ from .records import (
     ShaftProperty, SpeedDependentValue, SynchronousLoad, Unbalance,
 )
 from .solver import Solver
-from .plotting import plot_campbell, plot_rotor
+from .plotting import plot_campbell, plot_frequency_response, plot_rotor
 
 __all__ = [
     "BearingElement", "BearingProperty", "BuiltModel", "CoordinateSystem",
@@ -19,5 +19,5 @@ __all__ = [
     "ModelDefinition", "RandomDistribution", "RotatingLoad", "ShaftElement",
     "ShaftProperty", "Solver", "SpeedDependentValue", "SynchronousLoad",
     "Unbalance",
-    "build_model", "plot_campbell", "plot_rotor",
+    "build_model", "plot_campbell", "plot_frequency_response", "plot_rotor",
 ]
