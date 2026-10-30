@@ -50,13 +50,14 @@ load vector linearly:
 - all damping coefficients `cxx`, `cyy`, `czz`, `cxy`, and `cyx` of
   `BearingProperty`;
 - each component of `HarmonicLoad.force` and `HarmonicLoad.moment`;
+- each inherited force and moment component of `SynchronousLoad`;
 - `RotatingLoad.force_magnitude`.
 
 For example, a tabulated force component and circular-force magnitude can be
 defined as follows:
 
 ```python
-from spinniped import HarmonicLoad, RotatingLoad
+from spinniped import HarmonicLoad, RotatingLoad, SynchronousLoad
 
 fluid_force = SpeedDependentValue(
     speeds=(50.0, 100.0, 150.0),
@@ -66,6 +67,13 @@ fluid_force = SpeedDependentValue(
 fixed_direction = HarmonicLoad(
     id=10,
     grid=2,
+    force=(fluid_force, 0.0, 0.0),
+)
+
+synchronous = SynchronousLoad(
+    id=12,
+    grid=2,
+    harmonic_order=2.0,
     force=(fluid_force, 0.0, 0.0),
 )
 
@@ -87,7 +95,9 @@ Values are linearly interpolated at the signed rotor angular speed $\Omega$ in
 radians per second. This is not the independent forcing frequency $\omega$.
 Consequently, a frequency-response analysis evaluates each table at its one
 scalar `speed`; it does not reevaluate the table while sweeping
-`frequencies`.
+`frequencies`. For a `SynchronousLoad`, the same signed rotor `speed` selects
+the amplitude even though forcing frequency is derived from
+`harmonic_order * abs(speed)`.
 
 Exact endpoints are accepted. Extrapolation and endpoint clamping are not:
 every requested speed must lie in the closed interval from the first to the

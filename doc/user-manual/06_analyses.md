@@ -199,11 +199,12 @@ order, allowing finite values to be summarized across realizations.
 
 ## Frequency response
 
-Input frequencies are finite nonnegative values in Hz. Rotor `speed` is one
-signed operating speed in rad/s; it scales the gyroscopic matrix but does not
-set the independently swept forcing frequencies. It also selects any
-speed-dependent bearing coefficients and declarative load amplitudes once for
-the whole forcing-frequency sweep.
+For a raw force, `HarmonicLoad`, or `RotatingLoad`, input frequencies are finite
+nonnegative values in Hz. Rotor `speed` is one signed operating speed in rad/s;
+it scales the gyroscopic matrix but does not set those independently swept
+forcing frequencies. It also selects any speed-dependent bearing coefficients
+and declarative load amplitudes once for the whole forcing-frequency sweep.
+`SynchronousLoad`, described below, is the order-locked exception.
 
 The legacy `force` input may contain either all global DOFs or only the free
 DOFs:
@@ -250,6 +251,48 @@ first dynamic-stiffness solve.
 `(samples, frequencies, free_dofs)`. The result also returns scalar `speed`
 and the selected `load_ids` as a tuple; the latter is empty for the raw-vector
 route.
+
+### Order-locked synchronous loads
+
+`SynchronousLoad` inherits the force, moment, phase, and coordinate-system
+fields of `HarmonicLoad` and adds a required positive real `harmonic_order`.
+For a scalar signed rotor speed $\Omega$, `frequency_response` derives
+
+$$
+\omega=\mathtt{harmonic\_order}|\Omega|,
+\qquad
+f=\frac{\omega}{2\pi}.
+$$
+
+Define and solve a 2x load without supplying `frequencies`:
+
+```python
+from spinniped import SynchronousLoad
+
+load = SynchronousLoad(
+    id=4,
+    grid=2,
+    harmonic_order=2.0,
+    force=(10.0, 0.0, 0.0),
+)
+
+result = solver.solve(
+    "frequency_response",
+    fixed_dofs=fixed,
+    speed=100.0,
+    load_ids=[4],
+)
+```
+
+The returned `frequencies` array contains one value,
+$2(100)/(2\pi)$ Hz, and `result["harmonic_order"]` is `2.0`. An explicit
+`frequencies` argument is rejected. Multiple selected synchronous loads must
+share one order; synchronous loads cannot be mixed with ordinary harmonic or
+rotating loads. Use separate calls for 1x, 2x, 3x, or other orders.
+
+If a synchronous force or moment component is a `SpeedDependentValue`, its
+amplitude is interpolated at signed rotor `speed`; the derived forcing
+frequency is not used as the table coordinate.
 
 ## Unbalance response
 

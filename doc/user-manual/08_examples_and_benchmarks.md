@@ -19,6 +19,7 @@ python examples/06_unbalance_response.py
 python examples/07_deterministic_speed_dependent_bearing.py
 python examples/08_deterministic_speed_dependent_load.py
 python examples/09_stochastic_speed_dependent_campbell.py
+python examples/10_synchronous_load_response.py
 ```
 
 These examples exercise normal public-API workflows rather than controlled
@@ -54,6 +55,11 @@ speed crossings. Its sweep begins at 1 rpm because the symmetric rotor has
 repeated forward/backward modes at exactly zero speed; Chapter 6 explains why
 that degeneracy can make pairwise stochastic mode tracking mix the separated
 whirl branches.
+
+Example 10 defines a 2x `SynchronousLoad` using the ordinary harmonic force
+vector convention. It calls frequency response once per rotor speed without a
+`frequencies` argument, then plots both the displacement amplitude and the
+order-derived forcing frequency.
 
 ## Analytical benchmarks
 

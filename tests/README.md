@@ -61,9 +61,9 @@ parametrized functions run once for every listed case.
 |---|---:|---|
 | [`test_element_matrices.py`](#test_element_matricespy) | 10 | Stateless shaft, bearing, and disk matrix kernels |
 | [`test_assembly.py`](#test_assemblypy) | 18 | Record validation, coordinate transforms, and global assembly |
-| [`test_declarative_api.py`](#test_declarative_apipy) | 31 | Distribution resolution and core public solver routes |
-| [`test_speed_dependence.py`](#test_speed_dependencepy) | 19 | Tabulated rotor-speed interpolation, stochastic curves, matrix deltas, and load deltas |
-| [`test_load_response.py`](#test_load_responsepy) | 6 | Declarative load phasors and steady-response routes |
+| [`test_declarative_api.py`](#test_declarative_apipy) | 33 | Distribution resolution and core public solver routes |
+| [`test_speed_dependence.py`](#test_speed_dependencepy) | 20 | Tabulated rotor-speed interpolation, stochastic curves, matrix deltas, and load deltas |
+| [`test_load_response.py`](#test_load_responsepy) | 9 | Declarative load phasors and steady-response routes |
 | [`test_plotting.py`](#test_plottingpy) | 8 | Rotor-section and Campbell-diagram rendering and plotting-input validation |
 | [`test_analytical_benchmarks.py`](#test_analytical_benchmarkspy) | 1 | Comparison with the Euler--Bernoulli beam solution |
 | [`test_jeffcott_benchmark.py`](#test_jeffcott_benchmarkpy) | 2 | Jeffcott frequency and critical-speed comparison |
@@ -441,6 +441,17 @@ Parametrizes invalid harmonic-load identity, references, vector shapes,
 components, and phase. Each malformed load must fail immediately during
 `HarmonicLoad` construction.
 
+#### `test_synchronous_load_inherits_the_harmonic_vector_contract`
+
+Constructs a fractional-order synchronous load and verifies that it is an
+immutable `HarmonicLoad` specialization with the same force, moment, phase,
+and coordinate-system fields.
+
+#### `test_synchronous_load_rejects_invalid_harmonic_order`
+
+Parametrizes Boolean, textual, infinite, zero, and negative orders. Every
+invalid value must fail during `SynchronousLoad` construction.
+
 #### `test_rotating_load_rejects_invalid_local_inputs`
 
 Parametrizes invalid rotating-load identity, references, magnitude, phase, and
@@ -670,6 +681,12 @@ Checks a negative-sense circular load whose magnitude is tabulated at rotor
 speed. The resulting two-component phasor and response are compared with the
 closed-form dynamic-stiffness solution.
 
+#### `test_synchronous_load_interpolates_amplitude_at_rotor_speed`
+
+Uses a 2x synchronous load at negative rotor speed. The force table must be
+interpolated at signed rotor speed while excitation frequency is independently
+derived from twice the absolute speed.
+
 #### `test_selected_load_is_preflighted_but_unselected_tables_are_ignored`
 
 Shows that an out-of-range table does not affect an analysis that did not
@@ -729,6 +746,22 @@ Rotates nonzero force and moment triples from a custom frame, applies a common
 phase, and compares the declarative response with the existing raw-vector
 route. The exact assembled six-DOF phasor must also match independently
 transformed components.
+
+#### `test_synchronous_load_derives_frequency_from_order_and_speed`
+
+Solves a fractional-order load at negative rotor speed and compares the single
+returned frequency and response with the closed-form dynamic-stiffness result.
+
+#### `test_synchronous_loads_of_one_order_superimpose`
+
+Solves two 2x records separately and together. The combined response must equal
+their sum while preserving the caller's load-ID order.
+
+#### `test_synchronous_frequency_response_rejects_ambiguous_sources`
+
+Rejects an explicit frequency for a synchronous load, mixing synchronous and
+ordinary harmonic records, combining different orders, and omitting the
+frequency grid for an ordinary harmonic load.
 
 #### `test_rotating_load_sense_phase_and_superposition_are_preserved`
 

@@ -13,7 +13,7 @@ The public model definition consists of immutable records:
 Grid, CoordinateSystem, Material
 ShaftProperty, BearingProperty, DiskProperty
 ShaftElement, BearingElement, DiskElement
-HarmonicLoad, RotatingLoad, Unbalance
+HarmonicLoad, SynchronousLoad, RotatingLoad, Unbalance
 SpeedDependentValue, RandomDistribution
 ```
 
