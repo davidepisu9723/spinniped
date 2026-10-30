@@ -13,6 +13,7 @@ from spinniped import (
     ModelDefinition,
     Solver,
     Unbalance,
+    plot_frequency_response,
 )
 
 
@@ -62,16 +63,12 @@ result = Solver(model).solve(
     load_ids=[1],
 )
 
-x_amplitude = np.abs(result["response"][0, :, 0])
-y_amplitude = np.abs(result["response"][0, :, 1])
-
-figure, axes = plt.subplots()
-axes.plot(speeds_rpm, x_amplitude, label="x amplitude")
-axes.plot(speeds_rpm, y_amplitude, label="y amplitude")
-axes.set_xlabel("Rotor speed [rpm]")
+figure, axes = plot_frequency_response(
+    result,
+    dofs=[0, 1],
+    labels=["x amplitude", "y amplitude"],
+    title="Synchronous unbalance response",
+)
 axes.set_ylabel("Displacement amplitude [m]")
-axes.set_title("Synchronous unbalance response")
-axes.grid(True, alpha=0.3)
-axes.legend()
 figure.tight_layout()
 plt.show()
