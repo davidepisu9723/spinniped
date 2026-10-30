@@ -65,10 +65,11 @@ amplitude through `plot_frequency_response` and the order-derived forcing
 frequency on a secondary axis.
 
 Example 11 meshes a Jeffcott-style rotor with 20 shaft elements, one central
-disk, and identical bearings at the two ends. A shared random bearing
-stiffness preserves symmetry within each realization, while a central-disk
-`Unbalance` supplies the synchronous rotating force. The plot shows the mean
-disk response, empirical 90% confidence bands, and sampled extrema.
+disk, and identical deterministic bearings at the two ends. Fifty
+realizations sample the central disk's residual-unbalance magnitude while
+preserving its phase. The synchronous response uses a 5 rpm grid from 0 to
+2000 rpm and includes modest disk and bearing damping. The plot shows the mean
+disk response, empirical 99% confidence bands, and sampled extrema.
 
 ## Analytical benchmarks
 

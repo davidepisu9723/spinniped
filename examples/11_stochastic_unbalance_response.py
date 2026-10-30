@@ -56,10 +56,10 @@ definition = ModelDefinition(
         ),
         BearingProperty(
             id=2,
-            # One reference is reused by both lateral coefficients and both
-            # bearing elements, preserving symmetry within each realization.
-            kxx=(1,),
-            kyy=(1,),
+            # Equal deterministic coefficients in both lateral directions
+            # and at both shaft ends preserve Jeffcott-rotor symmetry.
+            kxx=1e6,
+            kyy=1e6,
             cxx=500.0,
             cyy=500.0,
         ),
@@ -68,6 +68,10 @@ definition = ModelDefinition(
             mass=5.0,
             diametral_inertia=0.025,
             polar_inertia=0.050,
+            # This is a mass-proportional viscous coefficient in 1/s, not a
+            # damping ratio. It limits the central-disk resonance peak while
+            # leaving the stochastic unbalance-amplitude spread visible.
+            damping=5.0,
         ),
     ],
     elements=[
@@ -100,26 +104,28 @@ definition = ModelDefinition(
         Unbalance(
             id=1,
             grid=disk_grid,
-            mass_eccentricity=2.0e-4,
+            mass_eccentricity=(1,),
             phase=np.deg2rad(30.0),
         )
     ],
     distributions=[
         RandomDistribution(
             id=1,
-            name="isotropic bearing stiffness",
+            name="residual unbalance",
             distribution="uniform",
-            parameters={"low": 1.2e6, "high": 1.8e6},
+            # A broad positive interval makes the response-amplitude spread
+            # visible without admitting a nonphysical negative magnitude.
+            parameters={"low": 0.5e-4, "high": 5e-4},
         )
     ],
 )
 
-# The fixed seed makes the Monte Carlo ensemble reproducible. Bearing
-# stiffness is sampled once per realization and shared by the two supports.
+# The fixed seed makes the Monte Carlo ensemble reproducible. One residual-
+# unbalance magnitude is sampled for the central disk in each realization.
 model = ModelBuilder().build(
     definition,
     stochastic=True,
-    samples=20,
+    samples=50,
     seed=42,
 )
 
@@ -127,8 +133,8 @@ model = ModelBuilder().build(
 # uses abs(speed) as the excitation frequency and scales the rotating force by
 # speed squared. Axial translation and torsional rotation are fixed once to
 # remove the two uncoupled rigid-body coordinates.
-maximum_speed_rpm = 6_000.0
-speeds_rpm = np.linspace(0.0, maximum_speed_rpm, 61)
+maximum_speed_rpm = 2_000.0
+speeds_rpm = np.linspace(0.0, maximum_speed_rpm, 401)
 speeds = speeds_rpm * 2.0 * np.pi / 60.0
 result = Solver(model).solve(
     "unbalance_response",
@@ -138,7 +144,7 @@ result = Solver(model).solve(
 )
 
 # Global x and y DOFs of the central disk are the first two coordinates of its
-# grid. Plot their mean amplitudes, central empirical 90% bands, and the full
+# grid. Plot their mean amplitudes, central empirical 99% bands, and the full
 # sampled min--max envelope.
 disk_x_dof = 6 * (disk_grid - 1)
 disk_y_dof = disk_x_dof + 1
@@ -147,7 +153,7 @@ figure, axes = plot_frequency_response(
     dofs=[disk_x_dof, disk_y_dof],
     labels=["central-disk x", "central-disk y"],
     statistic="mean",
-    confidence=0.90,
+    confidence=0.99,
     show_extremes=True,
     title="Stochastic Jeffcott-rotor unbalance response",
 )
