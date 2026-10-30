@@ -241,6 +241,12 @@ Expresses a grid in a translated and rotated coordinate system and checks the
 resolved global point exactly. The expected `[7, -2, 7]` result distinguishes
 direction-vector axes from points offset by the coordinate-system origin.
 
+#### `test_coordinate_system_rejects_invalid_local_inputs`
+
+Parametrizes invalid coordinate-system IDs, vector lengths and values, a zero
+x-axis, and collinear directions. Each malformed frame must fail immediately
+during `CoordinateSystem` construction.
+
 #### `test_bearing_matrices_rotate_45_degrees_about_global_z`
 
 Defines a bearing frame rotated 45 degrees about global $z$ and starts from

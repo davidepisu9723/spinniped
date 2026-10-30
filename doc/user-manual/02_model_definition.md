@@ -220,6 +220,10 @@ and coordinate-system reference type when it is constructed. Model-wide
 checks such as duplicate grid IDs and unknown coordinate-system references
 remain builder responsibilities.
 
+`CoordinateSystem` likewise validates its ID and complete deterministic
+vector/frame contract during construction. Its vectors do not accept random
+references. Duplicate frame IDs remain a model-wide builder check.
+
 ## Coordinate systems
 
 `Grid.x`, `Grid.y`, and `Grid.z` are interpreted in the coordinate system

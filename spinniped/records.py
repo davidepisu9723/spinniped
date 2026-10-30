@@ -17,7 +17,7 @@ import numpy as np
 
 RandomReference: TypeAlias = tuple[int] | tuple[int, int]
 Parameter: TypeAlias = int | float | RandomReference
-Vector3: TypeAlias = tuple[Parameter, Parameter, Parameter]
+Vector3: TypeAlias = tuple[int | float, int | float, int | float]
 
 
 def _validate_parameter(value, label):
@@ -293,17 +293,49 @@ class CoordinateSystem:
 
     # The builder converts these pure-Python vectors into an orthonormal basis.
     id: int
-    origin: tuple[Parameter, Parameter, Parameter] = (0.0, 0.0, 0.0)
-    x_axis: tuple[Parameter, Parameter, Parameter] = (1.0, 0.0, 0.0)
-    xy_plane: tuple[Parameter, Parameter, Parameter] = (0.0, 1.0, 0.0)
+    origin: Vector3 = (0.0, 0.0, 0.0)
+    x_axis: Vector3 = (1.0, 0.0, 0.0)
+    xy_plane: Vector3 = (0.0, 1.0, 0.0)
 
     def __post_init__(self):
+        """Validate the complete local coordinate-system specification."""
+        if isinstance(self.id, bool) or not isinstance(self.id, int):
+            raise TypeError("Coordinate system IDs must be integers")
+        if self.id <= 0:
+            raise ValueError("Coordinate system IDs must be positive")
+
+        # Reference frames are deterministic immutable triples. Stochastic
+        # orientation would implicitly randomize every attached model record.
         if not isinstance(self.origin, tuple):
             raise TypeError("origin must be a tuple")
         if not isinstance(self.x_axis, tuple):
             raise TypeError("x_axis must be a tuple")
         if not isinstance(self.xy_plane, tuple):
             raise TypeError("xy_plane must be a tuple")
+        for name in ("origin", "x_axis", "xy_plane"):
+            vector = getattr(self, name)
+            if len(vector) != 3:
+                raise ValueError(f"{name} must contain three components")
+            for index, component in enumerate(vector):
+                label = f"{name}[{index}]"
+                if isinstance(component, bool) or not isinstance(
+                    component, Real
+                ):
+                    raise TypeError(f"{label} must be a real number")
+                if not isfinite(component):
+                    raise ValueError(f"{label} must be finite")
+
+        # With deterministic components, frame geometry is fully decidable.
+        x_direction = np.asarray(self.x_axis, dtype=float)
+        xy_direction = np.asarray(self.xy_plane, dtype=float)
+        x_norm = np.linalg.norm(x_direction)
+        if x_norm < 1.0e-14:
+            raise ValueError("Coordinate system has a zero-length x axis")
+        cross_norm = np.linalg.norm(
+            np.cross(x_direction / x_norm, xy_direction)
+        )
+        if cross_norm < 1.0e-14:
+            raise ValueError("Coordinate system has collinear axes")
 
 
 @dataclass(frozen=True, slots=True)

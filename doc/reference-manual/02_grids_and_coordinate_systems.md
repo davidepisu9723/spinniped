@@ -23,6 +23,12 @@ Coordinate system ID `0` is reserved for the global frame. A
 All three coordinate-system vectors and `ModelDefinition.spin_axis` must be
 three-component tuples. Mutable lists are rejected at record construction.
 
+`CoordinateSystem` construction also validates its positive integer ID,
+deterministic finite components, nonzero x-axis, and non-collinear directions.
+Coordinate-system vectors do not accept random references: a frame is shared
+reference geometry for every attached grid, element, and load. The builder
+retains only collection-wide uniqueness and numerical basis construction.
+
 The direction vectors need not have unit length, but they must be nonzero and
 non-collinear. The builder orthonormalizes them into a rotation matrix. A
 `Grid` stores coordinates in the frame selected by its `coordinate_system`

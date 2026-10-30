@@ -384,15 +384,6 @@ def _reject_speed_dependent_value(value, path):
 
 def _validate_speed_dependent_placements(definition):
     """Restrict speed tables to supported linear bearing and load fields."""
-    for coordinate_system in definition.coordinate_systems:
-        if not isinstance(coordinate_system, CoordinateSystem):
-            continue
-        for name in ("origin", "x_axis", "xy_plane"):
-            _reject_speed_dependent_value(
-                getattr(coordinate_system, name),
-                f"Coordinate system {coordinate_system.id} {name}",
-            )
-
     for material in definition.materials:
         if not isinstance(material, Material):
             continue
@@ -766,39 +757,13 @@ def _coordinate_system_matrix(coordinate_system):
     x_direction = np.asarray(coordinate_system.x_axis, dtype=float)
     xy_direction = np.asarray(coordinate_system.xy_plane, dtype=float)
 
-    # Every coordinate-system vector is three-dimensional.
-    if (
-        origin.shape != (3,)
-        or x_direction.shape != (3,)
-        or xy_direction.shape != (3,)
-    ):
-        raise ValueError(
-            f"Coordinate system {coordinate_system.id} vectors must have "
-            "three entries"
-        )
-
-    # Reject invalid numerical frame definitions.
-    all_values = np.concatenate((origin, x_direction, xy_direction))
-    if not np.isfinite(all_values).all():
-        raise ValueError(
-            f"Coordinate system {coordinate_system.id} must contain finite values"
-        )
-
     # Normalize the first local basis direction.
     x_norm = np.linalg.norm(x_direction)
-    if x_norm < 1.0e-14:
-        raise ValueError(
-            f"Coordinate system {coordinate_system.id} has a zero-length x axis"
-        )
     local_x = x_direction / x_norm
 
     # The cross product constructs a right-handed local z direction.
     local_z = np.cross(local_x, xy_direction)
     z_norm = np.linalg.norm(local_z)
-    if z_norm < 1.0e-14:
-        raise ValueError(
-            f"Coordinate system {coordinate_system.id} has collinear axes"
-        )
     local_z /= z_norm
 
     # Recompute local y so the final basis is exactly orthonormal.
@@ -830,11 +795,8 @@ def _grid_coordinates(definition):
         definition.coordinate_systems,
         "coordinate system",
         CoordinateSystem,
+        validate_id=False,
     )
-    if 0 in coordinate_systems:
-        raise ValueError(
-            "Coordinate system ID 0 is reserved for the global system"
-        )
 
     # Convert each user-defined record into numerical frame data.
     for coordinate_system in coordinate_systems.values():

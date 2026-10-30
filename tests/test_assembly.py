@@ -324,6 +324,40 @@ def test_grid_coordinates_are_transformed_to_basic_system():
     assert np.array_equal(model.coordinates, [[[7.0, -2.0, 7.0]]])
 
 
+@pytest.mark.parametrize(
+    ("arguments", "exception", "message"),
+    [
+        ((True,), TypeError, "IDs must be integers"),
+        ((0,), ValueError, "IDs must be positive"),
+        (
+            (1, (0.0, 0.0), (1.0, 0.0, 0.0), (0.0, 1.0, 0.0)),
+            ValueError,
+            "three components",
+        ),
+        ((1, (np.inf, 0.0, 0.0)), ValueError, "must be finite"),
+        ((1, ((1,), 0.0, 0.0)), TypeError, "must be a real number"),
+        (
+            (1, (0.0, 0.0, 0.0), (0.0, 0.0, 0.0)),
+            ValueError,
+            "zero-length",
+        ),
+        (
+            (1, (0.0, 0.0, 0.0), (1.0, 0.0, 0.0), (2.0, 0.0, 0.0)),
+            ValueError,
+            "collinear",
+        ),
+    ],
+)
+def test_coordinate_system_rejects_invalid_local_inputs(
+    arguments,
+    exception,
+    message,
+):
+    """Verify malformed coordinate systems fail during construction."""
+    with pytest.raises(exception, match=message):
+        CoordinateSystem(*arguments)
+
+
 def test_bearing_matrices_rotate_45_degrees_about_global_z():
     """Verify an in-plane frame rotation transforms bearing coefficients."""
     cosine = np.sqrt(0.5)
