@@ -22,6 +22,7 @@ from spinniped import (
     ShaftElement,
     ShaftProperty,
     Solver,
+    SynchronousLoad,
     Unbalance,
     build_model,
 )
@@ -215,6 +216,47 @@ def test_harmonic_load_rejects_invalid_local_inputs(
     """Verify malformed harmonic loads fail during construction."""
     with pytest.raises(exception, match=message):
         HarmonicLoad(*arguments, **keywords)
+
+
+def test_synchronous_load_inherits_the_harmonic_vector_contract():
+    """Verify synchronous loads specialize immutable harmonic records."""
+    load = SynchronousLoad(
+        7,
+        grid=2,
+        harmonic_order=2.5,
+        force=(1.0, -2.0, 3.0),
+        moment=(4.0, 5.0, -6.0),
+        phase=0.25,
+    )
+
+    assert isinstance(load, HarmonicLoad)
+    assert load.harmonic_order == 2.5
+    assert load.force == (1.0, -2.0, 3.0)
+    assert load.moment == (4.0, 5.0, -6.0)
+    assert load.phase == 0.25
+    assert load.coordinate_system == 0
+    assert not hasattr(load, "__dict__")
+
+    with pytest.raises(FrozenInstanceError):
+        load.harmonic_order = 3.0
+
+
+@pytest.mark.parametrize(
+    ("harmonic_order", "exception", "message"),
+    [
+        (True, TypeError, "must be a real number"),
+        ("2x", TypeError, "must be a real number"),
+        (np.inf, ValueError, "must be finite"),
+        (0.0, ValueError, "must be positive"),
+        (-1.0, ValueError, "must be positive"),
+    ],
+)
+def test_synchronous_load_rejects_invalid_harmonic_order(
+    harmonic_order, exception, message
+):
+    """Verify harmonic order is a positive finite real ratio."""
+    with pytest.raises(exception, match=message):
+        SynchronousLoad(1, grid=2, harmonic_order=harmonic_order)
 
 
 @pytest.mark.parametrize(

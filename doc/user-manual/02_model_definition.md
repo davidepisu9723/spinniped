@@ -19,8 +19,8 @@ objects. Records refer to one another by integer IDs:
   reference a compatible property.
 - `SpeedDependentValue` tabulates selected linear coefficients against rotor
   angular speed.
-- `HarmonicLoad`, `RotatingLoad`, and `Unbalance` define nodal excitation
-  data.
+- `HarmonicLoad`, `SynchronousLoad`, `RotatingLoad`, and `Unbalance` define
+  nodal excitation data.
 - `ModelDefinition` holds the record lists.
 
 `LumpedMassElement` and `LumpedMassProperty` are aliases for the corresponding
@@ -45,7 +45,7 @@ flowchart LR
         grids["Grid IDs"] --> shaft_element
         grids --> bearing_element
         grids --> disk_element
-        grids --> loads["HarmonicLoad / RotatingLoad / Unbalance"]
+        grids --> loads["HarmonicLoad / SynchronousLoad / RotatingLoad / Unbalance"]
     end
 
     shaft_element --> definition["ModelDefinition"]
@@ -63,7 +63,7 @@ The arrows among definition records are integer references, not copied
 numerical data. `ModelBuilder` is the boundary between that declarative graph
 and the assembled numerical model.
 
-This example defines a three-grid shaft with a disk, two bearings, and two
+This example defines a three-grid shaft with a disk, two bearings, and three
 loads:
 
 ```python
@@ -80,6 +80,7 @@ from spinniped import (
     ShaftElement,
     ShaftProperty,
     SpeedDependentValue,
+    SynchronousLoad,
     Unbalance,
 )
 
@@ -137,8 +138,14 @@ definition = ModelDefinition(
             force=(10.0, 0.0, 0.0),
             phase=0.0,
         ),
-        Unbalance(
+        SynchronousLoad(
             id=2,
+            grid=2,
+            harmonic_order=2.0,
+            force=(5.0, 0.0, 0.0),
+        ),
+        Unbalance(
+            id=3,
             grid=2,
             mass_eccentricity=2.0e-4,
             phase=0.0,
@@ -179,6 +186,7 @@ and theory notes use SI.
 | `BearingElement` | `id`; first `grid`; bearing `property`; optional `grid_b`; property `coordinate_system` |
 | `DiskElement` | `id`; nodal `grid`; disk `property`; property `coordinate_system` |
 | `HarmonicLoad` | `id`; nodal `grid`; three-component `force` and `moment`; common `phase`; `coordinate_system` |
+| `SynchronousLoad` | all `HarmonicLoad` fields; required positive real `harmonic_order` |
 | `RotatingLoad` | `id`; nodal `grid`; `force_magnitude`; `phase`; `sense`; `coordinate_system` |
 | `Unbalance` | `id`; nodal `grid`; `mass_eccentricity`; `phase`; `coordinate_system` |
 | `SpeedDependentValue` | strictly increasing rotor `speeds`; corresponding scalar `values` |
@@ -192,9 +200,10 @@ the translational x-y-z block.
 
 All bearing stiffness and damping coefficients accept a
 `SpeedDependentValue`. So do the individual force and moment components of a
-`HarmonicLoad` and `RotatingLoad.force_magnitude`. Other fields remain scalar
-or random parameters. [Chapter 3](03_speed_dependent_values.md) documents the
-supported placements, interpolation rules, and operating-speed convention.
+`HarmonicLoad`, the inherited components of `SynchronousLoad`, and
+`RotatingLoad.force_magnitude`. Other fields remain scalar or random
+parameters. [Chapter 3](03_speed_dependent_values.md) documents the supported
+placements, interpolation rules, and operating-speed convention.
 
 `ModelDefinition` groups the `grids`, `coordinate_systems`, `materials`,
 `properties`, `elements`, `distributions`, and `loads` lists; each defaults to

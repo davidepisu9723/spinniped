@@ -282,13 +282,32 @@ $$
 \mathbf{Z}\widehat{\mathbf{q}}=\widehat{\mathbf{f}}.
 $$
 
-Frequency response keeps $\Omega$ fixed while sweeping independent finite
-nonnegative frequencies supplied in Hz. Its source is exactly one of a raw
-full/reduced complex vector or selected `HarmonicLoad` and `RotatingLoad`
-records. A declarative force is resolved and assembled separately for each
-stochastic realization. Its speed-dependent components are evaluated at the
-scalar rotor $\Omega$ before solving and remain constant across that
-realization's forcing-frequency sweep.
+Frequency response keeps $\Omega$ fixed. For a raw full/reduced complex vector
+or selected `HarmonicLoad` and `RotatingLoad` records, it sweeps independent
+finite nonnegative frequencies supplied in Hz. A declarative force is resolved
+and assembled separately for each stochastic realization. Its speed-dependent
+components are evaluated at scalar rotor speed $\Omega$ before solving and
+remain constant across that realization's forcing-frequency sweep.
+
+For selected `SynchronousLoad` records, callers omit the frequency grid. All
+selected records must share positive finite harmonic order $h$. Given scalar
+`speed` or a one-dimensional signed `speeds` vector, the solver derives each
+paired forcing frequency
+
+$$
+\omega=h|\Omega|,
+\qquad
+f=\frac{h|\Omega|}{2\pi}.
+$$
+
+Synchronous records cannot be mixed with ordinary harmonic or rotating records
+in one call. At every point, $\mathbf{K}(\Omega)$, $\mathbf{C}(\Omega)$,
+$\Omega\mathbf{G}$, and the dynamic stiffness use that point's signed speed and
+derived frequency. Inherited force and moment components are assembled through
+the same coordinate transformation and may be speed-dependent; amplitude
+tables are evaluated at signed rotor speed $\Omega$, not at $\omega$. The
+complete structural and load operating grid is preflighted before the first
+linear solve.
 
 Unbalance response instead evaluates one diagonal synchronous sweep:
 

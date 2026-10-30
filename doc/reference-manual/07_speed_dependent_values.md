@@ -40,6 +40,7 @@ assembled quantity linearly:
 |---|---|
 | `BearingProperty` | `kxx`, `kyy`, `kzz`, `kxy`, `kyx`, `cxx`, `cyy`, `czz`, `cxy`, `cyx` |
 | `HarmonicLoad` | each component of `force` and `moment` |
+| `SynchronousLoad` | each inherited component of `force` and `moment` |
 | `RotatingLoad` | `force_magnitude` |
 
 All other placements are rejected before sampling. Record constructors reject

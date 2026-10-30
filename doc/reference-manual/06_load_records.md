@@ -4,6 +4,7 @@
 
 - [Record types](#record-types)
 - [Harmonic convention](#harmonic-convention)
+- [Synchronous harmonic loads](#synchronous-harmonic-loads)
 - [Rotating forces](#rotating-forces)
 - [Unbalance](#unbalance)
 - [Builder behavior](#builder-behavior)
@@ -11,20 +12,21 @@
 
 ## Record types
 
-The `Load` union contains three frozen, slotted records:
+The `Load` union contains four frozen, slotted records:
 
 | Record | Amplitude data | Intended excitation |
 |---|---|---|
 | `HarmonicLoad` | signed local force and moment vectors | fixed-direction harmonic load |
+| `SynchronousLoad` | inherited harmonic vectors plus `harmonic_order` | order-locked harmonic load |
 | `RotatingLoad` | nonnegative force magnitude and rotation sense | circular force |
 | `Unbalance` | nonnegative mass-eccentricity product | synchronous circular force proportional to speed squared |
 
 Every record has a positive integer `id`, references one `grid`, and selects a
-`coordinate_system`. Load IDs share one namespace across the three record
+`coordinate_system`. Load IDs share one namespace across the four record
 types. Numeric amplitude and phase fields accept the same random-distribution
 references as other model parameters.
 
-Each `HarmonicLoad.force` and `HarmonicLoad.moment` component, and
+Each `HarmonicLoad` or `SynchronousLoad` force and moment component, and
 `RotatingLoad.force_magnitude`, may instead be a `SpeedDependentValue`.
 `phase` and every `Unbalance` field remain speed-independent. Tabulated load
 amplitudes use signed rotor speed $\Omega$, not forcing frequency $\omega$.
@@ -35,6 +37,11 @@ lists are rejected at record construction.
 nonnegative frame reference, phase parameter, vector shapes, and every
 constant, random, or tabulated component. The builder retains grid/frame
 existence and load-ID uniqueness checks.
+
+`SynchronousLoad` inherits the complete `HarmonicLoad` component, phase,
+identity, and reference contract. Its additional required keyword-only
+`harmonic_order` is a positive finite real number. Fractional orders are
+accepted; Boolean values and random references are not.
 
 `RotatingLoad` construction likewise validates its identity and reference
 syntax, speed-independent phase, rotation sense, and nonnegative scalar or
@@ -70,6 +77,28 @@ $$
 The force and moment entries are signed peak amplitudes and share the phase
 `phase`, expressed in radians. Multiple records at one grid can represent
 components having different phases.
+
+## Synchronous harmonic loads
+
+`SynchronousLoad` uses the same local phasor as `HarmonicLoad`, but its forcing
+frequency is locked to each signed rotor speed supplied to
+`frequency_response`. For positive harmonic order $h$,
+
+$$
+\omega=h|\Omega|,
+\qquad
+f=\frac{h|\Omega|}{2\pi}.
+$$
+
+The absolute speed makes forcing frequency nonnegative, while the signed
+$\Omega$ is retained in gyroscopic and speed-dependent structural terms.
+Callers must omit `frequencies` and supply either scalar `speed` or a
+one-dimensional `speeds` vector. The solver derives one frequency per supplied
+speed and returns paired `speeds`, `speeds_hz`, `frequencies`, and response
+points. Selected synchronous loads may be superimposed only when they share
+one `harmonic_order`. They cannot be mixed with `HarmonicLoad` or
+`RotatingLoad` records in the same call. Different orders therefore use
+separate frequency-response calls.
 
 ## Rotating forces
 
@@ -124,10 +153,11 @@ of each resolved record repeats its local validation. Loads do not modify
 $\mathbf{K}$, $\mathbf{M}$, $\mathbf{C}$, or $\mathbf{G}$ and are retained in
 each `BuiltModel.definitions` entry.
 
-For frequency response, all selected speed-dependent load components are
-interpolated at the call's scalar rotor `speed`, transformed, and summed before
-the first forcing-frequency solve. Out-of-range interpolation fails before a
-partial frequency sweep can be returned.
+For ordinary frequency response, selected speed-dependent load components are
+interpolated at scalar rotor `speed`. For a synchronous sweep, they are
+interpolated over the complete signed `speeds` vector. All values are
+transformed and assembled before the first solve, so out-of-range interpolation
+cannot leave a partial response.
 
 ## Solver assembly
 
@@ -150,8 +180,12 @@ stochastic realization so resolved amplitudes, phases, and frames remain
 sample-specific.
 
 `frequency_response` accepts either one legacy complex force vector or a
-nonempty selection of `HarmonicLoad` and `RotatingLoad` IDs. It rejects
-`Unbalance` records. `unbalance_response` accepts a nonempty selection of
+nonempty compatible selection of `HarmonicLoad`, `SynchronousLoad`, or
+`RotatingLoad` IDs. Ordinary harmonic and rotating selections require an
+explicit frequency grid; synchronous selections derive paired frequencies from
+scalar `speed` or vector `speeds` and `harmonic_order`. It rejects `Unbalance`
+records.
+`unbalance_response` accepts a nonempty selection of
 `Unbalance` IDs and evaluates the synchronous force separately at every
 supplied rotor speed. Duplicate, unknown, noninteger, and analysis-incompatible
 IDs are rejected rather than ignored.

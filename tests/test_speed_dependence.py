@@ -21,6 +21,7 @@ from spinniped import (
     ShaftProperty,
     Solver,
     SpeedDependentValue,
+    SynchronousLoad,
     Unbalance,
 )
 from spinniped.builder import _interpolate_speed_dependent_value
@@ -621,6 +622,35 @@ def test_frequency_response_interpolates_rotating_load_at_rotor_speed():
     omega = 2.0 * np.pi * frequency
     expected = force / (2_000.0 - 2.0 * omega**2)
     assert np.allclose(result["response"][0, 0], expected)
+
+
+def test_synchronous_load_interpolates_amplitude_over_speed_sweep():
+    """Verify each amplitude uses speed rather than derived frequency."""
+    load = SynchronousLoad(
+        5,
+        grid=1,
+        harmonic_order=2.0,
+        force=(SpeedDependentValue((-100, 0), (6.0, 2.0)), 0.0, 0.0),
+    )
+    model = ModelBuilder().build(
+        _one_dof_definition(stiffness=2_000.0, loads=[load])
+    )
+    speeds = np.array([-100.0, -50.0, 0.0])
+
+    result = Solver(model).solve(
+        "frequency_response",
+        fixed_dofs=FIXED_TO_X,
+        speeds=speeds,
+        load_ids=[5],
+    )
+
+    forces = np.array([6.0, 4.0, 2.0])
+    angular_frequencies = 2.0 * np.abs(speeds)
+    expected = forces / (2_000.0 - 2.0 * angular_frequencies**2)
+    assert result["frequencies"] == pytest.approx(
+        angular_frequencies / (2.0 * np.pi)
+    )
+    assert result["response"][0, :, 0] == pytest.approx(expected)
 
 
 def test_selected_load_is_preflighted_but_unselected_tables_are_ignored(
