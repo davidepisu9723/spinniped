@@ -20,6 +20,7 @@ python examples/07_deterministic_speed_dependent_bearing.py
 python examples/08_deterministic_speed_dependent_load.py
 python examples/09_stochastic_speed_dependent_campbell.py
 python examples/10_synchronous_load_response.py
+python examples/11_stochastic_unbalance_response.py
 ```
 
 These examples exercise normal public-API workflows rather than controlled
@@ -62,6 +63,12 @@ vector convention. It passes the complete rotor-speed vector to one frequency-
 response call without a `frequencies` argument, then plots both displacement
 amplitude through `plot_frequency_response` and the order-derived forcing
 frequency on a secondary axis.
+
+Example 11 meshes a Jeffcott-style rotor with 20 shaft elements, one central
+disk, and identical bearings at the two ends. A shared random bearing
+stiffness preserves symmetry within each realization, while a central-disk
+`Unbalance` supplies the synchronous rotating force. The plot shows the mean
+disk response, empirical 90% confidence bands, and sampled extrema.
 
 ## Analytical benchmarks
 
