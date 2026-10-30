@@ -222,6 +222,12 @@ Attempts to connect both bearing ends to grid 10. The builder must reject the
 self-connection with a clear `distinct grids` error instead of assembling a
 degenerate contribution.
 
+#### `test_bearing_element_rejects_invalid_local_inputs`
+
+Parametrizes invalid bearing-element IDs, grid/property references, optional
+second-grid values, and coordinate-system references. Each malformed element
+must fail immediately during `BearingElement` construction.
+
 #### `test_disk_terms_are_inserted_at_referenced_grid`
 
 Builds a one-grid disk and compares its complete global mass, damping, and

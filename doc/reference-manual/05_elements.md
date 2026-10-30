@@ -19,6 +19,11 @@ property references, and distinct endpoint IDs. The builder subsequently
 checks that referenced records exist, that the property is a `ShaftProperty`,
 and that the resolved endpoint coordinates are not coincident.
 
+`BearingElement` construction similarly validates its identity, property and
+frame references, and either a ground connection or two distinct positive grid
+IDs. The builder retains reference existence and `BearingProperty`
+compatibility checks.
+
 The implemented matrix contributions are:
 
 | Element | Stiffness | Mass | Damping | Gyroscopic |

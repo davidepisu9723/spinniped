@@ -597,6 +597,28 @@ class BearingElement:
     grid_b: int | None = None
     coordinate_system: int = 0
 
+    def __post_init__(self):
+        """Validate the complete local bearing-element specification."""
+        for name in ("id", "grid", "property"):
+            value = getattr(self, name)
+            if isinstance(value, bool) or not isinstance(value, int):
+                raise TypeError(f"Bearing element {name} must be an integer ID")
+            if value <= 0:
+                raise ValueError(f"Bearing element {name} must be positive")
+        if self.grid_b is not None:
+            if isinstance(self.grid_b, bool) or not isinstance(self.grid_b, int):
+                raise TypeError("Bearing element grid_b must be an integer ID")
+            if self.grid_b <= 0:
+                raise ValueError("Bearing element grid_b must be positive")
+            if self.grid_b == self.grid:
+                raise ValueError("Bearing element must connect distinct grids")
+        if isinstance(self.coordinate_system, bool) or not isinstance(
+            self.coordinate_system, int
+        ):
+            raise TypeError("Bearing element coordinate_system must be an integer ID")
+        if self.coordinate_system < 0:
+            raise ValueError("Bearing element coordinate_system cannot be negative")
+
 
 @dataclass(frozen=True, slots=True)
 class DiskElement:

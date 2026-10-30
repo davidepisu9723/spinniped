@@ -922,7 +922,7 @@ def _assemble(definition):
         definition.elements,
         "element",
         (ShaftElement, BearingElement, DiskElement),
-        validated_id_types=(ShaftElement,),
+        validated_id_types=(ShaftElement, BearingElement),
     )
     loads = _unique(
         definition.loads,
@@ -1114,7 +1114,7 @@ def _assemble(definition):
     # Assemble each declarative element record.
     for element in definition.elements:
         # Resolve the element's property reference first.
-        if not isinstance(element, ShaftElement):
+        if isinstance(element, DiskElement):
             integer_reference(element.property, f"Element {element.id} property")
         if element.property not in properties:
             raise ValueError(
@@ -1213,15 +1213,6 @@ def _assemble(definition):
                     f"Bearing element {element.id} requires a BearingProperty"
                 )
 
-            # Validate all bearing references.
-            integer_reference(element.grid, f"Element {element.id} grid")
-            integer_reference(
-                element.coordinate_system,
-                f"Element {element.id} coordinate_system",
-            )
-            if element.grid_b is not None:
-                integer_reference(element.grid_b, f"Element {element.id} grid_b")
-
             if element.grid not in grid_index:
                 raise ValueError(
                     f"Element {element.id} references unknown grid {element.grid}"
@@ -1306,11 +1297,6 @@ def _assemble(definition):
                         f"Element {element.id} references unknown grid "
                         f"{element.grid_b}"
                     )
-                if element.grid_b == element.grid:
-                    raise ValueError(
-                        f"Bearing element {element.id} must connect distinct grids"
-                    )
-
                 index_b = grid_index[element.grid_b]
                 bearing_indices += list(
                     range(

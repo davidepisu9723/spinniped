@@ -235,14 +235,26 @@ def test_two_grid_bearing_assembles_equal_and_opposite_blocks():
 
 def test_two_grid_bearing_rejects_identical_grid_ids():
     """Verify a bearing cannot connect a grid to itself."""
-    definition = ModelDefinition(
-        grids=[Grid(10)],
-        properties=[BearingProperty(id=4, kxx=1.0)],
-        elements=[BearingElement(id=8, grid=10, grid_b=10, property=4)],
-    )
-
     with pytest.raises(ValueError, match="distinct grids"):
-        ModelBuilder().build(definition)
+        BearingElement(id=8, grid=10, grid_b=10, property=4)
+
+
+@pytest.mark.parametrize(
+    ("arguments", "exception", "message"),
+    [
+        ((True, 1, 2), TypeError, "id must be an integer"),
+        ((1, 0, 2), ValueError, "grid must be positive"),
+        ((1, 1, 0), ValueError, "property must be positive"),
+        ((1, 1, 2, True), TypeError, "grid_b must be an integer"),
+        ((1, 1, 2, None, -1), ValueError, "cannot be negative"),
+    ],
+)
+def test_bearing_element_rejects_invalid_local_inputs(
+    arguments, exception, message
+):
+    """Verify malformed bearing elements fail during construction."""
+    with pytest.raises(exception, match=message):
+        BearingElement(*arguments)
 
 
 def test_disk_terms_are_inserted_at_referenced_grid():

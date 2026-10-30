@@ -25,7 +25,8 @@ matrices. `SpeedDependentValue`, `RandomDistribution`, `Grid`,
 contracts during record construction. `BearingProperty` does the same for its
 constant, random, and tabulated coefficients, while `DiskProperty` validates
 its nonnegative mass, inertia, and damping parameters. `ShaftElement` validates
-its local identity and connectivity contract.
+its local identity and connectivity contract; `BearingElement` validates its
+optional two-grid connectivity and frame reference as well.
 `ModelBuilder` resolves
 random parameters, validates table placement and field-specific constraints,
 calculates constant local matrices and unit-coefficient bearing bases using the
