@@ -351,6 +351,320 @@ def plot_rotor(
     return figure, axes
 
 
+def plot_frequency_response(
+    result,
+    *,
+    dofs=None,
+    labels=None,
+    sample=0,
+    statistic="sample",
+    confidence=None,
+    show_extremes=False,
+    x_axis="auto",
+    speed_unit="rpm",
+    ax=None,
+    title="Frequency response",
+    legend=True,
+):
+    """Plot response amplitudes from a steady harmonic analysis.
+
+    Parameters
+    ----------
+    result : mapping
+        Dictionary returned by ``frequency_response`` or
+        ``unbalance_response``. Its ``response`` array must have shape
+        ``(samples, points, free_dofs)``.
+    dofs : sequence of int or None, optional
+        Global free-DOF indices to plot. By default, plot every free DOF in
+        the order stored by the solver.
+    labels : sequence of str or None, optional
+        Legend label for each selected DOF. By default, use ``"DOF N"``.
+    sample : int, optional
+        Zero-based realization used when ``statistic="sample"``.
+    statistic : {"sample", "mean", "median"}, optional
+        Central amplitude curve plotted for each selected DOF.
+    confidence : float or None, optional
+        Confidence level for a central empirical quantile band across model
+        realizations. ``None`` disables confidence bands.
+    show_extremes : bool, optional
+        Plot the sample minimum and maximum for every selected DOF.
+    x_axis : {"auto", "frequency", "speed"}, optional
+        Horizontal coordinate. ``"auto"`` uses rotor speed for synchronous
+        and unbalance sweeps, and excitation frequency otherwise.
+    speed_unit : {"rpm", "rad/s", "hz"}, optional
+        Display unit when the horizontal coordinate is rotor speed.
+    ax : matplotlib.axes.Axes or None, optional
+        Existing axes to draw on. When omitted, create a figure and axes.
+    title : str or None, optional
+        Axes title. Use ``None`` to preserve an existing title.
+    legend : bool, optional
+        Draw a legend containing one entry per selected DOF.
+
+    Returns
+    -------
+    figure : matplotlib.figure.Figure
+        Figure containing the response curves.
+    axes : matplotlib.axes.Axes
+        Axes containing the response curves.
+    """
+    # Accept only the two solver routes that return a steady complex response.
+    if not isinstance(result, Mapping):
+        raise TypeError("result must be a frequency-response result mapping")
+    analysis = result.get("analysis")
+    if analysis not in {"frequency_response", "unbalance_response"}:
+        raise ValueError(
+            "result must come from frequency_response or unbalance_response"
+        )
+
+    # Enforce the solver's common (samples, points, free_dofs) convention
+    # before selecting curves or creating Matplotlib artists.
+    try:
+        frequencies = np.asarray(result.get("frequencies"), dtype=float)
+        response = np.asarray(result.get("response"), dtype=complex)
+    except (TypeError, ValueError) as error:
+        raise TypeError(
+            "result frequencies and response must be numeric arrays"
+        ) from error
+    free_dofs = np.asarray(result.get("free_dofs"))
+    if (
+        frequencies.ndim != 1
+        or not frequencies.size
+        or not np.isfinite(frequencies).all()
+        or np.any(frequencies < 0.0)
+    ):
+        raise ValueError(
+            "result frequencies must be a finite nonnegative "
+            "one-dimensional array"
+        )
+    if (
+        free_dofs.ndim != 1
+        or not free_dofs.size
+        or not np.issubdtype(free_dofs.dtype, np.integer)
+        or np.any(free_dofs < 0)
+        or np.unique(free_dofs).size != free_dofs.size
+    ):
+        raise ValueError(
+            "result free_dofs must be a one-dimensional array of unique "
+            "nonnegative integers"
+        )
+    if (
+        response.ndim != 3
+        or response.shape[1:] != (frequencies.size, free_dofs.size)
+        or not np.isfinite(response).all()
+    ):
+        raise ValueError(
+            "result response must have shape (samples, points, free_dofs)"
+        )
+
+    # Interpret requested DOFs as global indices, matching fixed_dofs and the
+    # free_dofs metadata returned by Solver.solve.
+    if dofs is None:
+        selected_dofs = [int(dof) for dof in free_dofs]
+    else:
+        if isinstance(dofs, (str, bytes)):
+            raise TypeError("dofs must be a sequence of integer indices")
+        try:
+            selected_dofs = list(dofs)
+        except TypeError:
+            raise TypeError(
+                "dofs must be a sequence of integer indices"
+            ) from None
+        if not selected_dofs:
+            raise ValueError("dofs must contain at least one index")
+        if any(
+            isinstance(dof, (bool, np.bool_))
+            or not isinstance(dof, (int, np.integer))
+            for dof in selected_dofs
+        ):
+            raise TypeError("dofs must contain only integer indices")
+        selected_dofs = [int(dof) for dof in selected_dofs]
+        if len(set(selected_dofs)) != len(selected_dofs):
+            raise ValueError("dofs must not contain duplicate indices")
+
+    free_dof_positions = {
+        int(dof): position for position, dof in enumerate(free_dofs)
+    }
+    unavailable_dofs = [
+        dof for dof in selected_dofs if dof not in free_dof_positions
+    ]
+    if unavailable_dofs:
+        raise ValueError(
+            f"dofs are not present in result free_dofs: {unavailable_dofs}"
+        )
+    response_positions = [free_dof_positions[dof] for dof in selected_dofs]
+
+    # Optional labels follow the explicit DOF selection order.
+    if labels is None:
+        curve_labels = [f"DOF {dof}" for dof in selected_dofs]
+    else:
+        if isinstance(labels, (str, bytes)):
+            raise TypeError("labels must be a sequence of strings")
+        try:
+            curve_labels = list(labels)
+        except TypeError:
+            raise TypeError("labels must be a sequence of strings") from None
+        if len(curve_labels) != len(selected_dofs):
+            raise ValueError("labels must contain one entry per selected DOF")
+        if any(not isinstance(label, str) or not label for label in curve_labels):
+            raise TypeError("labels must contain only non-empty strings")
+
+    # Validate statistical and presentation choices consistently with the
+    # Campbell plotting API.
+    if (
+        not isinstance(statistic, str)
+        or statistic not in {"sample", "mean", "median"}
+    ):
+        raise ValueError("statistic must be 'sample', 'mean', or 'median'")
+    if statistic == "sample":
+        if isinstance(sample, bool) or not isinstance(
+            sample, (int, np.integer)
+        ):
+            raise TypeError("sample must be an integer index")
+        if sample < 0 or sample >= response.shape[0]:
+            raise IndexError("sample index is out of range")
+    if confidence is not None:
+        if isinstance(confidence, bool):
+            raise TypeError("confidence must be a number between zero and one")
+        try:
+            confidence = float(confidence)
+        except (TypeError, ValueError):
+            raise TypeError(
+                "confidence must be a number between zero and one"
+            ) from None
+        if not np.isfinite(confidence) or not 0.0 < confidence < 1.0:
+            raise ValueError("confidence must be between zero and one")
+    if not isinstance(show_extremes, bool):
+        raise TypeError("show_extremes must be a boolean")
+    if (
+        not isinstance(x_axis, str)
+        or x_axis not in {"auto", "frequency", "speed"}
+    ):
+        raise ValueError("x_axis must be 'auto', 'frequency', or 'speed'")
+    if not isinstance(speed_unit, str) or speed_unit not in _SPEED_CONVERSIONS:
+        choices = ", ".join(repr(unit) for unit in _SPEED_CONVERSIONS)
+        raise ValueError(f"speed_unit must be one of {choices}")
+    if title is not None and not isinstance(title, str):
+        raise TypeError("title must be a string or None")
+    if not isinstance(legend, bool):
+        raise TypeError("legend must be a boolean")
+
+    # Synchronous frequency response and unbalance response carry a complete
+    # speed vector. Ordinary response instead sweeps excitation frequency at
+    # one fixed operating speed.
+    if x_axis == "auto":
+        x_axis = (
+            "speed"
+            if analysis == "unbalance_response" or "speeds" in result
+            else "frequency"
+        )
+    if x_axis == "speed":
+        try:
+            speeds = np.asarray(result.get("speeds"), dtype=float)
+        except (TypeError, ValueError) as error:
+            raise TypeError("result speeds must be a numeric array") from error
+        if (
+            speeds.ndim != 1
+            or speeds.size != frequencies.size
+            or not np.isfinite(speeds).all()
+        ):
+            raise ValueError(
+                "speed-axis plotting requires one finite result speed per "
+                "response point"
+            )
+        convert_speed, horizontal_label = _SPEED_CONVERSIONS[speed_unit]
+        horizontal_values = convert_speed(speeds)
+    else:
+        horizontal_values = frequencies
+        horizontal_label = "Excitation frequency [Hz]"
+
+    if ax is None:
+        figure, axes = plt.subplots()
+    else:
+        if not hasattr(ax, "plot") or not hasattr(ax, "figure"):
+            raise TypeError("ax must be a Matplotlib axes")
+        axes = ax
+        figure = axes.figure
+
+    # Reduce magnitudes, not complex phasors, so cancellation between samples
+    # cannot distort amplitude statistics.
+    amplitudes = np.abs(response[:, :, response_positions])
+    amplitude_statistics = _sample_statistics(
+        amplitudes,
+        statistic=statistic,
+        sample=sample,
+        confidence=confidence,
+    )
+
+    for curve_index, label in enumerate(curve_labels):
+        line = axes.plot(
+            horizontal_values,
+            amplitude_statistics["central"][:, curve_index],
+            label=label,
+        )[0]
+        color = line.get_color()
+        if confidence is not None:
+            axes.fill_between(
+                horizontal_values,
+                amplitude_statistics["lower"][:, curve_index],
+                amplitude_statistics["upper"][:, curve_index],
+                color=color,
+                alpha=0.2,
+                label="_nolegend_",
+            )
+        if show_extremes:
+            axes.plot(
+                horizontal_values,
+                amplitude_statistics["minimum"][:, curve_index],
+                color=color,
+                linestyle="--",
+                linewidth=1.0,
+                label="_nolegend_",
+            )
+            axes.plot(
+                horizontal_values,
+                amplitude_statistics["maximum"][:, curve_index],
+                color=color,
+                linestyle="--",
+                linewidth=1.0,
+                label="_nolegend_",
+            )
+
+    axes.set_xlabel(horizontal_label)
+    axes.set_ylabel("Response amplitude")
+    if title is not None:
+        axes.set_title(title)
+    axes.grid(True)
+
+    # Keep ensemble metadata out of a legend reserved for physical DOFs.
+    if response.shape[0] > 1 or confidence is not None or show_extremes:
+        statistic_text = f"sample {sample}" if statistic == "sample" else statistic
+        information = [f"Displayed statistic: {statistic_text}"]
+        if confidence is not None:
+            information.append(f"Confidence interval: {100.0 * confidence:g}%")
+        if show_extremes:
+            information.append("Response extremes: sample min\N{EN DASH}max")
+        axes.text(
+            0.02,
+            0.98,
+            "\n".join(information),
+            transform=axes.transAxes,
+            ha="left",
+            va="top",
+            fontsize="small",
+            bbox={
+                "boxstyle": "round,pad=0.35",
+                "facecolor": "white",
+                "edgecolor": "#777777",
+                "alpha": 0.85,
+            },
+            zorder=10,
+        )
+    if legend:
+        axes.legend(loc="upper right")
+
+    return figure, axes
+
+
 def plot_campbell(
     result,
     *,
