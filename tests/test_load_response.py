@@ -154,6 +154,47 @@ def test_synchronous_load_derives_frequency_from_order_and_speed():
     assert result["response"][0, 0, 0] == pytest.approx(expected)
 
 
+def test_synchronous_load_sweeps_paired_speeds_and_frequencies():
+    """Verify every signed speed uses its own order-derived dynamic stiffness."""
+    harmonic_order = 2.0
+    force_amplitude = 8.0
+    speeds = np.array([-20.0, 0.0, 30.0])
+    model = _one_grid_model(
+        [
+            SynchronousLoad(
+                22,
+                grid=10,
+                harmonic_order=harmonic_order,
+                force=(force_amplitude, 0.0, 0.0),
+            )
+        ]
+    )
+
+    result = Solver(model).solve(
+        "frequency_response",
+        fixed_dofs=[1, 2, 3, 4, 5],
+        speeds=speeds,
+        load_ids=[22],
+    )
+
+    angular_frequencies = harmonic_order * np.abs(speeds)
+    expected = force_amplitude / (
+        4_000.0
+        - 2.0 * angular_frequencies**2
+        + 1j * angular_frequencies * 4.0
+    )
+    assert np.array_equal(result["speeds"], speeds)
+    assert np.allclose(result["speeds_hz"], speeds / (2.0 * np.pi))
+    assert np.allclose(
+        result["frequencies"],
+        angular_frequencies / (2.0 * np.pi),
+    )
+    assert result["harmonic_order"] == harmonic_order
+    assert result["response"].shape == (1, 3, 1)
+    assert np.allclose(result["response"][0, :, 0], expected)
+    assert "speed" not in result
+
+
 def test_synchronous_loads_of_one_order_superimpose():
     """Verify same-order records share one derived-frequency solve."""
     loads = [
@@ -223,6 +264,37 @@ def test_synchronous_frequency_response_rejects_ambiguous_sources():
         solver.solve("frequency_response", load_ids=[2, 3], **options)
     with pytest.raises(ValueError, match="requires frequencies"):
         solver.solve("frequency_response", load_ids=[1], **options)
+    with pytest.raises(ValueError, match="exactly one of speed or speeds"):
+        solver.solve(
+            "frequency_response",
+            speed=20.0,
+            speeds=[20.0],
+            load_ids=[2],
+            fixed_dofs=options["fixed_dofs"],
+        )
+    with pytest.raises(ValueError, match="only for SynchronousLoad"):
+        solver.solve(
+            "frequency_response",
+            frequencies=[1.0],
+            speeds=[20.0],
+            load_ids=[1],
+            fixed_dofs=options["fixed_dofs"],
+        )
+
+
+@pytest.mark.parametrize("speeds", [[], np.nan, [0.0, np.inf]])
+def test_synchronous_frequency_response_rejects_invalid_speed_sweeps(speeds):
+    """Verify a synchronous speed sweep is finite, nonempty, and 1D."""
+    model = _one_grid_model(
+        [SynchronousLoad(1, grid=10, harmonic_order=1.0)]
+    )
+
+    with pytest.raises(ValueError, match="speeds must be"):
+        Solver(model).solve(
+            "frequency_response",
+            speeds=speeds,
+            load_ids=[1],
+        )
 
 
 def test_rotating_load_sense_phase_and_superposition_are_preserved():
