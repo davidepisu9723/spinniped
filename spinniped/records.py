@@ -560,6 +560,17 @@ class ShaftElement:
     grid_b: int
     property: int
 
+    def __post_init__(self):
+        """Validate the complete local shaft-element specification."""
+        for name in ("id", "grid_a", "grid_b", "property"):
+            value = getattr(self, name)
+            if isinstance(value, bool) or not isinstance(value, int):
+                raise TypeError(f"Shaft element {name} must be an integer ID")
+            if value <= 0:
+                raise ValueError(f"Shaft element {name} must be positive")
+        if self.grid_a == self.grid_b:
+            raise ValueError("Shaft element must connect distinct grids")
+
 
 @dataclass(frozen=True, slots=True)
 class BearingElement:

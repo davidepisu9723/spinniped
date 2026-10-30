@@ -306,6 +306,12 @@ Parametrizes invalid disk-property IDs and negative mass, inertia, or damping.
 Each malformed property must fail immediately during `DiskProperty`
 construction.
 
+#### `test_shaft_element_rejects_invalid_local_inputs`
+
+Parametrizes invalid shaft-element IDs and references plus identical endpoint
+grids. Each malformed element must fail immediately during `ShaftElement`
+construction.
+
 #### `test_builder_strictly_validates_record_types_and_finite_geometry`
 
 Exercises the remaining root-model validation failures: no grids, a grid

@@ -590,6 +590,26 @@ def test_disk_property_rejects_invalid_local_inputs(
 
 
 @pytest.mark.parametrize(
+    ("arguments", "exception", "message"),
+    [
+        ((True, 1, 2, 3), TypeError, "id must be an integer"),
+        ((1, 0, 2, 3), ValueError, "grid_a must be positive"),
+        ((1, 1, 0, 3), ValueError, "grid_b must be positive"),
+        ((1, 1, 2, 0), ValueError, "property must be positive"),
+        ((1, 1, 1, 3), ValueError, "distinct grids"),
+    ],
+)
+def test_shaft_element_rejects_invalid_local_inputs(
+    arguments,
+    exception,
+    message,
+):
+    """Verify malformed shaft elements fail during construction."""
+    with pytest.raises(exception, match=message):
+        ShaftElement(*arguments)
+
+
+@pytest.mark.parametrize(
     ("definition", "exception", "message"),
     [
         (ModelDefinition(), ValueError, "at least one grid"),

@@ -14,6 +14,11 @@ The `Element` union in `spinniped.records` contains `ShaftElement`,
 `DiskElement`. Element records store connectivity and property references; they
 do not store numerical matrices.
 
+`ShaftElement` construction validates its positive integer ID, grid and
+property references, and distinct endpoint IDs. The builder subsequently
+checks that referenced records exist, that the property is a `ShaftProperty`,
+and that the resolved endpoint coordinates are not coincident.
+
 The implemented matrix contributions are:
 
 | Element | Stiffness | Mass | Damping | Gyroscopic |

@@ -922,6 +922,7 @@ def _assemble(definition):
         definition.elements,
         "element",
         (ShaftElement, BearingElement, DiskElement),
+        validated_id_types=(ShaftElement,),
     )
     loads = _unique(
         definition.loads,
@@ -1113,7 +1114,8 @@ def _assemble(definition):
     # Assemble each declarative element record.
     for element in definition.elements:
         # Resolve the element's property reference first.
-        integer_reference(element.property, f"Element {element.id} property")
+        if not isinstance(element, ShaftElement):
+            integer_reference(element.property, f"Element {element.id} property")
         if element.property not in properties:
             raise ValueError(
                 f"Element {element.id} references unknown property "
@@ -1129,8 +1131,6 @@ def _assemble(definition):
                 )
 
             # Validate and resolve shaft grid and material references.
-            integer_reference(element.grid_a, f"Element {element.id} grid_a")
-            integer_reference(element.grid_b, f"Element {element.id} grid_b")
             integer_reference(
                 element_property.material,
                 f"Shaft property {element_property.id} material",
