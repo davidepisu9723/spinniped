@@ -17,6 +17,7 @@ from spinniped import (
     RandomDistribution,
     RotatingLoad,
     Solver,
+    SynchronousLoad,
     Unbalance,
 )
 
@@ -106,6 +107,122 @@ def test_harmonic_load_matches_an_equivalent_global_force_vector():
     assert np.allclose(declarative["response"], explicit["response"])
     assert declarative["load_ids"] == (17,)
     assert declarative["speed"] == 12.0
+
+
+def test_synchronous_load_derives_frequency_from_order_and_speed():
+    """Verify frequency is order-locked and the harmonic vector is preserved."""
+    speed = -20.0
+    harmonic_order = 2.5
+    phase = 0.3
+    force_amplitude = 10.0
+    model = _one_grid_model(
+        [
+            SynchronousLoad(
+                21,
+                grid=10,
+                harmonic_order=harmonic_order,
+                force=(force_amplitude, 0.0, 0.0),
+                phase=phase,
+            )
+        ]
+    )
+
+    result = Solver(model).solve(
+        "frequency_response",
+        fixed_dofs=[1, 2, 3, 4, 5],
+        speed=speed,
+        load_ids=[21],
+    )
+
+    angular_frequency = harmonic_order * abs(speed)
+    dynamic_stiffness = (
+        4_000.0
+        - 2.0 * angular_frequency**2
+        + 1j * angular_frequency * 4.0
+    )
+    expected = (
+        force_amplitude * np.exp(1j * phase) / dynamic_stiffness
+    )
+
+    assert result["frequencies"] == pytest.approx(
+        [angular_frequency / (2.0 * np.pi)]
+    )
+    assert result["harmonic_order"] == harmonic_order
+    assert result["speed"] == speed
+    assert result["load_ids"] == (21,)
+    assert result["response"].shape == (1, 1, 1)
+    assert result["response"][0, 0, 0] == pytest.approx(expected)
+
+
+def test_synchronous_loads_of_one_order_superimpose():
+    """Verify same-order records share one derived-frequency solve."""
+    loads = [
+        SynchronousLoad(
+            1,
+            grid=10,
+            harmonic_order=2.0,
+            force=(3.0, 0.0, 0.0),
+        ),
+        SynchronousLoad(
+            2,
+            grid=10,
+            harmonic_order=2.0,
+            force=(4.0, 0.0, 0.0),
+            phase=0.2,
+        ),
+    ]
+    solver = Solver(_one_grid_model(loads))
+    options = {
+        "fixed_dofs": [1, 2, 3, 4, 5],
+        "speed": 30.0,
+    }
+
+    first = solver.solve("frequency_response", load_ids=[1], **options)
+    second = solver.solve("frequency_response", load_ids=[2], **options)
+    combined = solver.solve("frequency_response", load_ids=[2, 1], **options)
+
+    assert np.allclose(
+        combined["response"],
+        first["response"] + second["response"],
+    )
+    assert combined["load_ids"] == (2, 1)
+
+
+def test_synchronous_frequency_response_rejects_ambiguous_sources():
+    """Verify order-derived response cannot accept contradictory frequencies."""
+    model = _one_grid_model(
+        [
+            HarmonicLoad(1, grid=10, force=(1.0, 0.0, 0.0)),
+            SynchronousLoad(
+                2,
+                grid=10,
+                harmonic_order=1.0,
+                force=(1.0, 0.0, 0.0),
+            ),
+            SynchronousLoad(
+                3,
+                grid=10,
+                harmonic_order=2.0,
+                force=(1.0, 0.0, 0.0),
+            ),
+        ]
+    )
+    solver = Solver(model)
+    options = {"fixed_dofs": [1, 2, 3, 4, 5], "speed": 20.0}
+
+    with pytest.raises(ValueError, match="frequencies must be omitted"):
+        solver.solve(
+            "frequency_response",
+            frequencies=[1.0],
+            load_ids=[2],
+            **options,
+        )
+    with pytest.raises(ValueError, match="cannot mix"):
+        solver.solve("frequency_response", load_ids=[1, 2], **options)
+    with pytest.raises(ValueError, match="share one harmonic_order"):
+        solver.solve("frequency_response", load_ids=[2, 3], **options)
+    with pytest.raises(ValueError, match="requires frequencies"):
+        solver.solve("frequency_response", load_ids=[1], **options)
 
 
 def test_rotating_load_sense_phase_and_superposition_are_preserved():
