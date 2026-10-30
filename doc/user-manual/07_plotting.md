@@ -4,6 +4,7 @@
 
 - [Installation](#installation)
 - [Rotor longitudinal section](#rotor-longitudinal-section)
+- [Frequency-response plots](#frequency-response-plots)
 - [Campbell diagrams](#campbell-diagrams)
 - [Synchronous harmonics and critical speeds](#synchronous-harmonics-and-critical-speeds)
 
@@ -42,6 +43,73 @@ The function returns the figure and axes and does not call `show()`.
 The longitudinal coordinate is the projection onto the model's `spin_axis`.
 Every shaft must be parallel to that direction. A nonparallel shaft is rejected
 because its true geometry cannot be represented by one longitudinal section.
+
+## Frequency-response plots
+
+`plot_frequency_response` accepts the result of either `frequency_response`
+or `unbalance_response` and plots complex-response magnitudes. Select curves
+with global DOF indices; the function resolves them through
+`result["free_dofs"]`, so constraints do not change the selection convention:
+
+```python
+from spinniped import plot_frequency_response
+
+result = solver.solve(
+    "frequency_response",
+    fixed_dofs=fixed,
+    frequencies=[0.0, 10.0, 20.0, 30.0],
+    speed=100.0,
+    load_ids=[1],
+)
+
+figure, axes = plot_frequency_response(
+    result,
+    dofs=[0, 1],
+    labels=["x response", "y response"],
+)
+```
+
+Ordinary harmonic results default to excitation frequency in Hz. Synchronous
+load and unbalance results contain one signed rotor speed per response point,
+so their default horizontal axis is rotor speed in rpm:
+
+```python
+result = solver.solve(
+    "frequency_response",
+    fixed_dofs=fixed,
+    speeds=speeds,
+    load_ids=[synchronous_load_id],
+)
+
+figure, axes = plot_frequency_response(
+    result,
+    dofs=[0],
+    speed_unit="rad/s",
+)
+```
+
+Use `x_axis="frequency"` to show the order-derived excitation frequency
+instead, or `x_axis="speed"` to require a complete speed grid explicitly.
+Available speed units are `"rpm"`, `"rad/s"`, and `"hz"`.
+
+For stochastic results, `statistic="sample"` selects one realization. Mean
+and median curves, empirical confidence bands, and sample extrema use the same
+options as Campbell plots:
+
+```python
+figure, axes = plot_frequency_response(
+    result,
+    dofs=[0],
+    statistic="mean",
+    confidence=0.90,
+    show_extremes=True,
+)
+```
+
+Statistics are calculated from response magnitudes, not by averaging complex
+phasors. Use `ax=existing_axes` to combine response curves or add secondary
+information. The function returns its figure and axes and does not call
+`show()`.
 
 ## Campbell diagrams
 
