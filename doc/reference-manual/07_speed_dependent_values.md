@@ -42,10 +42,10 @@ assembled quantity linearly:
 | `HarmonicLoad` | each component of `force` and `moment` |
 | `RotatingLoad` | `force_magnitude` |
 
-All other placements are rejected before sampling. This includes grids,
-coordinate systems, materials, shaft and disk properties, load phases,
-`Unbalance.mass_eccentricity`, distribution parameters, and
-`ModelDefinition.spin_axis`.
+All other placements are rejected before sampling. Record constructors reject
+tables in grids, coordinate systems, materials, shaft and disk properties,
+load phases, and `Unbalance.mass_eccentricity`. Context-level validation covers
+distribution parameters and `ModelDefinition.spin_axis`.
 
 ## Resolution and validation
 

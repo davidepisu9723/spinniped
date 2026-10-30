@@ -248,6 +248,34 @@ def test_rotating_load_rejects_invalid_local_inputs(
 
 
 @pytest.mark.parametrize(
+    ("arguments", "keywords", "exception", "message"),
+    [
+        ((True, 2, 1.0e-4), {}, TypeError, "id must be an integer"),
+        ((1, 0, 1.0e-4), {}, ValueError, "grid must be positive"),
+        (
+            (1, 2, -1.0e-4),
+            {},
+            ValueError,
+            "mass_eccentricity must be nonnegative",
+        ),
+        ((1, 2, 1.0e-4), {"phase": np.nan}, ValueError, "must be finite"),
+        (
+            (1, 2, 1.0e-4),
+            {"coordinate_system": -1},
+            ValueError,
+            "cannot be negative",
+        ),
+    ],
+)
+def test_unbalance_rejects_invalid_local_inputs(
+    arguments, keywords, exception, message
+):
+    """Verify malformed unbalance records fail during construction."""
+    with pytest.raises(exception, match=message):
+        Unbalance(*arguments, **keywords)
+
+
+@pytest.mark.parametrize(
     ("loads", "exception", "message"),
     [
         ([DiskElement(9, 2, 3)], TypeError, "Every load record"),
@@ -264,11 +292,6 @@ def test_rotating_load_rejects_invalid_local_inputs(
             [HarmonicLoad(1, grid=2, coordinate_system=99)],
             ValueError,
             "unknown coordinate system",
-        ),
-        (
-            [Unbalance(1, grid=2, mass_eccentricity=-1.0e-4)],
-            ValueError,
-            "mass_eccentricity must be nonnegative",
         ),
     ],
 )

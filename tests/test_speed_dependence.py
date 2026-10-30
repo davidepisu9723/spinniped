@@ -684,19 +684,6 @@ def test_rotating_load_speed_table_must_remain_nonnegative():
     [
         ModelDefinition(
             grids=[Grid(1)],
-            loads=[
-                Unbalance(
-                    1,
-                    grid=1,
-                    mass_eccentricity=SpeedDependentValue(
-                        (0, 1),
-                        (1.0e-4, 2.0e-4),
-                    ),
-                )
-            ],
-        ),
-        ModelDefinition(
-            grids=[Grid(1)],
             spin_axis=(0.0, 0.0, SpeedDependentValue((0, 1), (1.0, 2.0))),
         ),
     ],
@@ -707,6 +694,16 @@ def test_builder_rejects_speed_dependent_values_in_unsupported_fields(
     """Verify tables cannot silently enter nonlinear or unsupported records."""
     with pytest.raises(TypeError, match="does not accept SpeedDependentValue"):
         ModelBuilder().build(definition)
+
+
+@pytest.mark.parametrize("field", ["mass_eccentricity", "phase"])
+def test_unbalance_rejects_speed_dependence_at_declaration(field):
+    """Verify unbalance parameters cannot contain rotor-speed tables."""
+    arguments = {"mass_eccentricity": 1.0e-4, "phase": 0.0}
+    arguments[field] = SpeedDependentValue((0, 1), (1.0e-4, 2.0e-4))
+
+    with pytest.raises(TypeError, match="real number or random reference"):
+        Unbalance(1, grid=1, **arguments)
 
 
 def test_harmonic_load_rejects_speed_dependent_phase_at_declaration():

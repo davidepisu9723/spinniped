@@ -843,6 +843,38 @@ class Unbalance:
     phase: Parameter = 0.0
     coordinate_system: int = 0
 
+    def __post_init__(self):
+        """Validate the complete local unbalance specification."""
+        # Reference syntax belongs to the record; reference existence and the
+        # load-frame orientation relative to spin_axis require ModelBuilder.
+        for name in ("id", "grid"):
+            value = getattr(self, name)
+            if isinstance(value, bool) or not isinstance(value, int):
+                raise TypeError(f"Unbalance {name} must be an integer ID")
+            if value <= 0:
+                raise ValueError(f"Unbalance {name} must be positive")
+        if isinstance(self.coordinate_system, bool) or not isinstance(
+            self.coordinate_system, int
+        ):
+            raise TypeError("Unbalance coordinate_system must be an integer ID")
+        if self.coordinate_system < 0:
+            raise ValueError("Unbalance coordinate_system cannot be negative")
+
+        # Both physical parameters are speed-independent. A random magnitude
+        # is checked again after resolution reconstructs this record.
+        _validate_parameter(self.phase, f"Unbalance {self.id} phase")
+        _validate_parameter(
+            self.mass_eccentricity,
+            f"Unbalance {self.id} mass_eccentricity",
+        )
+        if (
+            not isinstance(self.mass_eccentricity, tuple)
+            and self.mass_eccentricity < 0.0
+        ):
+            raise ValueError(
+                f"Unbalance {self.id} mass_eccentricity must be nonnegative"
+            )
+
 
 # These unions document valid contents of model record lists.
 Property: TypeAlias = ShaftProperty | BearingProperty | DiskProperty

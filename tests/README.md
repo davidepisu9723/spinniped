@@ -61,7 +61,7 @@ parametrized functions run once for every listed case.
 |---|---:|---|
 | [`test_element_matrices.py`](#test_element_matricespy) | 10 | Stateless shaft, bearing, and disk matrix kernels |
 | [`test_assembly.py`](#test_assemblypy) | 16 | Record validation, coordinate transforms, and global assembly |
-| [`test_declarative_api.py`](#test_declarative_apipy) | 30 | Distribution resolution and core public solver routes |
+| [`test_declarative_api.py`](#test_declarative_apipy) | 31 | Distribution resolution and core public solver routes |
 | [`test_speed_dependence.py`](#test_speed_dependencepy) | 18 | Tabulated rotor-speed interpolation, stochastic curves, matrix deltas, and load deltas |
 | [`test_load_response.py`](#test_load_responsepy) | 6 | Declarative load phasors and steady-response routes |
 | [`test_plotting.py`](#test_plottingpy) | 8 | Rotor-section and Campbell-diagram rendering and plotting-input validation |
@@ -421,8 +421,8 @@ matrix families identical to a load-free model.
 
 #### `test_builder_rejects_invalid_load_records`
 
-Checks the shared load-ID namespace, accepted record types, grid and
-coordinate-system existence, and nonnegative unbalance magnitudes.
+Checks the shared load-ID namespace, accepted record types, and grid and
+coordinate-system existence.
 
 #### `test_harmonic_load_rejects_invalid_local_inputs`
 
@@ -435,6 +435,12 @@ components, and phase. Each malformed load must fail immediately during
 Parametrizes invalid rotating-load identity, references, magnitude, phase, and
 rotation sense. Each malformed load must fail immediately during
 `RotatingLoad` construction.
+
+#### `test_unbalance_rejects_invalid_local_inputs`
+
+Parametrizes invalid unbalance identity, references, mass eccentricity, and
+phase. Each malformed record must fail immediately during `Unbalance`
+construction.
 
 #### `test_unbalance_plane_must_be_normal_to_the_spin_axis`
 
@@ -667,9 +673,13 @@ valid.
 
 #### `test_builder_rejects_speed_dependent_values_in_unsupported_fields`
 
-Parametrizes grids, materials, shaft and disk properties, phases, unbalance,
-and the model spin axis. These unsupported placements must fail explicitly
-instead of reaching unrelated numerical kernels.
+Places a speed table in the model spin axis. This context-level unsupported
+placement must fail explicitly instead of reaching numerical assembly.
+
+#### `test_unbalance_rejects_speed_dependence_at_declaration`
+
+Parametrizes the mass-eccentricity and phase fields with speed tables. Both
+unsupported placements must fail immediately during `Unbalance` construction.
 
 #### `test_grid_rejects_speed_dependent_coordinates_at_declaration`
 

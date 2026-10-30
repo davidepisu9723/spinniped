@@ -384,16 +384,6 @@ def _reject_speed_dependent_value(value, path):
 
 def _validate_speed_dependent_placements(definition):
     """Restrict speed tables to supported linear bearing and load fields."""
-    for load in definition.loads:
-        if not isinstance(load, (HarmonicLoad, RotatingLoad, Unbalance)):
-            continue
-        if isinstance(load, Unbalance):
-            _reject_speed_dependent_value(load.phase, f"Load {load.id} phase")
-            _reject_speed_dependent_value(
-                load.mass_eccentricity,
-                f"Unbalance {load.id} mass_eccentricity",
-            )
-
     for distribution in definition.distributions:
         if not isinstance(distribution, RandomDistribution):
             continue
@@ -928,7 +918,7 @@ def _assemble(definition):
         definition.loads,
         "load",
         (HarmonicLoad, RotatingLoad, Unbalance),
-        validated_id_types=(HarmonicLoad, RotatingLoad),
+        validated_id_types=(HarmonicLoad, RotatingLoad, Unbalance),
     )
 
     # Record insertion order determines global grid and DOF order.
@@ -996,29 +986,9 @@ def _assemble(definition):
             raise TypeError(f"{label} must be an integer ID")
         return value
 
-    def finite_scalar(value, label):
-        """Return one finite real scalar used by a load record."""
-        if isinstance(value, (bool, np.bool_)):
-            raise TypeError(f"{label} must be a real scalar")
-        try:
-            scalar = np.asarray(value, dtype=float)
-        except (TypeError, ValueError) as error:
-            raise TypeError(f"{label} must be a real scalar") from error
-        if scalar.shape != ():
-            raise ValueError(f"{label} must be a scalar")
-        if not np.isfinite(scalar):
-            raise ValueError(f"{label} must be finite")
-        return float(scalar)
-
     # Validate declarative excitations without adding them to structural
     # matrices. Response solvers assemble sample-specific load vectors.
     for load in loads.values():
-        if isinstance(load, Unbalance):
-            integer_reference(load.grid, f"Load {load.id} grid")
-            integer_reference(
-                load.coordinate_system,
-                f"Load {load.id} coordinate_system",
-            )
         if load.grid not in grid_index:
             raise ValueError(
                 f"Load {load.id} references unknown grid {load.grid}"
@@ -1030,19 +1000,6 @@ def _assemble(definition):
             )
 
         if isinstance(load, Unbalance):
-            finite_scalar(load.phase, f"Load {load.id} phase")
-
-        if isinstance(load, Unbalance):
-            mass_eccentricity = finite_scalar(
-                load.mass_eccentricity,
-                f"Unbalance {load.id} mass_eccentricity",
-            )
-            if mass_eccentricity < 0.0:
-                raise ValueError(
-                    f"Unbalance {load.id} mass_eccentricity must be "
-                    "nonnegative"
-                )
-
             # The load frame supplies phase zero, but its transverse plane
             # must be the rotor plane. Parallel and antiparallel z axes are
             # physically equivalent and their sign can set the later phasor.

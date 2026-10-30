@@ -42,6 +42,12 @@ tabulated magnitude. Random magnitude references are revalidated when model
 resolution reconstructs the record. The builder retains only grid/frame
 existence and shared load-ID uniqueness checks for this record.
 
+`Unbalance` construction validates its identity and reference syntax, phase,
+and nonnegative mass-eccentricity parameter. Random mass-eccentricity
+references are revalidated after resolution. The builder retains grid/frame
+existence, shared load-ID uniqueness, and the contextual requirement that the
+selected frame's z-axis be parallel to the model spin axis.
+
 ## Harmonic convention
 
 Harmonic quantities use
@@ -111,12 +117,12 @@ reversing the intended global rotation accidentally.
 
 ## Builder behavior
 
-`ModelBuilder` validates load IDs, record types, grid and coordinate-system
-references, finite vector components and phases, rotation sense, physical
-bounds, and the unbalance plane. It also resolves random parameters separately
-for every realization. Loads do not modify $\mathbf{K}$, $\mathbf{M}$,
-$\mathbf{C}$, or $\mathbf{G}$ and are retained in each
-`BuiltModel.definitions` entry.
+`ModelBuilder` validates collection-wide load-ID uniqueness, record types,
+grid and coordinate-system existence, and the unbalance plane. It also
+resolves random parameters separately for every realization; reconstruction
+of each resolved record repeats its local validation. Loads do not modify
+$\mathbf{K}$, $\mathbf{M}$, $\mathbf{C}$, or $\mathbf{G}$ and are retained in
+each `BuiltModel.definitions` entry.
 
 For frequency response, all selected speed-dependent load components are
 interpolated at the call's scalar rotor `speed`, transformed, and summed before
