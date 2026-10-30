@@ -20,6 +20,7 @@ from .records import (
     ShaftElement,
     ShaftProperty,
     SpeedDependentValue,
+    SynchronousLoad,
     Unbalance,
 )
 
@@ -915,8 +916,13 @@ def _assemble(definition):
     loads = _unique(
         definition.loads,
         "load",
-        (HarmonicLoad, RotatingLoad, Unbalance),
-        validated_id_types=(HarmonicLoad, RotatingLoad, Unbalance),
+        (HarmonicLoad, SynchronousLoad, RotatingLoad, Unbalance),
+        validated_id_types=(
+            HarmonicLoad,
+            SynchronousLoad,
+            RotatingLoad,
+            Unbalance,
+        ),
     )
 
     # Record insertion order determines global grid and DOF order.

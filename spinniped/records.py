@@ -664,9 +664,9 @@ LumpedMassElement = DiskElement
 
 # Loads are independent records even where their physical behavior is related.
 # Keeping them as peers makes their different amplitude laws explicit: a
-# harmonic load has signed components, a rotating load has a circular-force
-# magnitude, and unbalance scales with rotor speed squared. The first two may
-# select their amplitudes from a rotor-speed table.
+# harmonic and synchronous loads have signed components, a rotating load has a
+# circular-force magnitude, and unbalance scales with rotor speed squared. The
+# first three may select their amplitudes from a rotor-speed table.
 @dataclass(frozen=True, slots=True)
 class HarmonicLoad:
     """Define a harmonic nodal load.
@@ -732,6 +732,37 @@ class HarmonicLoad:
             for index, component in enumerate(vector):
                 if not isinstance(component, SpeedDependentValue):
                     _validate_parameter(component, f"{name}[{index}]")
+
+
+@dataclass(frozen=True, slots=True)
+class SynchronousLoad(HarmonicLoad):
+    """Define an order-locked harmonic nodal load.
+
+    The excitation angular frequency is ``harmonic_order * abs(speed)``.
+    Force, moment, phase, and coordinate-system semantics match
+    :class:`HarmonicLoad`.
+    """
+
+    # A required keyword-only field can follow HarmonicLoad's inherited
+    # optional fields without changing their established constructor order.
+    harmonic_order: int | float = field(kw_only=True)
+
+    def __post_init__(self):
+        """Validate the complete local synchronous-load specification."""
+        # Reuse the complete component-vector, phase, identity, and reference
+        # contract of the ordinary harmonic load.
+        HarmonicLoad.__post_init__(self)
+
+        # Harmonic order is deterministic because it defines the response
+        # frequency grid itself, rather than only an amplitude realization.
+        if isinstance(self.harmonic_order, bool) or not isinstance(
+            self.harmonic_order, Real
+        ):
+            raise TypeError("Synchronous load harmonic_order must be a real number")
+        if not isfinite(self.harmonic_order):
+            raise ValueError("Synchronous load harmonic_order must be finite")
+        if self.harmonic_order <= 0.0:
+            raise ValueError("Synchronous load harmonic_order must be positive")
 
 
 @dataclass(frozen=True, slots=True)
@@ -879,7 +910,7 @@ class Unbalance:
 # These unions document valid contents of model record lists.
 Property: TypeAlias = ShaftProperty | BearingProperty | DiskProperty
 Element: TypeAlias = ShaftElement | BearingElement | DiskElement
-Load: TypeAlias = HarmonicLoad | RotatingLoad | Unbalance
+Load: TypeAlias = HarmonicLoad | SynchronousLoad | RotatingLoad | Unbalance
 
 
 @dataclass(frozen=True, slots=True)
@@ -903,7 +934,8 @@ class ModelDefinition:
     spin_axis : tuple, optional
         Global rotor spin direction. The builder normalizes this vector.
     loads : list of load records, optional
-        Harmonic, rotating, and unbalance excitations associated with grids.
+        Harmonic, synchronous, rotating, and unbalance excitations associated
+        with grids.
     """
 
     # Default factories prevent model instances from sharing mutable lists.
