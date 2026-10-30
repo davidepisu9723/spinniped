@@ -569,6 +569,27 @@ def test_bearing_property_rejects_invalid_local_inputs(
 
 
 @pytest.mark.parametrize(
+    ("arguments", "exception", "message"),
+    [
+        ((True, 1.0), TypeError, "IDs must be integers"),
+        ((0, 1.0), ValueError, "IDs must be positive"),
+        ((1, -1.0), ValueError, "mass cannot be negative"),
+        ((1, 1.0, -1.0), ValueError, "diametral_inertia cannot be negative"),
+        ((1, 1.0, 1.0, -1.0), ValueError, "polar_inertia cannot be negative"),
+        ((1, 1.0, 1.0, 1.0, -0.1), ValueError, "damping cannot be negative"),
+    ],
+)
+def test_disk_property_rejects_invalid_local_inputs(
+    arguments,
+    exception,
+    message,
+):
+    """Verify malformed disk properties fail during construction."""
+    with pytest.raises(exception, match=message):
+        DiskProperty(*arguments)
+
+
+@pytest.mark.parametrize(
     ("definition", "exception", "message"),
     [
         (ModelDefinition(), ValueError, "at least one grid"),

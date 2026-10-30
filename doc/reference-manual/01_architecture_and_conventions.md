@@ -23,7 +23,8 @@ These records store identifiers, connectivity, and Python-valued parameters.
 matrices. `SpeedDependentValue`, `RandomDistribution`, `Grid`,
 `CoordinateSystem`, `Material`, and `ShaftProperty` validate their local
 contracts during record construction. `BearingProperty` does the same for its
-constant, random, and tabulated coefficients.
+constant, random, and tabulated coefficients, while `DiskProperty` validates
+its nonnegative mass, inertia, and damping parameters.
 `ModelBuilder` resolves
 random parameters, validates table placement and field-specific constraints,
 calculates constant local matrices and unit-coefficient bearing bases using the

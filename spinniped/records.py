@@ -519,6 +519,22 @@ class DiskProperty:
     polar_inertia: Parameter = 0.0
     damping: Parameter = 0.0
 
+    def __post_init__(self):
+        """Validate the complete local disk-property specification."""
+        if isinstance(self.id, bool) or not isinstance(self.id, int):
+            raise TypeError("Disk property IDs must be integers")
+        if self.id <= 0:
+            raise ValueError("Disk property IDs must be positive")
+
+        # Sampled properties are reconstructed and rechecked against the same
+        # nonnegative mass, inertia, and damping bounds.
+        names = ("mass", "diametral_inertia", "polar_inertia", "damping")
+        for name in names:
+            value = getattr(self, name)
+            _validate_parameter(value, f"Disk property {self.id} {name}")
+            if isinstance(value, Real) and value < 0.0:
+                raise ValueError(f"Disk property {name} cannot be negative")
+
 
 # A lumped mass uses the same numerical formulation as a rigid disk.
 LumpedMassProperty = DiskProperty

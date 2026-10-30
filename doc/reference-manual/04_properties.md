@@ -49,5 +49,8 @@ compatibility remain builder responsibilities.
 
 `DiskProperty` stores mass, equal diametral inertia, polar inertia, and a
 mass-proportional damping coefficient. Mass and inertias must be finite and
-nonnegative after resolution. Disk properties contribute inertia and
+nonnegative, as must damping. Record construction validates the positive ID
+and each constant or random parameter; reconstructed sampled records pass
+through the same checks. Property-ID uniqueness and element compatibility
+remain builder responsibilities. Disk properties contribute inertia and
 gyroscopic terms but no elastic stiffness.

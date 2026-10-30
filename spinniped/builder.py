@@ -384,17 +384,6 @@ def _reject_speed_dependent_value(value, path):
 
 def _validate_speed_dependent_placements(definition):
     """Restrict speed tables to supported linear bearing and load fields."""
-    for property_record in definition.properties:
-        if isinstance(property_record, (ShaftProperty, BearingProperty)):
-            continue
-        if not isinstance(property_record, (ShaftProperty, DiskProperty)):
-            continue
-        for record_field in fields(property_record):
-            _reject_speed_dependent_value(
-                getattr(property_record, record_field.name),
-                f"Property {property_record.id} {record_field.name}",
-            )
-
     for load in definition.loads:
         if not isinstance(load, (HarmonicLoad, RotatingLoad, Unbalance)):
             continue
@@ -927,7 +916,7 @@ def _assemble(definition):
         definition.properties,
         "property",
         (ShaftProperty, BearingProperty, DiskProperty),
-        validated_id_types=(ShaftProperty, BearingProperty),
+        validated_id_types=(ShaftProperty, BearingProperty, DiskProperty),
     )
     _unique(
         definition.elements,

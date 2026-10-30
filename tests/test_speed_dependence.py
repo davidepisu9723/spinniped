@@ -691,15 +691,6 @@ def test_rotating_load_speed_table_must_remain_nonnegative():
     [
         ModelDefinition(
             grids=[Grid(1)],
-            properties=[
-                DiskProperty(
-                    1,
-                    mass=SpeedDependentValue((0, 1), (1.0, 2.0)),
-                )
-            ],
-        ),
-        ModelDefinition(
-            grids=[Grid(1)],
             loads=[
                 HarmonicLoad(
                     1,
@@ -757,3 +748,11 @@ def test_shaft_property_rejects_speed_dependence_at_declaration():
 
     with pytest.raises(TypeError, match="real number or random reference"):
         ShaftProperty(1, material=1, outer_diameter=table)
+
+
+def test_disk_property_rejects_speed_dependence_at_declaration():
+    """Verify disk-property parameters cannot contain speed tables."""
+    table = SpeedDependentValue((0, 1), (1.0, 2.0))
+
+    with pytest.raises(TypeError, match="real number or random reference"):
+        DiskProperty(1, mass=table)

@@ -300,6 +300,12 @@ Parametrizes invalid bearing-property IDs and malformed constant or random
 coefficients. Each malformed property must fail immediately during
 `BearingProperty` construction.
 
+#### `test_disk_property_rejects_invalid_local_inputs`
+
+Parametrizes invalid disk-property IDs and negative mass, inertia, or damping.
+Each malformed property must fail immediately during `DiskProperty`
+construction.
+
 #### `test_builder_strictly_validates_record_types_and_finite_geometry`
 
 Exercises the remaining root-model validation failures: no grids, a grid
@@ -649,6 +655,11 @@ immediately because its fields accept scalar parameters only.
 
 Places a speed table in shaft diameter. The `ShaftProperty` record must reject
 it immediately because shaft-property fields accept scalar parameters only.
+
+#### `test_disk_property_rejects_speed_dependence_at_declaration`
+
+Places a speed table in disk mass. The `DiskProperty` record must reject it
+immediately because disk-property fields accept scalar parameters only.
 
 ### `test_load_response.py`
 
