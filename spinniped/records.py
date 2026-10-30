@@ -763,6 +763,54 @@ class RotatingLoad:
     sense: str = "positive"
     coordinate_system: int = 0
 
+    def __post_init__(self):
+        """Validate the complete local rotating-load specification."""
+        # IDs and reference syntax are intrinsic to the record. Whether the
+        # referenced grid and frame exist remains a ModelBuilder concern.
+        for name in ("id", "grid"):
+            value = getattr(self, name)
+            if isinstance(value, bool) or not isinstance(value, int):
+                raise TypeError(f"Rotating load {name} must be an integer ID")
+            if value <= 0:
+                raise ValueError(f"Rotating load {name} must be positive")
+        if isinstance(self.coordinate_system, bool) or not isinstance(
+            self.coordinate_system, int
+        ):
+            raise TypeError("Rotating load coordinate_system must be an integer ID")
+        if self.coordinate_system < 0:
+            raise ValueError("Rotating load coordinate_system cannot be negative")
+
+        # Phase is speed-independent, while magnitude may be tabulated. Any
+        # unresolved random references are checked again after resolution.
+        _validate_parameter(self.phase, f"Rotating load {self.id} phase")
+        magnitude = self.force_magnitude
+        if isinstance(magnitude, SpeedDependentValue):
+            if any(
+                not isinstance(value, tuple) and value < 0.0
+                for value in magnitude.values
+            ):
+                raise ValueError(
+                    f"Rotating load {self.id} force_magnitude values must be "
+                    "nonnegative"
+                )
+        else:
+            _validate_parameter(
+                magnitude,
+                f"Rotating load {self.id} force_magnitude",
+            )
+            if not isinstance(magnitude, tuple) and magnitude < 0.0:
+                raise ValueError(
+                    f"Rotating load {self.id} force_magnitude must be nonnegative"
+                )
+
+        # Rotation sense is a closed textual choice, independent of context.
+        if not isinstance(self.sense, str):
+            raise TypeError(f"Rotating load {self.id} sense must be a string")
+        if self.sense not in {"positive", "negative"}:
+            raise ValueError(
+                f"Rotating load {self.id} sense must be 'positive' or 'negative'"
+            )
+
 
 @dataclass(frozen=True, slots=True)
 class Unbalance:

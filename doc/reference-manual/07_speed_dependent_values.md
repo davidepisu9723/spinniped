@@ -65,9 +65,10 @@ Record construction enforces all of the following local invariants:
 - structurally valid random ordinate references.
 
 When random ordinate references are resolved, constructing the resolved record
-validates the resulting numeric values again. The builder retains only checks
-that require surrounding context: supported field placement, reference lookup,
-and constraints such as nonnegative `RotatingLoad.force_magnitude` ordinates.
+validates the resulting numeric values again. A `RotatingLoad` therefore
+rejects known negative magnitude ordinates immediately and repeats that check
+after random-reference resolution. The builder retains only checks that require
+surrounding context, such as reference lookup and supported field placement.
 
 ## Interpolation contract
 

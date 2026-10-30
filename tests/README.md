@@ -61,7 +61,7 @@ parametrized functions run once for every listed case.
 |---|---:|---|
 | [`test_element_matrices.py`](#test_element_matricespy) | 10 | Stateless shaft, bearing, and disk matrix kernels |
 | [`test_assembly.py`](#test_assemblypy) | 16 | Record validation, coordinate transforms, and global assembly |
-| [`test_declarative_api.py`](#test_declarative_apipy) | 29 | Distribution resolution and core public solver routes |
+| [`test_declarative_api.py`](#test_declarative_apipy) | 30 | Distribution resolution and core public solver routes |
 | [`test_speed_dependence.py`](#test_speed_dependencepy) | 18 | Tabulated rotor-speed interpolation, stochastic curves, matrix deltas, and load deltas |
 | [`test_load_response.py`](#test_load_responsepy) | 6 | Declarative load phasors and steady-response routes |
 | [`test_plotting.py`](#test_plottingpy) | 8 | Rotor-section and Campbell-diagram rendering and plotting-input validation |
@@ -422,14 +422,19 @@ matrix families identical to a load-free model.
 #### `test_builder_rejects_invalid_load_records`
 
 Checks the shared load-ID namespace, accepted record types, grid and
-coordinate-system existence, rotation sense, and nonnegative rotating-force
-and unbalance magnitudes.
+coordinate-system existence, and nonnegative unbalance magnitudes.
 
 #### `test_harmonic_load_rejects_invalid_local_inputs`
 
 Parametrizes invalid harmonic-load identity, references, vector shapes,
 components, and phase. Each malformed load must fail immediately during
 `HarmonicLoad` construction.
+
+#### `test_rotating_load_rejects_invalid_local_inputs`
+
+Parametrizes invalid rotating-load identity, references, magnitude, phase, and
+rotation sense. Each malformed load must fail immediately during
+`RotatingLoad` construction.
 
 #### `test_unbalance_plane_must_be_normal_to_the_spin_axis`
 
@@ -656,8 +661,9 @@ first linear solve.
 
 #### `test_rotating_load_speed_table_must_remain_nonnegative`
 
-Rejects a rotating-load magnitude table containing a negative ordinate even
-when another ordinate is valid.
+Constructs a rotating load with a magnitude table containing a negative
+ordinate. The record must reject it immediately even when another ordinate is
+valid.
 
 #### `test_builder_rejects_speed_dependent_values_in_unsupported_fields`
 

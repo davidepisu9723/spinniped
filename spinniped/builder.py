@@ -387,9 +387,8 @@ def _validate_speed_dependent_placements(definition):
     for load in definition.loads:
         if not isinstance(load, (HarmonicLoad, RotatingLoad, Unbalance)):
             continue
-        if not isinstance(load, HarmonicLoad):
-            _reject_speed_dependent_value(load.phase, f"Load {load.id} phase")
         if isinstance(load, Unbalance):
+            _reject_speed_dependent_value(load.phase, f"Load {load.id} phase")
             _reject_speed_dependent_value(
                 load.mass_eccentricity,
                 f"Unbalance {load.id} mass_eccentricity",
@@ -929,7 +928,7 @@ def _assemble(definition):
         definition.loads,
         "load",
         (HarmonicLoad, RotatingLoad, Unbalance),
-        validated_id_types=(HarmonicLoad,),
+        validated_id_types=(HarmonicLoad, RotatingLoad),
     )
 
     # Record insertion order determines global grid and DOF order.
@@ -1011,50 +1010,10 @@ def _assemble(definition):
             raise ValueError(f"{label} must be finite")
         return float(scalar)
 
-    def finite_vector(value, label):
-        """Return one finite three-component vector used by a load record."""
-        try:
-            vector = np.asarray(value, dtype=float)
-        except (TypeError, ValueError) as error:
-            raise TypeError(
-                f"{label} must contain only real numeric values"
-            ) from error
-        if vector.shape != (3,):
-            raise ValueError(f"{label} must contain three components")
-        if not np.isfinite(vector).all():
-            raise ValueError(f"{label} must contain only finite values")
-        return vector
-
-    def finite_speed_scalar(value, label, *, nonnegative=False):
-        """Validate a scalar or a resolved speed-dependent scalar."""
-        if isinstance(value, SpeedDependentValue):
-            _, table_values = _speed_dependent_arrays(value, label)
-            if nonnegative and np.any(table_values < 0.0):
-                raise ValueError(f"{label} values must be nonnegative")
-            return value
-        scalar = finite_scalar(value, label)
-        if nonnegative and scalar < 0.0:
-            raise ValueError(f"{label} must be nonnegative")
-        return scalar
-
-    def finite_speed_vector(value, label):
-        """Validate three scalar or speed-dependent load components."""
-        try:
-            components = list(value)
-        except TypeError:
-            raise TypeError(f"{label} must contain three components") from None
-        if not any(isinstance(item, SpeedDependentValue) for item in components):
-            finite_vector(value, label)
-            return
-        if len(components) != 3:
-            raise ValueError(f"{label} must contain three components")
-        for component, item in enumerate(components):
-            finite_speed_scalar(item, f"{label}[{component}]")
-
     # Validate declarative excitations without adding them to structural
     # matrices. Response solvers assemble sample-specific load vectors.
     for load in loads.values():
-        if not isinstance(load, HarmonicLoad):
+        if isinstance(load, Unbalance):
             integer_reference(load.grid, f"Load {load.id} grid")
             integer_reference(
                 load.coordinate_system,
@@ -1070,26 +1029,10 @@ def _assemble(definition):
                 f"{load.coordinate_system}"
             )
 
-        if not isinstance(load, HarmonicLoad):
+        if isinstance(load, Unbalance):
             finite_scalar(load.phase, f"Load {load.id} phase")
 
-        if isinstance(load, RotatingLoad):
-            finite_speed_scalar(
-                load.force_magnitude,
-                f"Rotating load {load.id} force_magnitude",
-                nonnegative=True,
-            )
-            if not isinstance(load.sense, str):
-                raise TypeError(
-                    f"Rotating load {load.id} sense must be a string"
-                )
-            if load.sense not in {"positive", "negative"}:
-                raise ValueError(
-                    f"Rotating load {load.id} sense must be 'positive' "
-                    "or 'negative'"
-                )
-
-        elif isinstance(load, Unbalance):
+        if isinstance(load, Unbalance):
             mass_eccentricity = finite_scalar(
                 load.mass_eccentricity,
                 f"Unbalance {load.id} mass_eccentricity",

@@ -36,6 +36,12 @@ nonnegative frame reference, phase parameter, vector shapes, and every
 constant, random, or tabulated component. The builder retains grid/frame
 existence and load-ID uniqueness checks.
 
+`RotatingLoad` construction likewise validates its identity and reference
+syntax, speed-independent phase, rotation sense, and nonnegative scalar or
+tabulated magnitude. Random magnitude references are revalidated when model
+resolution reconstructs the record. The builder retains only grid/frame
+existence and shared load-ID uniqueness checks for this record.
+
 ## Harmonic convention
 
 Harmonic quantities use

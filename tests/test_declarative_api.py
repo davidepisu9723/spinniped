@@ -218,6 +218,36 @@ def test_harmonic_load_rejects_invalid_local_inputs(
 
 
 @pytest.mark.parametrize(
+    ("arguments", "keywords", "exception", "message"),
+    [
+        ((True, 2, 1.0), {}, TypeError, "id must be an integer"),
+        ((1, 0, 1.0), {}, ValueError, "grid must be positive"),
+        ((1, 2, -1.0), {}, ValueError, "force_magnitude must be nonnegative"),
+        ((1, 2, 1.0), {"phase": np.nan}, ValueError, "must be finite"),
+        ((1, 2, 1.0), {"sense": 1}, TypeError, "sense must be a string"),
+        (
+            (1, 2, 1.0),
+            {"sense": "forward"},
+            ValueError,
+            "sense must be 'positive' or 'negative'",
+        ),
+        (
+            (1, 2, 1.0),
+            {"coordinate_system": -1},
+            ValueError,
+            "cannot be negative",
+        ),
+    ],
+)
+def test_rotating_load_rejects_invalid_local_inputs(
+    arguments, keywords, exception, message
+):
+    """Verify malformed rotating loads fail during construction."""
+    with pytest.raises(exception, match=message):
+        RotatingLoad(*arguments, **keywords)
+
+
+@pytest.mark.parametrize(
     ("loads", "exception", "message"),
     [
         ([DiskElement(9, 2, 3)], TypeError, "Every load record"),
@@ -234,16 +264,6 @@ def test_harmonic_load_rejects_invalid_local_inputs(
             [HarmonicLoad(1, grid=2, coordinate_system=99)],
             ValueError,
             "unknown coordinate system",
-        ),
-        (
-            [RotatingLoad(1, grid=2, force_magnitude=-1.0)],
-            ValueError,
-            "force_magnitude must be nonnegative",
-        ),
-        (
-            [RotatingLoad(1, grid=2, force_magnitude=1.0, sense="forward")],
-            ValueError,
-            "sense must be 'positive' or 'negative'",
         ),
         (
             [Unbalance(1, grid=2, mass_eccentricity=-1.0e-4)],

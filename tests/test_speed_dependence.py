@@ -671,19 +671,12 @@ def test_selected_load_is_preflighted_but_unselected_tables_are_ignored(
 
 def test_rotating_load_speed_table_must_remain_nonnegative():
     """Verify every source ordinate satisfies the magnitude constraint."""
-    definition = _one_dof_definition(
-        stiffness=1_000.0,
-        loads=[
-            RotatingLoad(
-                1,
-                grid=1,
-                force_magnitude=SpeedDependentValue((0, 100), (1.0, -1.0)),
-            )
-        ],
-    )
-
     with pytest.raises(ValueError, match="values must be nonnegative"):
-        ModelBuilder().build(definition)
+        RotatingLoad(
+            1,
+            grid=1,
+            force_magnitude=SpeedDependentValue((0, 100), (1.0, -1.0)),
+        )
 
 
 @pytest.mark.parametrize(
