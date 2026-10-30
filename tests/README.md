@@ -282,6 +282,12 @@ Parametrizes invalid grid IDs, nonfinite coordinates, and invalid coordinate-
 system references. Each malformed grid must fail immediately during `Grid`
 construction.
 
+#### `test_material_rejects_invalid_local_inputs`
+
+Parametrizes invalid material IDs, nonfinite or nonpositive elastic data, and
+an out-of-range Poisson ratio. Each malformed material must fail immediately
+during `Material` construction.
+
 #### `test_builder_strictly_validates_record_types_and_finite_geometry`
 
 Exercises the remaining root-model validation failures: no grids, a grid
@@ -621,6 +627,11 @@ instead of reaching unrelated numerical kernels.
 
 Places a speed table in a grid coordinate. The `Grid` record must reject it
 immediately because coordinates accept scalar parameters only.
+
+#### `test_material_rejects_speed_dependent_parameters_at_declaration`
+
+Places a speed table in material density. The `Material` record must reject it
+immediately because its fields accept scalar parameters only.
 
 ### `test_load_response.py`
 

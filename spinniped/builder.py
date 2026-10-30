@@ -384,14 +384,6 @@ def _reject_speed_dependent_value(value, path):
 
 def _validate_speed_dependent_placements(definition):
     """Restrict speed tables to supported linear bearing and load fields."""
-    for material in definition.materials:
-        if not isinstance(material, Material):
-            continue
-        for name in ("density", "young_modulus", "poisson_ratio"):
-            _reject_speed_dependent_value(
-                getattr(material, name), f"Material {material.id} {name}"
-            )
-
     for property_record in definition.properties:
         if isinstance(property_record, BearingProperty):
             continue
@@ -914,7 +906,12 @@ def _assemble(definition):
     if not grids:
         raise ValueError("A model requires at least one grid")
 
-    materials = _unique(definition.materials, "material", Material)
+    materials = _unique(
+        definition.materials,
+        "material",
+        Material,
+        validate_id=False,
+    )
     properties = _unique(
         definition.properties,
         "property",

@@ -224,6 +224,10 @@ remain builder responsibilities.
 vector/frame contract during construction. Its vectors do not accept random
 references. Duplicate frame IDs remain a model-wide builder check.
 
+`Material` validates its ID and local physical bounds during construction and
+again when stochastic values are resolved. Duplicate IDs and material
+references remain model-wide builder checks.
+
 ## Coordinate systems
 
 `Grid.x`, `Grid.y`, and `Grid.z` are interpreted in the coordinate system

@@ -20,8 +20,9 @@ SpeedDependentValue, RandomDistribution
 These records store identifiers, connectivity, and Python-valued parameters.
 `SpeedDependentValue` is a nested value record rather than a member of a
 `ModelDefinition` list. Definition records do not own or calculate element
-matrices. `SpeedDependentValue`, `RandomDistribution`, `Grid`, and
-`CoordinateSystem` validate their local contracts during record construction.
+matrices. `SpeedDependentValue`, `RandomDistribution`, `Grid`,
+`CoordinateSystem`, and `Material` validate their local contracts during
+record construction.
 `ModelBuilder` resolves
 random parameters, validates table placement and field-specific constraints,
 calculates constant local matrices and unit-coefficient bearing bases using the

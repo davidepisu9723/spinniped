@@ -691,17 +691,6 @@ def test_rotating_load_speed_table_must_remain_nonnegative():
     [
         ModelDefinition(
             grids=[Grid(1)],
-            materials=[
-                Material(
-                    1,
-                    density=SpeedDependentValue((0, 1), (1, 2)),
-                    young_modulus=1.0,
-                    poisson_ratio=0.3,
-                )
-            ],
-        ),
-        ModelDefinition(
-            grids=[Grid(1)],
             properties=[
                 ShaftProperty(
                     1,
@@ -762,3 +751,11 @@ def test_grid_rejects_speed_dependent_coordinates_at_declaration():
 
     with pytest.raises(TypeError, match="real number or random reference"):
         Grid(1, x=table)
+
+
+def test_material_rejects_speed_dependent_parameters_at_declaration():
+    """Verify material parameters cannot contain speed tables."""
+    table = SpeedDependentValue((0, 1), (1, 2))
+
+    with pytest.raises(TypeError, match="real number or random reference"):
+        Material(1, density=table, young_modulus=1.0, poisson_ratio=0.3)

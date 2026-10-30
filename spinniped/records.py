@@ -360,6 +360,28 @@ class Material:
     young_modulus: Parameter
     poisson_ratio: Parameter
 
+    def __post_init__(self):
+        """Validate the complete local isotropic-material specification."""
+        if isinstance(self.id, bool) or not isinstance(self.id, int):
+            raise TypeError("Material IDs must be integers")
+        if self.id <= 0:
+            raise ValueError("Material IDs must be positive")
+
+        # Parameters may remain random references. Reconstructed sampled
+        # records pass through the numerical bounds below automatically.
+        for name in ("density", "young_modulus", "poisson_ratio"):
+            _validate_parameter(getattr(self, name), f"Material {self.id} {name}")
+        if isinstance(self.density, Real) and self.density <= 0.0:
+            raise ValueError("Material density must be positive")
+        if isinstance(self.young_modulus, Real) and self.young_modulus <= 0.0:
+            raise ValueError("Material young_modulus must be positive")
+        if isinstance(self.poisson_ratio, Real) and not (
+            -1.0 < self.poisson_ratio < 0.5
+        ):
+            raise ValueError(
+                "Material poisson_ratio must lie strictly between -1 and 0.5"
+            )
+
 
 @dataclass(frozen=True, slots=True)
 class ShaftProperty:

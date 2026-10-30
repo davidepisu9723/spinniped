@@ -512,6 +512,23 @@ def test_grid_rejects_invalid_local_inputs(arguments, exception, message):
 
 
 @pytest.mark.parametrize(
+    ("arguments", "exception", "message"),
+    [
+        ((True, 1.0, 1.0, 0.3), TypeError, "IDs must be integers"),
+        ((0, 1.0, 1.0, 0.3), ValueError, "IDs must be positive"),
+        ((1, 0.0, 1.0, 0.3), ValueError, "density must be positive"),
+        ((1, 1.0, 0.0, 0.3), ValueError, "young_modulus must be positive"),
+        ((1, 1.0, 1.0, 0.5), ValueError, "poisson_ratio"),
+        ((1, np.inf, 1.0, 0.3), ValueError, "must be finite"),
+    ],
+)
+def test_material_rejects_invalid_local_inputs(arguments, exception, message):
+    """Verify malformed materials fail during record construction."""
+    with pytest.raises(exception, match=message):
+        Material(*arguments)
+
+
+@pytest.mark.parametrize(
     ("definition", "exception", "message"),
     [
         (ModelDefinition(), ValueError, "at least one grid"),

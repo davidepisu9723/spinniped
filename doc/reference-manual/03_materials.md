@@ -14,10 +14,11 @@ distribution reference before resolution.
 
 ## Validation and resolution
 
-The builder requires unique positive integer material IDs. Resolved density and
+Record construction requires a positive integer material ID. Density and
 Young's modulus must be finite and positive; Poisson's ratio must be finite and
-strictly between $-1$ and $0.5$. A resolved material contains ordinary numeric
-values before any element kernel is evaluated.
+strictly between $-1$ and $0.5$. Unresolved random references are accepted and
+the reconstructed sampled record passes through the same checks. The builder
+retains collection-wide uniqueness and reference lookup.
 
 Shaft properties reference materials by ID. Bearings and disks do not currently
 reference a material record.
