@@ -81,7 +81,7 @@ components having different phases.
 ## Synchronous harmonic loads
 
 `SynchronousLoad` uses the same local phasor as `HarmonicLoad`, but its forcing
-frequency is locked to the scalar signed rotor speed supplied to
+frequency is locked to each signed rotor speed supplied to
 `frequency_response`. For positive harmonic order $h$,
 
 $$
@@ -92,11 +92,13 @@ $$
 
 The absolute speed makes forcing frequency nonnegative, while the signed
 $\Omega$ is retained in gyroscopic and speed-dependent structural terms.
-Callers must omit `frequencies`; the solver derives and returns one frequency.
-Selected synchronous loads may be superimposed only when they share one
-`harmonic_order`. They cannot be mixed with `HarmonicLoad` or `RotatingLoad`
-records in the same call. Different orders therefore use separate
-frequency-response calls.
+Callers must omit `frequencies` and supply either scalar `speed` or a
+one-dimensional `speeds` vector. The solver derives one frequency per supplied
+speed and returns paired `speeds`, `speeds_hz`, `frequencies`, and response
+points. Selected synchronous loads may be superimposed only when they share
+one `harmonic_order`. They cannot be mixed with `HarmonicLoad` or
+`RotatingLoad` records in the same call. Different orders therefore use
+separate frequency-response calls.
 
 ## Rotating forces
 
@@ -151,10 +153,11 @@ of each resolved record repeats its local validation. Loads do not modify
 $\mathbf{K}$, $\mathbf{M}$, $\mathbf{C}$, or $\mathbf{G}$ and are retained in
 each `BuiltModel.definitions` entry.
 
-For frequency response, all selected speed-dependent load components are
-interpolated at the call's scalar rotor `speed`, transformed, and summed before
-the first forcing-frequency solve. Out-of-range interpolation fails before a
-partial frequency sweep can be returned.
+For ordinary frequency response, selected speed-dependent load components are
+interpolated at scalar rotor `speed`. For a synchronous sweep, they are
+interpolated over the complete signed `speeds` vector. All values are
+transformed and assembled before the first solve, so out-of-range interpolation
+cannot leave a partial response.
 
 ## Solver assembly
 
@@ -179,8 +182,9 @@ sample-specific.
 `frequency_response` accepts either one legacy complex force vector or a
 nonempty compatible selection of `HarmonicLoad`, `SynchronousLoad`, or
 `RotatingLoad` IDs. Ordinary harmonic and rotating selections require an
-explicit frequency grid; synchronous selections derive one frequency from
-`speed` and `harmonic_order`. It rejects `Unbalance` records.
+explicit frequency grid; synchronous selections derive paired frequencies from
+scalar `speed` or vector `speeds` and `harmonic_order`. It rejects `Unbalance`
+records.
 `unbalance_response` accepts a nonempty selection of
 `Unbalance` IDs and evaluates the synchronous force separately at every
 supplied rotor speed. Duplicate, unknown, noninteger, and analysis-incompatible

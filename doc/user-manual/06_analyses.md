@@ -256,7 +256,7 @@ route.
 
 `SynchronousLoad` inherits the force, moment, phase, and coordinate-system
 fields of `HarmonicLoad` and adds a required positive real `harmonic_order`.
-For a scalar signed rotor speed $\Omega$, `frequency_response` derives
+For each scalar signed rotor speed $\Omega$, `frequency_response` derives
 
 $$
 \omega=\mathtt{harmonic\_order}|\Omega|,
@@ -264,7 +264,7 @@ $$
 f=\frac{\omega}{2\pi}.
 $$
 
-Define and solve a 2x load without supplying `frequencies`:
+Define and sweep a 2x load without supplying `frequencies`:
 
 ```python
 from spinniped import SynchronousLoad
@@ -279,20 +279,24 @@ load = SynchronousLoad(
 result = solver.solve(
     "frequency_response",
     fixed_dofs=fixed,
-    speed=100.0,
+    speeds=[0.0, 100.0, 200.0],
     load_ids=[4],
 )
 ```
 
-The returned `frequencies` array contains one value,
-$2(100)/(2\pi)$ Hz, and `result["harmonic_order"]` is `2.0`. An explicit
-`frequencies` argument is rejected. Multiple selected synchronous loads must
-share one order; synchronous loads cannot be mixed with ordinary harmonic or
-rotating loads. Use separate calls for 1x, 2x, 3x, or other orders.
+The returned `frequencies` array contains
+$2|\mathtt{speeds}|/(2\pi)$ Hz. The result also contains signed `speeds`,
+signed `speeds_hz`, and `harmonic_order=2.0`; its response shape is
+`(samples, speeds, free_dofs)`. Scalar `speed` remains available for a
+single-point calculation. An explicit `frequencies` argument is rejected.
+Multiple selected synchronous loads must share one order and cannot be mixed
+with ordinary harmonic or rotating loads. Use separate calls for 1x, 2x, 3x,
+or other orders.
 
 If a synchronous force or moment component is a `SpeedDependentValue`, its
-amplitude is interpolated at signed rotor `speed`; the derived forcing
-frequency is not used as the table coordinate.
+amplitude is interpolated over the complete signed rotor `speeds` grid; the
+derived forcing frequencies are not used as table coordinates. Structural and
+load tables are preflighted before the first response point is solved.
 
 ## Unbalance response
 

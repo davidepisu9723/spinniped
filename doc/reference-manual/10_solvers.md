@@ -290,8 +290,9 @@ components are evaluated at scalar rotor speed $\Omega$ before solving and
 remain constant across that realization's forcing-frequency sweep.
 
 For selected `SynchronousLoad` records, callers omit the frequency grid. All
-selected records must share positive finite harmonic order $h$, and the solver
-derives the single forcing frequency
+selected records must share positive finite harmonic order $h$. Given scalar
+`speed` or a one-dimensional signed `speeds` vector, the solver derives each
+paired forcing frequency
 
 $$
 \omega=h|\Omega|,
@@ -300,9 +301,13 @@ f=\frac{h|\Omega|}{2\pi}.
 $$
 
 Synchronous records cannot be mixed with ordinary harmonic or rotating records
-in one call. Their inherited force and moment components are assembled through
+in one call. At every point, $\mathbf{K}(\Omega)$, $\mathbf{C}(\Omega)$,
+$\Omega\mathbf{G}$, and the dynamic stiffness use that point's signed speed and
+derived frequency. Inherited force and moment components are assembled through
 the same coordinate transformation and may be speed-dependent; amplitude
-tables are still evaluated at signed rotor speed $\Omega$, not at $\omega$.
+tables are evaluated at signed rotor speed $\Omega$, not at $\omega$. The
+complete structural and load operating grid is preflighted before the first
+linear solve.
 
 Unbalance response instead evaluates one diagonal synchronous sweep:
 

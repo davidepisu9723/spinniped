@@ -63,7 +63,7 @@ parametrized functions run once for every listed case.
 | [`test_assembly.py`](#test_assemblypy) | 18 | Record validation, coordinate transforms, and global assembly |
 | [`test_declarative_api.py`](#test_declarative_apipy) | 33 | Distribution resolution and core public solver routes |
 | [`test_speed_dependence.py`](#test_speed_dependencepy) | 20 | Tabulated rotor-speed interpolation, stochastic curves, matrix deltas, and load deltas |
-| [`test_load_response.py`](#test_load_responsepy) | 9 | Declarative load phasors and steady-response routes |
+| [`test_load_response.py`](#test_load_responsepy) | 11 | Declarative load phasors and steady-response routes |
 | [`test_plotting.py`](#test_plottingpy) | 8 | Rotor-section and Campbell-diagram rendering and plotting-input validation |
 | [`test_analytical_benchmarks.py`](#test_analytical_benchmarkspy) | 1 | Comparison with the Euler--Bernoulli beam solution |
 | [`test_jeffcott_benchmark.py`](#test_jeffcott_benchmarkpy) | 2 | Jeffcott frequency and critical-speed comparison |
@@ -681,11 +681,11 @@ Checks a negative-sense circular load whose magnitude is tabulated at rotor
 speed. The resulting two-component phasor and response are compared with the
 closed-form dynamic-stiffness solution.
 
-#### `test_synchronous_load_interpolates_amplitude_at_rotor_speed`
+#### `test_synchronous_load_interpolates_amplitude_over_speed_sweep`
 
-Uses a 2x synchronous load at negative rotor speed. The force table must be
-interpolated at signed rotor speed while excitation frequency is independently
-derived from twice the absolute speed.
+Uses a 2x synchronous load over three signed rotor speeds. Every force ordinate
+must be interpolated at rotor speed while excitation frequencies are derived
+independently from twice the absolute speeds.
 
 #### `test_selected_load_is_preflighted_but_unselected_tables_are_ignored`
 
@@ -757,11 +757,22 @@ returned frequency and response with the closed-form dynamic-stiffness result.
 Solves two 2x records separately and together. The combined response must equal
 their sum while preserving the caller's load-ID order.
 
+#### `test_synchronous_load_sweeps_paired_speeds_and_frequencies`
+
+Checks negative, zero, and positive speeds against direct dynamic-stiffness
+solutions and verifies the paired speed, speed-Hz, frequency, and response
+metadata.
+
 #### `test_synchronous_frequency_response_rejects_ambiguous_sources`
 
 Rejects an explicit frequency for a synchronous load, mixing synchronous and
 ordinary harmonic records, combining different orders, and omitting the
 frequency grid for an ordinary harmonic load.
+
+#### `test_synchronous_frequency_response_rejects_invalid_speed_sweeps`
+
+Parametrizes empty, scalar, and nonfinite speed inputs. Every malformed sweep
+must fail before response assembly.
 
 #### `test_rotating_load_sense_phase_and_superposition_are_preserved`
 

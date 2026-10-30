@@ -57,9 +57,9 @@ that degeneracy can make pairwise stochastic mode tracking mix the separated
 whirl branches.
 
 Example 10 defines a 2x `SynchronousLoad` using the ordinary harmonic force
-vector convention. It calls frequency response once per rotor speed without a
-`frequencies` argument, then plots both the displacement amplitude and the
-order-derived forcing frequency.
+vector convention. It passes the complete rotor-speed vector to one frequency-
+response call without a `frequencies` argument, then plots both displacement
+amplitude and the order-derived forcing frequency.
 
 ## Analytical benchmarks
 

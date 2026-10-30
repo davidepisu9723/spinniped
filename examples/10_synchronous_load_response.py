@@ -46,24 +46,20 @@ definition = ModelDefinition(
 model = ModelBuilder().build(definition)
 solver = Solver(model)
 
-# frequency_response accepts one scalar rotor speed per call. For a
-# SynchronousLoad, frequencies must be omitted because the solver derives the
-# single excitation frequency from harmonic_order * abs(speed).
+# For a SynchronousLoad, pass the complete rotor-speed vector and omit
+# frequencies. The solver pairs every speed with the excitation frequency
+# derived from harmonic_order * abs(speed).
 speeds_rpm = np.linspace(0.0, 6_000.0, 121)
 rpm_to_rad_per_second = 2.0 * np.pi / 60.0
 speeds = speeds_rpm * rpm_to_rad_per_second
-response_amplitudes = []
-forcing_frequencies = []
-
-for speed in speeds:
-    result = solver.solve(
-        "frequency_response",
-        fixed_dofs=[1, 2, 3, 4, 5],
-        speed=float(speed),
-        load_ids=[1],
-    )
-    response_amplitudes.append(abs(result["response"][0, 0, 0]))
-    forcing_frequencies.append(result["frequencies"][0])
+result = solver.solve(
+    "frequency_response",
+    fixed_dofs=[1, 2, 3, 4, 5],
+    speeds=speeds,
+    load_ids=[1],
+)
+response_amplitudes = np.abs(result["response"][0, :, 0])
+forcing_frequencies = result["frequencies"]
 
 figure, response_axes = plt.subplots()
 response_line = response_axes.plot(
