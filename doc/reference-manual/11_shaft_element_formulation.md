@@ -67,7 +67,9 @@ The element matrix blocks are inserted through the following local index sets:
 | Bending in the $x$-$z$ plane | $[x_0, \theta_{y_0}, x_1, \theta_{y_1}]$ | `[0, 4, 6, 10]` |
 | Bending in the $y$-$z$ plane | $[y_0, \theta_{x_0}, y_1, \theta_{x_1}]$ | `[1, 3, 7, 9]` |
 
-![Single shaft element with translational and rotational degrees of freedom identified at both endpoint grids](images/shaft_element_dofs.png)
+<p align="center">
+  <img src="images/shaft_element_dofs.png" width="80%" alt="Single shaft element with translational and rotational degrees of freedom identified at both endpoint grids">
+</p>
 
 *Straight arrows identify the three translations and curved arrows the three
 rotations at each grid. Both endpoint frames use the same orientation, with
@@ -84,7 +86,7 @@ $$
 This explains why the $x$-$z$ and $y$-$z$ bending matrices have the same physical content but different signs in the displacement-rotation coupling terms.
 
 <p align="center">
-  <img src="images/dydz_convention.png" width="600" alt="Positive transverse displacement and rotation convention">
+  <img src="images/dydz_convention.png" width="60%" alt="Positive transverse displacement and rotation convention">
 </p>
 
 ---

@@ -21,7 +21,9 @@ where $T_q$ denotes internal torque.
 
 ## 5.2 Differential free body and equation
 
-![Differential free-body diagram for torsional vibration, showing opposing internal torques, positive twist, rotary inertia, and the positive z-axis](images/free_body_torsional_slice.png)
+<p align="center">
+  <img src="images/free_body_torsional_slice.png" width="80%" alt="Differential free-body diagram for torsional vibration, showing opposing internal torques, positive twist, rotary inertia, and the positive z-axis">
+</p>
 
 *Torsional differential element. The face torques act in opposite senses, and
 $\psi(z,t)$ indicates positive twist about $+z$ by the right-hand rule.*

@@ -151,7 +151,9 @@ two physically distinct branches, producing a broad fan, an intermediate mean
 that is not itself a branch, or an apparent discontinuity. This is a mode-label
 ambiguity, not stiffness uncertainty created by speed interpolation.
 
-![The same stochastic Campbell calculation started at zero and one rpm; the zero-speed case assigns one mode label to opposite whirl branches, while the nonzero start keeps the branch correspondence narrow](images/stochastic_campbell_zero_speed_tracking.png)
+<p align="center">
+  <img src="images/stochastic_campbell_zero_speed_tracking.png" width="80%" alt="The same stochastic Campbell calculation started at zero and one rpm; the zero-speed case assigns one mode label to opposite whirl branches, while the nonzero start keeps the branch correspondence narrow">
+</p>
 
 *Each thin line is the tracked fourth mode of one realization of the symmetric
 speed-dependent rotor from Example 09. With a first point of exactly zero rpm,

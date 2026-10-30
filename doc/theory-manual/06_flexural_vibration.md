@@ -31,7 +31,9 @@ first analytical derivation.
 Let $w(z,t)$ represent displacement in one transverse plane. A differential
 slice carries shear $V$ and bending moment $M$:
 
-![Differential free-body diagram for flexural vibration, showing transverse displacement, shear forces, bending moments, element mass, and the positive w-z reference system](images/free_body_flexural_slice.png)
+<p align="center">
+  <img src="images/free_body_flexural_slice.png" width="80%" alt="Differential free-body diagram for flexural vibration, showing transverse displacement, shear forces, bending moments, element mass, and the positive w-z reference system">
+</p>
 
 *Flexural differential element and sign convention. Positive shear acts
 downward on the left face and upward on the right face; positive bending

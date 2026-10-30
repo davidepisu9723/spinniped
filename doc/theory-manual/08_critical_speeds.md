@@ -134,7 +134,9 @@ Then
 
 The analytical mode shapes and Campbell curves are shown below:
 
-![First stationary-shaft modes resolved into their physical degrees of freedom, beside the extended-Jeffcott Campbell diagram](images/analytical_rotordynamics.png)
+<p align="center">
+  <img src="images/analytical_rotordynamics.png" width="70%" alt="First stationary-shaft modes resolved into their physical degrees of freedom, beside the extended-Jeffcott Campbell diagram">
+</p>
 
 *The six left panels separate the normalized stationary-shaft mode components:
 axial translation $u_z$, torsional rotation $\theta_z$, transverse translations

@@ -22,7 +22,9 @@ $$
 
 Isolate a slice from $z$ to $z+\mathrm dz$:
 
-![Differential free-body diagram for axial vibration, showing the axial forces, displacement direction, element mass, and positive z-axis](images/free_body_axial_slice.png)
+<p align="center">
+  <img src="images/free_body_axial_slice.png" width="80%" alt="Differential free-body diagram for axial vibration, showing the axial forces, displacement direction, element mass, and positive z-axis">
+</p>
 
 *Axial differential element. Positive displacement $u(z,t)$ follows $+z$.
 The internal forces on the two exposed faces point outward in positive
@@ -131,7 +133,9 @@ $$
 a(t)=A\cos(\omega t)+B\sin(\omega t).
 $$
 
-![Spatial harmonic, temporal harmonic, and phase snapshots of their separated product](images/separation_of_variables.png)
+<p align="center">
+  <img src="images/separation_of_variables.png" width="100%" alt="Spatial harmonic, temporal harmonic, and phase snapshots of their separated product">
+</p>
 
 *Separation does not split one motion into unrelated problems. The spatial
 equation supplies a fixed mode shape, the temporal equation supplies its

@@ -81,7 +81,7 @@ flowchart LR
 element matrix, then add its entries at the mapped global indices.*
 
 <p align="center">
-  <img src="images/global_block_assembly.png" width="560" alt="Three-by-three grid-block view of two neighboring shaft elements contributing to a global matrix">
+  <img src="images/global_block_assembly.png" width="60%" alt="Three-by-three grid-block view of two neighboring shaft elements contributing to a global matrix">
 </p>
 
 *Each square represents one 6-by-6 grid-to-grid block. Element 0–1 contributes

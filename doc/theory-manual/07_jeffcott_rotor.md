@@ -12,14 +12,18 @@ A stationary shaft model does not yet explain what spin does. The next model
 adds a rigid disk at the center, two isotropic bearings, and a constant spin
 speed $\Omega$.
 
-![Flexible-bearing Jeffcott rotor with a central rigid disk, shaft spin direction, and global coordinate system](images/flexible_bearing_jeffcott_rotor.png)
+<p align="center">
+  <img src="images/flexible_bearing_jeffcott_rotor.png" width="80%" alt="Flexible-bearing Jeffcott rotor with a central rigid disk, shaft spin direction, and global coordinate system">
+</p>
 
 This is an *extended* Jeffcott model because it retains both disk translation
 and disk tilt. The simplest classical Jeffcott model treats the disk as a
 point mass and retains lateral translation only; that model cannot show the
 gyroscopic splitting caused by disk rotational inertia.
 
-![Cylindrical lateral, backward-conical, and forward-conical whirl motions with precession cones aligned to the rotor spin axis](images/whirl_motion_families.png)
+<p align="center">
+  <img src="images/whirl_motion_families.png" width="80%" alt="Cylindrical lateral, backward-conical, and forward-conical whirl motions with precession cones aligned to the rotor spin axis">
+</p>
 
 *The dashed horizontal line is the spin axis. Cylindrical motion is lateral
 translation: the disk center moves while its axis remains parallel to the

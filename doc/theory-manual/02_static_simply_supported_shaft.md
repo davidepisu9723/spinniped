@@ -10,11 +10,15 @@ Before studying vibration, consider a uniform shaft at rest under a transverse
 point force $F$ at its midpoint. A pin at $z=0$ and a roller at $z=L$ prevent
 transverse displacement while allowing the end sections to rotate.
 
-![Simply supported uniform shaft with pin and roller supports, free end rotations, and the global coordinate system](images/simply_supported_shaft.png)
+<p align="center">
+  <img src="images/simply_supported_shaft.png" width="80%" alt="Simply supported uniform shaft with pin and roller supports, free end rotations, and the global coordinate system">
+</p>
 
 An idealized free-body diagram in the $x$-$z$ plane is
 
-![Free-body diagram of a simply supported shaft under a central transverse load, with support reactions and the global x-z reference system](images/free_body_simply_supported_shaft.png)
+<p align="center">
+  <img src="images/free_body_simply_supported_shaft.png" width="80%" alt="Free-body diagram of a simply supported shaft under a central transverse load, with support reactions and the global x-z reference system">
+</p>
 
 *Free-body diagram of the complete shaft. The pin at $A$ and roller at $B$
 produce the transverse reactions $R_0$ and $R_L$; the applied force $F$ acts

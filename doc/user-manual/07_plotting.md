@@ -23,7 +23,9 @@ Disk and bearing records do not contain manufacturing dimensions: disks are
 therefore shown using an equivalent radius inferred from mass and polar
 inertia, while disk width and bearing housings use conventional plot symbols.
 
-![Longitudinal section of a resolved Spinniped rotor showing the shaft mesh, end bearings, and central disk](images/rotor_longitudinal_section.png)
+<p align="center">
+  <img src="images/rotor_longitudinal_section.png" width="80%" alt="Longitudinal section of a resolved Spinniped rotor showing the shaft mesh, end bearings, and central disk">
+</p>
 
 *A resolved two-bearing rotor. Grid labels make the finite-element mesh visible
 without replacing the physical section.*
@@ -106,6 +108,17 @@ figure, axes = plot_frequency_response(
 )
 ```
 
+<p align="center">
+  <img src="images/stochastic_unbalance_response.png" width="60%" alt="Stochastic frequency response of the Example 11 Jeffcott rotor, showing the mean central-disk displacement, a 99% confidence band, and the sample minimum and maximum around resonance">
+</p>
+
+*Example 11 propagates uncertainty in residual-unbalance magnitude through the
+synchronous response. The solid curves show the sample mean, the shaded region
+is the central empirical 99% interval, and the dashed curves bound the full
+50-realization ensemble. The uncertainty changes the response amplitude
+without shifting the resonant speed; the symmetric rotor's x and y responses
+overlap.*
+
 Statistics are calculated from response magnitudes, not by averaging complex
 phasors. Use `ax=existing_axes` to combine response curves or add secondary
 information. The function returns its figure and axes and does not call
@@ -142,7 +155,9 @@ figure, axes = plot_campbell(
 )
 ```
 
-![Stochastic Campbell diagram with modal confidence bands, sample extremes, a synchronous harmonic, critical-speed markers, and diagonal critical-speed uncertainty bars](images/stochastic_campbell.png)
+<p align="center">
+  <img src="images/stochastic_campbell.png" width="70%" alt="Stochastic Campbell diagram with modal confidence bands, sample extremes, a synchronous harmonic, critical-speed markers, and diagonal critical-speed uncertainty bars">
+</p>
 
 *Bearing-stiffness uncertainty propagated through a Campbell analysis. Solid
 curves are sample means, shaded regions are central 90% intervals, dashed

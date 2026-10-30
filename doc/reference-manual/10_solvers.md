@@ -239,7 +239,9 @@ or when zero appears only after a nonzero first point.
 Mode counts must be consistent. The solver raises rather than returning ragged
 object arrays when a requested count is unavailable or result shapes differ.
 
-![Comparison of independent frequency sorting and MAC-based tracking at a modal crossing](images/mode_tracking_at_crossing.png)
+<p align="center">
+  <img src="images/mode_tracking_at_crossing.png" width="80%" alt="Comparison of independent frequency sorting and MAC-based tracking at a modal crossing">
+</p>
 
 *Color identifies the independently sorted array column: column 0 is blue and
 column 1 is orange. Marker geometry identifies physical shape: A uses circles
