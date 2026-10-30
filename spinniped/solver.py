@@ -837,7 +837,8 @@ class Solver:
         frequencies=None,
         force=None,
         load_ids=None,
-        speed=0.0,
+        speed=None,
+        speeds=None,
     ):
         """Solve steady harmonic response at requested frequencies.
 
@@ -860,16 +861,15 @@ class Solver:
             mixed with ordinary harmonic or rotating loads.
         speed : float, optional
             Rotor angular speed in radians per second.
+        speeds : array_like or None, optional
+            Signed rotor-speed vector for synchronous loads. Each speed is
+            paired with one order-derived forcing frequency.
 
         Returns
         -------
         dict
             Frequencies and complex displacement responses.
         """
-        # Gyroscopic damping and every SpeedDependentValue use the same signed
-        # rotor angular speed, independently of the forcing-frequency grid.
-        speed = self._scalar_speed(speed)
-
         # Preserve the raw-vector route while making declarative selection
         # explicit. Combining both sources would obscure accidental double
         # application, so callers must choose exactly one.
@@ -881,6 +881,7 @@ class Solver:
         selected_load_ids = ()
         reduced_force = None
         harmonic_order = None
+        synchronous_mode = False
         if load_ids is None:
             if frequencies is None:
                 raise ValueError(
@@ -916,6 +917,7 @@ class Solver:
                     "HarmonicLoad or RotatingLoad records"
                 )
             if synchronous_records:
+                synchronous_mode = True
                 if frequencies is not None:
                     raise ValueError(
                         "frequencies must be omitted for SynchronousLoad records"
@@ -929,14 +931,52 @@ class Solver:
                         "harmonic_order"
                     )
                 harmonic_order = harmonic_orders.pop()
-                frequencies = np.array(
-                    [harmonic_order * abs(speed) / (2.0 * np.pi)]
-                )
             elif frequencies is None:
                 raise ValueError(
                     "frequency_response requires frequencies for HarmonicLoad "
                     "or RotatingLoad records"
                 )
+
+        # Ordinary frequency response retains one fixed rotor speed. A
+        # synchronous selection instead accepts either that scalar form or a
+        # vector of paired operating speeds, but never both simultaneously.
+        scalar_speed_input = speeds is None
+        if synchronous_mode:
+            if speed is not None and speeds is not None:
+                raise ValueError(
+                    "frequency_response accepts exactly one of speed or speeds "
+                    "for SynchronousLoad records"
+                )
+            if speeds is None:
+                operating_speeds = np.array(
+                    [self._scalar_speed(0.0 if speed is None else speed)]
+                )
+            else:
+                try:
+                    operating_speeds = np.asarray(speeds, dtype=float)
+                except (TypeError, ValueError) as error:
+                    raise TypeError(
+                        "speeds must contain only real numeric values"
+                    ) from error
+                if (
+                    operating_speeds.ndim != 1
+                    or not operating_speeds.size
+                    or not np.isfinite(operating_speeds).all()
+                ):
+                    raise ValueError(
+                        "speeds must be a non-empty one-dimensional sequence "
+                        "of finite values"
+                    )
+            frequencies = (
+                harmonic_order * np.abs(operating_speeds) / (2.0 * np.pi)
+            )
+        else:
+            if speeds is not None:
+                raise ValueError(
+                    "speeds is accepted only for SynchronousLoad records"
+                )
+            scalar_speed = self._scalar_speed(0.0 if speed is None else speed)
+            operating_speeds = np.array([scalar_speed])
 
         # Validate either the caller-supplied grid or the single frequency
         # derived above from a synchronous load's harmonic order.
@@ -954,30 +994,47 @@ class Solver:
 
         # Precompute every structural and declarative-load operating-point
         # value before the first dynamic-stiffness solve.
-        evaluation_speeds = np.array([speed])
         stiffness_deltas = self._speed_matrix_deltas(
             model,
             model._stiffness_speed_contributions,
-            evaluation_speeds,
+            operating_speeds,
         )
         damping_deltas = self._speed_matrix_deltas(
             model,
             model._damping_speed_contributions,
-            evaluation_speeds,
+            operating_speeds,
         )
         declarative_forces = None
         if selected_load_ids:
-            declarative_forces = np.stack(
-                [
-                    self._assemble_harmonic_loads(
-                        model,
-                        sample,
-                        selected_load_ids,
-                        speed=speed,
-                    )[free_dofs]
-                    for sample in range(model.samples)
-                ]
-            )
+            if synchronous_mode:
+                declarative_forces = np.stack(
+                    [
+                        np.stack(
+                            [
+                                self._assemble_harmonic_loads(
+                                    model,
+                                    sample,
+                                    selected_load_ids,
+                                    speed=float(operating_speed),
+                                )[free_dofs]
+                                for operating_speed in operating_speeds
+                            ]
+                        )
+                        for sample in range(model.samples)
+                    ]
+                )
+            else:
+                declarative_forces = np.stack(
+                    [
+                        self._assemble_harmonic_loads(
+                            model,
+                            sample,
+                            selected_load_ids,
+                            speed=scalar_speed,
+                        )[free_dofs]
+                        for sample in range(model.samples)
+                    ]
+                )
 
         # Solve the complex dynamic stiffness for each sample and frequency.
         all_responses = []
@@ -987,30 +1044,42 @@ class Solver:
 
             print(f"Analyzing Sample {sample}")
             mass_matrix = self._reduced(model.M, sample, free_dofs)
-            stiffness_matrix = self._reduced_at_speed(
-                model.K,
-                stiffness_deltas,
-                sample,
-                0,
-                free_dofs,
-            )
-            damping_matrix = self._reduced_at_speed(
-                model.C,
-                damping_deltas,
-                sample,
-                0,
-                free_dofs,
-            )
             gyroscopic_matrix = self._reduced(model.G, sample, free_dofs)
 
-            # Declarative parameters are resolved independently per sample.
-            if selected_load_ids:
-                sample_force = declarative_forces[sample]
-            else:
-                sample_force = reduced_force
-
             sample_responses = []
-            for angular_frequency in angular_frequencies:
+            for point, angular_frequency in enumerate(angular_frequencies):
+
+                speed_index = point if synchronous_mode else 0
+                operating_speed = (
+                    float(operating_speeds[point])
+                    if synchronous_mode
+                    else scalar_speed
+                )
+                stiffness_matrix = self._reduced_at_speed(
+                    model.K,
+                    stiffness_deltas,
+                    sample,
+                    speed_index,
+                    free_dofs,
+                )
+                damping_matrix = self._reduced_at_speed(
+                    model.C,
+                    damping_deltas,
+                    sample,
+                    speed_index,
+                    free_dofs,
+                )
+
+                # Declarative parameters are resolved independently per sample
+                # and synchronous amplitudes may change at every rotor speed.
+                if selected_load_ids:
+                    sample_force = (
+                        declarative_forces[sample, point]
+                        if synchronous_mode
+                        else declarative_forces[sample]
+                    )
+                else:
+                    sample_force = reduced_force
 
                 print(f"    Angular Frequency: {angular_frequency:5.0f} rad/s")
 
@@ -1019,7 +1088,7 @@ class Solver:
                     mass_matrix,
                     damping_matrix,
                     gyroscopic_matrix,
-                    speed,
+                    operating_speed,
                     angular_frequency,
                 )
                 sample_responses.append(
@@ -1030,12 +1099,19 @@ class Solver:
 
         result = {
             "frequencies": frequencies,
-            "speed": speed,
             "load_ids": selected_load_ids,
             "response": np.stack(all_responses),
         }
-        if harmonic_order is not None:
-            result["harmonic_order"] = harmonic_order
+        if synchronous_mode:
+            result.update(
+                harmonic_order=harmonic_order,
+                speeds=operating_speeds,
+                speeds_hz=operating_speeds / (2.0 * np.pi),
+            )
+            if scalar_speed_input:
+                result["speed"] = float(operating_speeds[0])
+        else:
+            result["speed"] = scalar_speed
         return result
 
     def _solve_unbalance_response(
