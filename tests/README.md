@@ -228,6 +228,12 @@ Parametrizes invalid bearing-element IDs, grid/property references, optional
 second-grid values, and coordinate-system references. Each malformed element
 must fail immediately during `BearingElement` construction.
 
+#### `test_disk_element_rejects_invalid_local_inputs`
+
+Parametrizes invalid disk-element IDs, grid/property references, and frame
+references. Each malformed element must fail immediately during `DiskElement`
+construction.
+
 #### `test_disk_terms_are_inserted_at_referenced_grid`
 
 Builds a one-grid disk and compares its complete global mass, damping, and

@@ -24,6 +24,10 @@ frame references, and either a ground connection or two distinct positive grid
 IDs. The builder retains reference existence and `BearingProperty`
 compatibility checks.
 
+`DiskElement` construction validates its identity plus positive grid/property
+references and its nonnegative coordinate-system reference. The builder
+retains reference existence and `DiskProperty` compatibility checks.
+
 The implemented matrix contributions are:
 
 | Element | Stiffness | Mass | Damping | Gyroscopic |

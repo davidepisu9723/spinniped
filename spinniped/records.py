@@ -642,6 +642,21 @@ class DiskElement:
     property: int
     coordinate_system: int = 0
 
+    def __post_init__(self):
+        """Validate the complete local disk-element specification."""
+        for name in ("id", "grid", "property"):
+            value = getattr(self, name)
+            if isinstance(value, bool) or not isinstance(value, int):
+                raise TypeError(f"Disk element {name} must be an integer ID")
+            if value <= 0:
+                raise ValueError(f"Disk element {name} must be positive")
+        if isinstance(self.coordinate_system, bool) or not isinstance(
+            self.coordinate_system, int
+        ):
+            raise TypeError("Disk element coordinate_system must be an integer ID")
+        if self.coordinate_system < 0:
+            raise ValueError("Disk element coordinate_system cannot be negative")
+
 
 # A lumped-mass element is an alias with identical storage and behavior.
 LumpedMassElement = DiskElement

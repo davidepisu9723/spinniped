@@ -922,7 +922,7 @@ def _assemble(definition):
         definition.elements,
         "element",
         (ShaftElement, BearingElement, DiskElement),
-        validated_id_types=(ShaftElement, BearingElement),
+        validated_id_types=(ShaftElement, BearingElement, DiskElement),
     )
     loads = _unique(
         definition.loads,
@@ -1114,8 +1114,6 @@ def _assemble(definition):
     # Assemble each declarative element record.
     for element in definition.elements:
         # Resolve the element's property reference first.
-        if isinstance(element, DiskElement):
-            integer_reference(element.property, f"Element {element.id} property")
         if element.property not in properties:
             raise ValueError(
                 f"Element {element.id} references unknown property "
@@ -1354,12 +1352,6 @@ def _assemble(definition):
                     f"Disk element {element.id} requires a DiskProperty"
                 )
 
-            # Validate disk grid and orientation references.
-            integer_reference(element.grid, f"Element {element.id} grid")
-            integer_reference(
-                element.coordinate_system,
-                f"Element {element.id} coordinate_system",
-            )
             if element.grid not in grid_index:
                 raise ValueError(
                     f"Element {element.id} references unknown grid {element.grid}"

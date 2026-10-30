@@ -257,6 +257,24 @@ def test_bearing_element_rejects_invalid_local_inputs(
         BearingElement(*arguments)
 
 
+@pytest.mark.parametrize(
+    ("arguments", "exception", "message"),
+    [
+        ((True, 1, 2), TypeError, "id must be an integer"),
+        ((1, 0, 2), ValueError, "grid must be positive"),
+        ((1, 1, 0), ValueError, "property must be positive"),
+        ((1, 1, 2, True), TypeError, "coordinate_system must be an integer"),
+        ((1, 1, 2, -1), ValueError, "cannot be negative"),
+    ],
+)
+def test_disk_element_rejects_invalid_local_inputs(
+    arguments, exception, message
+):
+    """Verify malformed disk elements fail during construction."""
+    with pytest.raises(exception, match=message):
+        DiskElement(*arguments)
+
+
 def test_disk_terms_are_inserted_at_referenced_grid():
     """Verify disk matrices occupy the selected nodal block."""
     definition = ModelDefinition(
