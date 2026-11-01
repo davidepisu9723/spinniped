@@ -160,6 +160,108 @@ def test_fixed_vector_fields_require_tuples(factory):
         factory()
 
 
+def test_single_point_constraint_record_contract():
+    """Verify SPC defaults, no-op support, immutability, and validation."""
+    constraint = SinglePointConstraint(3)
+
+    assert constraint.dof == (0, 1, 2, 3, 4, 5)
+    assert SinglePointConstraint(3, dof=()).dof == ()
+    assert not hasattr(constraint, "__dict__")
+    with pytest.raises(FrozenInstanceError):
+        constraint.grid = 4
+
+    invalid_cases = [
+        ((True,), TypeError, "grid must be an integer"),
+        ((0,), ValueError, "grid must be positive"),
+        ((1, [0]), TypeError, "dof must be a tuple"),
+        ((1, (0, 0)), ValueError, "dof values must be unique"),
+        ((1, (True,)), TypeError, r"dof\[0\] must be an integer"),
+        ((1, (-1,)), ValueError, "must be between 0 and 5"),
+        ((1, (6,)), ValueError, "must be between 0 and 5"),
+    ]
+    for arguments, exception, message in invalid_cases:
+        with pytest.raises(exception, match=message):
+            SinglePointConstraint(*arguments)
+
+
+def test_builder_validates_single_point_constraint_records_and_grids():
+    """Verify assembly rejects invalid SPC list contents and references."""
+    invalid_record = ModelDefinition(grids=[Grid(1)])
+    invalid_record.boundary_conditions.append(object())
+    with pytest.raises(TypeError, match="must contain SinglePointConstraint"):
+        ModelBuilder().build(invalid_record)
+
+    unknown_grid = ModelDefinition(
+        grids=[Grid(1)],
+        boundary_conditions=[SinglePointConstraint(99, dof=(0,))],
+    )
+    with pytest.raises(ValueError, match="references unknown grid 99"):
+        ModelBuilder().build(unknown_grid)
+
+
+def test_spc_dofs_are_structural_during_stochastic_resolution():
+    """Verify a two-integer DOF tuple is not read as a random reference."""
+    constraint = SinglePointConstraint(1, dof=(1, 2))
+    definition = ModelDefinition(
+        grids=[Grid(1)],
+        distributions=[
+            RandomDistribution(
+                1,
+                "unused test variable",
+                "normal",
+                {"mean": 0.0, "stdv": 1.0},
+            )
+        ],
+        boundary_conditions=[constraint],
+    )
+
+    model = ModelBuilder().build(
+        definition,
+        stochastic=True,
+        samples=2,
+        seed=7,
+    )
+
+    assert all(
+        resolved.boundary_conditions == [constraint]
+        for resolved in model.definitions
+    )
+
+
+def test_spcs_use_the_referenced_grid_coordinate_system():
+    """Verify selected local components produce the expected global basis."""
+    frame = CoordinateSystem(
+        7,
+        x_axis=(0.0, 1.0, 0.0),
+        xy_plane=(-1.0, 0.0, 0.0),
+    )
+    definition = ModelDefinition(
+        grids=[Grid(1, coordinate_system=7)],
+        coordinate_systems=[frame],
+        boundary_conditions=[
+            SinglePointConstraint(1, dof=(0, 3, 4, 5))
+        ],
+    )
+    model = ModelBuilder().build(definition)
+
+    _, free_dofs, transform = Solver._apply_boundary_conditions(model)
+
+    assert np.array_equal(free_dofs, [1, 2])
+    assert np.allclose(
+        transform[:, free_dofs],
+        np.array(
+            [
+                [-1.0, 0.0],
+                [0.0, 0.0],
+                [0.0, 1.0],
+                [0.0, 0.0],
+                [0.0, 0.0],
+                [0.0, 0.0],
+            ]
+        ),
+    )
+
+
 def test_builder_resolves_and_preserves_declarative_loads():
     """Verify load references share the ordinary parameter-resolution path."""
     definition = _rotor_definition()
