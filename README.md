@@ -1,7 +1,7 @@
 # Spinniped
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/davidepisu9723/spinniped/master/logo/spinniped-logo.png" width="240" alt="Spinniped logo">
+<img src="https://raw.githubusercontent.com/davidepisu9723/spinniped/master/logo/spinniped-logo.png" width="240" alt="Spinniped logo">
 </p>
 
 Spinniped is a small finite-element toolbox for deterministic and stochastic
