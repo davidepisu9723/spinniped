@@ -5,6 +5,7 @@
 - [How the records fit together](#how-the-records-fit-together)
 - [Record reference](#record-reference)
 - [Coordinate systems](#coordinate-systems)
+- [Boundary conditions](#boundary-conditions)
 - [Spin-axis convention](#spin-axis-convention)
 
 A model definition is data, not a collection of stateful finite-element
@@ -21,6 +22,7 @@ objects. Records refer to one another by integer IDs:
   angular speed.
 - `HarmonicLoad`, `SynchronousLoad`, `RotatingLoad`, and `Unbalance` define
   nodal excitation data.
+- `SinglePointConstraint` selects constrained components at one grid.
 - `ModelDefinition` holds the record lists.
 
 `LumpedMassElement` and `LumpedMassProperty` are aliases for the corresponding
@@ -189,6 +191,7 @@ and theory notes use SI.
 | `SynchronousLoad` | all `HarmonicLoad` fields; required positive real `harmonic_order` |
 | `RotatingLoad` | `id`; nodal `grid`; `force_magnitude`; `phase`; `sense`; `coordinate_system` |
 | `Unbalance` | `id`; nodal `grid`; `mass_eccentricity`; `phase`; `coordinate_system` |
+| `SinglePointConstraint` | nodal `grid`; constrained local `dof` tuple (default all six) |
 | `SpeedDependentValue` | strictly increasing rotor `speeds`; corresponding scalar `values` |
 | `RandomDistribution` | unique `id`; unique `name`; `distribution`; family-specific `parameters` |
 
@@ -206,9 +209,9 @@ parameters. [Chapter 3](03_speed_dependent_values.md) documents the supported
 placements, interpolation rules, and operating-speed convention.
 
 `ModelDefinition` groups the `grids`, `coordinate_systems`, `materials`,
-`properties`, `elements`, `distributions`, and `loads` lists; each defaults to
-an empty list. Its `spin_axis` field is the global spin direction and defaults
-to `(0.0, 0.0, 1.0)`.
+`properties`, `elements`, `distributions`, `loads`, and `boundary_conditions`
+lists; each defaults to an empty list. Its `spin_axis` field is the global spin
+direction and defaults to `(0.0, 0.0, 1.0)`.
 
 Lists and tuples have distinct roles in the declarative API. The fields above
 are lists because they are record collections that may be assembled
@@ -216,7 +219,8 @@ incrementally. Fixed value sequences must be tuples: `SpeedDependentValue`
 `speeds` and `values`, the three `CoordinateSystem` vectors,
 `HarmonicLoad.force` and `moment`, and `ModelDefinition.spin_axis`. Mutable
 lists are rejected for these atomic value fields rather than converted
-implicitly.
+implicitly. `SinglePointConstraint.dof` is also a tuple because it is one
+structural component selection, not a record collection or random reference.
 
 IDs must be unique positive integers within each record category. A shaft
 element must reference a `ShaftProperty`, a bearing element a
@@ -279,7 +283,8 @@ for both bearing stiffness and damping. `DiskElement.coordinate_system`
 similarly orients disk inertia and its local spin axis. These element
 coordinate-system fields default to global system `0`. A grid's own
 `coordinate_system` locates the grid; it does not implicitly orient an attached
-bearing or disk.
+bearing or disk. It does, however, define the component frame for every
+`SinglePointConstraint` attached to that grid.
 
 Load coordinate systems follow the same separation. A grid's coordinate
 system locates the application point, while each load's `coordinate_system`
@@ -293,6 +298,40 @@ local x-y plane must be the rotor plane.
 Loads do not contribute to the structural matrices. Steady response analyses
 select records through their shared load IDs and assemble the corresponding
 sample-specific complex force vectors.
+
+## Boundary conditions
+
+Boundary conditions are stored directly in
+`ModelDefinition.boundary_conditions`. Each `SinglePointConstraint` (SPC)
+references one grid and a tuple of local Python DOF indices:
+
+| Index | Constrained component |
+|---:|---|
+| `0`, `1`, `2` | translation along the grid frame's x, y, z axes |
+| `3`, `4`, `5` | rotation about the grid frame's x, y, z axes |
+
+```python
+from spinniped import SinglePointConstraint
+
+definition.boundary_conditions.extend(
+    [
+        SinglePointConstraint(grid=1, dof=(0, 1, 2)),
+        SinglePointConstraint(grid=5, dof=(1, 4)),
+    ]
+)
+```
+
+Omitting `dof` constrains all six components. An empty tuple is a deliberate
+no-op. Values must be unique integers from `0` through `5`; Boolean values are
+not accepted as integers. Multiple SPC records may reference the same grid,
+and overlapping selections are combined safely by the solver. The builder
+rejects unknown grid IDs.
+
+The component axes come from `Grid.coordinate_system`, not from a coordinate
+system stored on the SPC itself. System `0` therefore gives ordinary global
+components. For a rotated grid frame, the solver rotates the nodal matrices and
+loads into that frame before removing the selected components. See
+[Chapter 6](06_analyses.md#boundary-conditions) for result-basis details.
 
 ## Spin-axis convention
 

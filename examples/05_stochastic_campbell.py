@@ -15,6 +15,7 @@ from spinniped import (
     RandomDistribution,
     ShaftElement,
     ShaftProperty,
+    SinglePointConstraint,
     Solver,
     plot_campbell,
 )
@@ -106,6 +107,7 @@ definition = ModelDefinition(
             },
         ),
     ],
+    boundary_conditions=[SinglePointConstraint(1, dof=(2, 5))],
 )
 
 # A fixed seed makes the demonstration reproducible. Increasing the number of
@@ -125,7 +127,6 @@ speeds_rpm = np.linspace(0.0, maximum_speed_rpm, 25)
 speeds = speeds_rpm * 2.0 * np.pi / 60.0
 result = Solver(model).solve(
     "campbell",
-    fixed_dofs=[2, 5],
     speeds=speeds,
     modes=6,
     harmonics=[1.0, 2.0],

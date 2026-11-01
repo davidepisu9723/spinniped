@@ -174,10 +174,10 @@ $$
 $$
 
 It adds all selected records at their grids in full global DOF order and only
-then removes fixed DOFs. No moment-arm term is required because each record is
-applied directly at its referenced grid. Assembly is repeated for every
-stochastic realization so resolved amplitudes, phases, and frames remain
-sample-specific.
+then applies the model's SPC reduction basis. No moment-arm term is required
+because each record is applied directly at its referenced grid. Assembly is
+repeated for every stochastic realization so resolved amplitudes, phases, and
+frames remain sample-specific.
 
 `frequency_response` accepts either one legacy complex force vector or a
 nonempty compatible selection of `HarmonicLoad`, `SynchronousLoad`, or

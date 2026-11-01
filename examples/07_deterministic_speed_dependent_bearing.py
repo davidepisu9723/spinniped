@@ -11,6 +11,7 @@ from spinniped import (
     Grid,
     ModelBuilder,
     ModelDefinition,
+    SinglePointConstraint,
     Solver,
     SpeedDependentValue,
     plot_campbell,
@@ -69,18 +70,18 @@ definition = ModelDefinition(
         BearingElement(id=1, grid=1, property=1),
         DiskElement(id=2, grid=1, property=2),
     ],
+    boundary_conditions=[
+        SinglePointConstraint(1, dof=(2, 3, 4, 5))
+    ],
 )
-
 model = ModelBuilder().build(definition)
 
 # Keep only the lateral translations. The solver validates and interpolates
 # K(Omega) and C(Omega) over this complete grid before the first eigensolution.
-fixed_dofs = [2, 3, 4, 5]
 speeds_rpm = np.linspace(0.0, 6_000.0, 100)
 speeds = speeds_rpm * rpm_to_rad_per_second
 result = Solver(model).solve(
     "campbell",
-    fixed_dofs=fixed_dofs,
     speeds=speeds,
     modes=2,
 )

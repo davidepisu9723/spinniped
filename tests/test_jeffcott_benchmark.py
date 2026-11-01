@@ -13,6 +13,7 @@ from spinniped import (
     ModelDefinition,
     ShaftElement,
     ShaftProperty,
+    SinglePointConstraint,
     Solver,
 )
 
@@ -120,17 +121,12 @@ def _build_comparable_finite_element_model():
             BearingElement(ELEMENTS + 2, grid=ELEMENTS + 1, property=2),
             DiskElement(ELEMENTS + 3, grid=ELEMENTS // 2 + 1, property=3),
         ],
+        boundary_conditions=[
+            SinglePointConstraint(grid.id, dof=(2, 5))
+            for grid in grids
+        ],
     )
     return ModelBuilder().build(definition)
-
-
-def _non_lateral_dofs():
-    """Remove axial and torsional motion excluded by the Jeffcott model."""
-    return [
-        6 * grid_index + local_dof
-        for grid_index in range(ELEMENTS + 1)
-        for local_dof in (2, 5)
-    ]
 
 
 def test_flexible_bearing_jeffcott_frequencies_match_finite_element_model():
@@ -139,7 +135,6 @@ def test_flexible_bearing_jeffcott_frequencies_match_finite_element_model():
     model = _build_comparable_finite_element_model()
     result = Solver(model).solve(
         "modal",
-        fixed_dofs=_non_lateral_dofs(),
         modes=4,
         # The near-massless shaft creates very high parasitic modes; retain the
         # much smaller physical disk modes with an explicit zero threshold.
@@ -169,7 +164,6 @@ def test_jeffcott_gyroscopic_shift_and_critical_speeds_match_finite_elements():
     model = _build_comparable_finite_element_model()
     result = Solver(model).solve(
         "campbell",
-        fixed_dofs=_non_lateral_dofs(),
         speeds=speeds,
         modes=4,
         # The two exact conical roots are degenerate at rest. Independent

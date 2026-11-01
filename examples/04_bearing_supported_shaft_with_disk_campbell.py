@@ -14,6 +14,7 @@ from spinniped import (
     ModelDefinition,
     ShaftElement,
     ShaftProperty,
+    SinglePointConstraint,
     Solver,
     plot_campbell,
     plot_rotor,
@@ -100,6 +101,7 @@ definition = ModelDefinition(
             property=3,
         ),
     ],
+    boundary_conditions=[SinglePointConstraint(1, dof=(2, 5))],
 )
 
 # Assemble one deterministic set of mass, stiffness, damping, and gyroscopic
@@ -116,10 +118,6 @@ rotor_figure, rotor_axes = plot_rotor(
 )
 rotor_figure.tight_layout()
 
-# Bearings remove lateral rigid motion. Constrain axial translation and
-# torsional rotation at the first grid because those directions are unsupported.
-fixed_dofs = [2, 5]
-
 # Sweep from rest to 12,000 rpm. The solver expects angular speed in rad/s and
 # tracks each mode between adjacent speed points by default.
 maximum_speed_rpm = 12_000.0
@@ -127,7 +125,6 @@ speeds_rpm = np.linspace(0.0, maximum_speed_rpm, 31)
 speeds = speeds_rpm * 2.0 * np.pi / 60.0
 result = Solver(model).solve(
     "campbell",
-    fixed_dofs=fixed_dofs,
     speeds=speeds,
     modes=8,
     harmonics=[1.0],

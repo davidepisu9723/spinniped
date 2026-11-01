@@ -11,6 +11,7 @@ from spinniped import (
     Grid,
     ModelBuilder,
     ModelDefinition,
+    SinglePointConstraint,
     Solver,
     Unbalance,
     plot_frequency_response,
@@ -48,8 +49,10 @@ definition = ModelDefinition(
             phase=np.deg2rad(30.0),
         )
     ],
+    boundary_conditions=[
+        SinglePointConstraint(1, dof=(2, 3, 4, 5))
+    ],
 )
-
 model = ModelBuilder().build(definition)
 
 # Only the two lateral translations participate in this reduced Jeffcott
@@ -58,7 +61,6 @@ speeds_rpm = np.linspace(0.0, 6_000.0, 301)
 speeds = speeds_rpm * 2.0 * np.pi / 60.0
 result = Solver(model).solve(
     "unbalance_response",
-    fixed_dofs=[2, 3, 4, 5],
     speeds=speeds,
     load_ids=[1],
 )

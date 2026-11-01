@@ -14,6 +14,7 @@ Grid, CoordinateSystem, Material
 ShaftProperty, BearingProperty, DiskProperty
 ShaftElement, BearingElement, DiskElement
 HarmonicLoad, SynchronousLoad, RotatingLoad, Unbalance
+SinglePointConstraint
 SpeedDependentValue, RandomDistribution
 ```
 
@@ -42,6 +43,11 @@ Load records are resolved and validated with the other definition records but
 do not contribute to the structural matrices. They remain attached to each
 resolved definition for analysis-specific force assembly by the steady
 response solvers.
+
+`SinglePointConstraint` records are also structural metadata rather than
+matrix contributions. Their DOF tuples are preserved literally during random
+resolution, then interpreted by the solver in each referenced grid's input
+coordinate system.
 
 Declarative record collections require lists so a definition can be assembled
 incrementally. Atomic value sequences use tuples and reject mutable lists.

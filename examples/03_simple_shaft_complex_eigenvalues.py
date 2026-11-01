@@ -9,6 +9,7 @@ from spinniped import (
     ModelDefinition,
     ShaftElement,
     ShaftProperty,
+    SinglePointConstraint,
     Solver,
 )
 
@@ -54,28 +55,19 @@ definition = ModelDefinition(
         )
         for element_index in range(number_of_elements)
     ],
+    boundary_conditions=[
+        SinglePointConstraint(1, dof=(0, 1, 2, 5)),
+        SinglePointConstraint(number_of_elements + 1, dof=(0, 1)),
+    ],
 )
 
 # Assemble one realization: no random distributions are referenced.
 model = ModelBuilder().build(definition)
 
-# Apply simple supports at both ends. The first end also removes axial and
-# torsional rigid-body motion; bending rotations remain free.
-last_grid_first_dof = 6 * number_of_elements
-fixed_dofs = [
-    0,
-    1,
-    2,
-    5,
-    last_grid_first_dof,
-    last_grid_first_dof + 1,
-]
-
 # Campbell analysis forms the first-order damped gyroscopic state matrix. A
 # single requested speed is sufficient when only one operating point is needed.
 result = Solver(model).solve(
     "campbell",
-    fixed_dofs=fixed_dofs,
     speeds=[spin_speed],
     modes=8,
 )

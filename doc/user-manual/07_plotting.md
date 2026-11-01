@@ -58,7 +58,6 @@ from spinniped import plot_frequency_response
 
 result = solver.solve(
     "frequency_response",
-    fixed_dofs=fixed,
     frequencies=[0.0, 10.0, 20.0, 30.0],
     speed=100.0,
     load_ids=[1],
@@ -78,7 +77,6 @@ so their default horizontal axis is rotor speed in rpm:
 ```python
 result = solver.solve(
     "frequency_response",
-    fixed_dofs=fixed,
     speeds=speeds,
     load_ids=[synchronous_load_id],
 )
@@ -134,7 +132,6 @@ from spinniped import plot_campbell
 
 result = solver.solve(
     "campbell",
-    fixed_dofs=fixed,
     speeds=[0.0, 100.0, 200.0],
     modes=8,
 )
@@ -185,7 +182,6 @@ enable their display in the plot:
 ```python
 result = solver.solve(
     "campbell",
-    fixed_dofs=fixed,
     speeds=speeds,
     modes=8,
     harmonics=[1.0, 2.0],

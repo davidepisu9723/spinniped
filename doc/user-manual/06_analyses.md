@@ -2,21 +2,35 @@
 
 ## Table of contents
 
+- [Boundary conditions](#boundary-conditions)
 - [Modal analysis](#modal-analysis)
 - [Campbell analysis](#campbell-analysis)
 - [Frequency response](#frequency-response)
 - [Unbalance response](#unbalance-response)
 - [Time response](#time-response)
 
-`Solver.solve` is the single analysis entry point. Supply the built model to the
-constructor:
+`Solver.solve` is the single analysis entry point. Boundary conditions belong
+to the model definition rather than to an individual solver call.
+
+## Boundary conditions
+
+Boundary conditions are declarative model records. Add them before building:
 
 ```python
-from spinniped import Solver
+from spinniped import ModelDefinition, SinglePointConstraint, Solver
 
-fixed = [2, 5]  # Remove axial and torsional rigid motions.
+definition = ModelDefinition(
+    grids=grids,
+    materials=materials,
+    properties=properties,
+    elements=elements,
+    boundary_conditions=[
+        SinglePointConstraint(grid=1, dof=(2, 5)),
+    ],
+)
+model = ModelBuilder().build(definition)
 solver = Solver(model)
-result = solver.solve("modal", fixed_dofs=fixed, modes=8)
+result = solver.solve("modal", modes=8)
 ```
 
 or to an individual call:
@@ -26,18 +40,35 @@ solver = Solver()
 result = solver.solve(
     "modal",
     model=model,
-    fixed_dofs=fixed,
     modes=8,
 )
 ```
 
-`fixed_dofs` contains global DOF indices. The solver removes duplicate indices,
-validates their range, and solves on the remaining DOFs. Every result is a
-dictionary containing `analysis`, `free_dofs`, `samples`, and `stochastic` in
-addition to analysis-specific values. Solver inputs must be finite and have the
-documented shapes; unknown options are rejected. Results are regular NumPy
-arrays, never ragged object arrays. If an analysis cannot return a consistent
-mode count, it raises an error and asks for fewer or a fixed number of modes.
+Each `SinglePointConstraint` identifies a grid and zero or more local Python
+DOF indices: translations are `0`, `1`, `2`, and rotations are `3`, `4`, `5`.
+Omitting `dof` selects all six components; `dof=()` has no effect. Duplicate
+components across separate SPC records are harmless. At least one model DOF
+must remain free.
+
+The components use the coordinate system selected by
+`Grid.coordinate_system`. They are global only when that ID is `0`. For a
+rotated grid frame, the solver first expresses that grid's translational and
+rotational DOFs in its local frame and then removes the requested components.
+This makes, for example, `dof=(0,)` constrain motion along the grid frame's x
+axis without requiring the caller to calculate coupled global DOF indices.
+
+Every result contains `analysis`, `free_dofs`, `reduction_basis`, `samples`,
+and `stochastic` in addition to analysis-specific values. `reduction_basis`
+maps a reduced result back to global physical coordinates:
+
+```python
+global_displacement = result["reduction_basis"] @ reduced_displacement
+```
+
+Its shape is `(model.ndof, number_of_free_dofs)`. `free_dofs` identifies the
+retained positions in the solver's active nodal basis; at a constrained grid,
+that basis is the grid coordinate system rather than necessarily the global
+frame.
 
 Every `speed` and `speeds` input is signed rotor angular speed in rad/s. When
 the model contains `SpeedDependentValue` records, the solver interpolates all
@@ -50,7 +81,6 @@ outside a table's range.
 ```python
 result = solver.solve(
     "modal",
-    fixed_dofs=fixed,
     modes=8,
     track_modes=True,
     speed=100.0,
@@ -91,7 +121,6 @@ ascending-eigenvalue order in every sample.
 ```python
 result = solver.solve(
     "campbell",
-    fixed_dofs=fixed,
     speeds=[0.0, 100.0, 200.0],  # rad/s
     modes=8,
     track_modes=True,
@@ -217,7 +246,6 @@ force[6] = 1.0
 
 result = solver.solve(
     "frequency_response",
-    fixed_dofs=fixed,
     frequencies=[10.0, 20.0, 30.0],
     force=force,
     speed=100.0,  # rad/s
@@ -230,7 +258,6 @@ already stored in the model definition:
 ```python
 result = solver.solve(
     "frequency_response",
-    fixed_dofs=fixed,
     frequencies=[10.0, 20.0, 30.0],
     load_ids=[1, 2],
     speed=100.0,
@@ -239,7 +266,7 @@ result = solver.solve(
 
 Supply exactly one of `force` and `load_ids`. Selected records are transformed
 from their own coordinate systems, added in global DOF order, and then reduced
-by `fixed_dofs`. Stochastic load parameters are assembled from each resolved
+by the model's SPC records. Stochastic load parameters are assembled from each
 realization rather than reused from sample zero. An `Unbalance` ID is rejected
 here because its amplitude and forcing frequency depend synchronously on rotor
 speed.
@@ -280,7 +307,6 @@ load = SynchronousLoad(
 
 result = solver.solve(
     "frequency_response",
-    fixed_dofs=fixed,
     speeds=[0.0, 100.0, 200.0],
     load_ids=[4],
 )
@@ -314,7 +340,6 @@ $$
 ```python
 result = solver.solve(
     "unbalance_response",
-    fixed_dofs=fixed,
     speeds=[0.0, 100.0, 200.0],
     load_ids=[3],
 )
@@ -343,7 +368,6 @@ accepts time and returns a full or reduced force vector:
 ```python
 result = solver.solve(
     "time_response",
-    fixed_dofs=fixed,
     times=[0.0, 0.001, 0.002],
     force=force,
     speed=100.0,

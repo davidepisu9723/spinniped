@@ -37,6 +37,7 @@ python -m pip install -e ".[test]"
 ```python
 from spinniped import Grid, Material, ModelBuilder, ModelDefinition
 from spinniped import ShaftElement, ShaftProperty, Solver
+from spinniped import SinglePointConstraint
 
 definition = ModelDefinition(
     grids=[Grid(1, z=0.0), Grid(2, z=1.0)],
@@ -44,12 +45,18 @@ definition = ModelDefinition(
                         poisson_ratio=0.3)],
     properties=[ShaftProperty(1, material=1, outer_diameter=0.02)],
     elements=[ShaftElement(1, grid_a=1, grid_b=2, property=1)],
+    boundary_conditions=[SinglePointConstraint(1, dof=(0, 1, 2, 5))],
 )
 
 model = ModelBuilder().build(definition)
-result = Solver(model).solve("modal", fixed_dofs=[0, 1, 2, 5], modes=4)
+result = Solver(model).solve("modal", modes=4)
 print(result["frequencies"][0])
 ```
+
+`SinglePointConstraint` uses Python DOF indices `0` through `5` for
+translations x-y-z and rotations x-y-z. The components are expressed in the
+coordinate system selected by the referenced grid, so constraints remain
+grid-based even when that frame is rotated relative to global coordinates.
 
 ## Documentation
 

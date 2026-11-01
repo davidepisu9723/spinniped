@@ -11,6 +11,7 @@ from spinniped import (
     Grid,
     ModelBuilder,
     ModelDefinition,
+    SinglePointConstraint,
     Solver,
     SynchronousLoad,
     plot_frequency_response,
@@ -42,8 +43,10 @@ definition = ModelDefinition(
             force=(100.0, 0.0, 0.0),
         )
     ],
+    boundary_conditions=[
+        SinglePointConstraint(1, dof=(1, 2, 3, 4, 5))
+    ],
 )
-
 model = ModelBuilder().build(definition)
 solver = Solver(model)
 
@@ -55,7 +58,6 @@ rpm_to_rad_per_second = 2.0 * np.pi / 60.0
 speeds = speeds_rpm * rpm_to_rad_per_second
 result = solver.solve(
     "frequency_response",
-    fixed_dofs=[1, 2, 3, 4, 5],
     speeds=speeds,
     load_ids=[1],
 )

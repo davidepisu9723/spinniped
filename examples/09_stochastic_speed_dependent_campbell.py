@@ -15,6 +15,7 @@ from spinniped import (
     RandomDistribution,
     ShaftElement,
     ShaftProperty,
+    SinglePointConstraint,
     Solver,
     SpeedDependentValue,
     plot_campbell,
@@ -130,6 +131,7 @@ definition = ModelDefinition(
             },
         )
     ],
+    boundary_conditions=[SinglePointConstraint(1, dof=(2, 5))],
 )
 
 # The fixed seed makes the Monte Carlo ensemble and its plotted bands
@@ -153,7 +155,6 @@ speeds_rpm = np.linspace(minimum_speed_rpm, maximum_speed_rpm, 10)
 speeds = speeds_rpm * rpm_to_rad_per_second
 result = Solver(model).solve(
     "campbell",
-    fixed_dofs=[2, 5],
     speeds=speeds,
     modes=10,
     harmonics=[1.0],

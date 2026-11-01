@@ -14,6 +14,7 @@ from spinniped import (
     ModelDefinition,
     ShaftElement,
     ShaftProperty,
+    SinglePointConstraint,
     Solver,
     plot_campbell,
 )
@@ -92,16 +93,12 @@ definition = ModelDefinition(
         ),
         DiskElement(number_of_elements + 3, grid=center_grid, property=3),
     ],
+    boundary_conditions=[
+        SinglePointConstraint(grid.id, dof=(2, 5))
+        for grid in grids
+    ],
 )
 model = ModelBuilder().build(definition)
-
-# The Jeffcott reduction describes lateral translation and bending rotation
-# only, so remove axial and torsional DOFs from every grid.
-fixed_dofs = [
-    6 * grid_index + local_dof
-    for grid_index in range(number_of_elements + 1)
-    for local_dof in (2, 5)
-]
 
 # Evaluate both models through and beyond the two analytical critical speeds.
 maximum_speed_rpm = 6_000.0
@@ -109,7 +106,6 @@ speeds_rpm = np.linspace(0.0, maximum_speed_rpm, 41)
 speeds = speeds_rpm * 2.0 * np.pi / 60.0
 result = Solver(model).solve(
     "campbell",
-    fixed_dofs=fixed_dofs,
     speeds=speeds,
     modes=4,
     # Exact zero-speed degeneracy makes the initial MAC assignment arbitrary.
