@@ -16,6 +16,7 @@ from spinniped import (
     ModelDefinition,
     RandomDistribution,
     RotatingLoad,
+    SinglePointConstraint,
     Solver,
     SynchronousLoad,
     Unbalance,
@@ -30,6 +31,7 @@ def _one_grid_model(
     stochastic=False,
     samples=1,
     seed=None,
+    constrained_dof=(),
 ):
     """Build one fully inertial grid with anisotropic grounded bearings."""
     definition = ModelDefinition(
@@ -58,6 +60,11 @@ def _one_grid_model(
         ],
         distributions=list(distributions or []),
         loads=list(loads),
+        boundary_conditions=(
+            [SinglePointConstraint(10, dof=tuple(constrained_dof))]
+            if constrained_dof
+            else []
+        ),
     )
     return ModelBuilder().build(
         definition,
@@ -124,12 +131,12 @@ def test_synchronous_load_derives_frequency_from_order_and_speed():
                 force=(force_amplitude, 0.0, 0.0),
                 phase=phase,
             )
-        ]
+        ],
+        constrained_dof=(1, 2, 3, 4, 5),
     )
 
     result = Solver(model).solve(
         "frequency_response",
-        fixed_dofs=[1, 2, 3, 4, 5],
         speed=speed,
         load_ids=[21],
     )
@@ -167,12 +174,12 @@ def test_synchronous_load_sweeps_paired_speeds_and_frequencies():
                 harmonic_order=harmonic_order,
                 force=(force_amplitude, 0.0, 0.0),
             )
-        ]
+        ],
+        constrained_dof=(1, 2, 3, 4, 5),
     )
 
     result = Solver(model).solve(
         "frequency_response",
-        fixed_dofs=[1, 2, 3, 4, 5],
         speeds=speeds,
         load_ids=[22],
     )
@@ -212,9 +219,10 @@ def test_synchronous_loads_of_one_order_superimpose():
             phase=0.2,
         ),
     ]
-    solver = Solver(_one_grid_model(loads))
+    solver = Solver(
+        _one_grid_model(loads, constrained_dof=(1, 2, 3, 4, 5))
+    )
     options = {
-        "fixed_dofs": [1, 2, 3, 4, 5],
         "speed": 30.0,
     }
 
@@ -246,10 +254,11 @@ def test_synchronous_frequency_response_rejects_ambiguous_sources():
                 harmonic_order=2.0,
                 force=(1.0, 0.0, 0.0),
             ),
-        ]
+        ],
+        constrained_dof=(1, 2, 3, 4, 5),
     )
     solver = Solver(model)
-    options = {"fixed_dofs": [1, 2, 3, 4, 5], "speed": 20.0}
+    options = {"speed": 20.0}
 
     with pytest.raises(ValueError, match="frequencies must be omitted"):
         solver.solve(
@@ -270,7 +279,6 @@ def test_synchronous_frequency_response_rejects_ambiguous_sources():
             speed=20.0,
             speeds=[20.0],
             load_ids=[2],
-            fixed_dofs=options["fixed_dofs"],
         )
     with pytest.raises(ValueError, match="only for SynchronousLoad"):
         solver.solve(
@@ -278,7 +286,6 @@ def test_synchronous_frequency_response_rejects_ambiguous_sources():
             frequencies=[1.0],
             speeds=[20.0],
             load_ids=[1],
-            fixed_dofs=options["fixed_dofs"],
         )
 
 
@@ -286,7 +293,8 @@ def test_synchronous_frequency_response_rejects_ambiguous_sources():
 def test_synchronous_frequency_response_rejects_invalid_speed_sweeps(speeds):
     """Verify a synchronous speed sweep is finite, nonempty, and 1D."""
     model = _one_grid_model(
-        [SynchronousLoad(1, grid=10, harmonic_order=1.0)]
+        [SynchronousLoad(1, grid=10, harmonic_order=1.0)],
+        constrained_dof=(1, 2, 3, 4, 5),
     )
 
     with pytest.raises(ValueError, match="speeds must be"):
@@ -315,7 +323,10 @@ def test_rotating_load_sense_phase_and_superposition_are_preserved():
         phase=phase,
         sense="negative",
     )
-    model = _one_grid_model([positive, negative])
+    model = _one_grid_model(
+        [positive, negative],
+        constrained_dof=(2, 3, 4, 5),
+    )
 
     positive_force = Solver._assemble_harmonic_loads(model, 0, (11,))
     negative_force = Solver._assemble_harmonic_loads(model, 0, (42,))
@@ -331,7 +342,6 @@ def test_rotating_load_sense_phase_and_superposition_are_preserved():
     )
 
     options = {
-        "fixed_dofs": [2, 3, 4, 5],
         "frequencies": [6.0],
         "speed": 20.0,
     }
@@ -374,11 +384,11 @@ def test_frequency_response_uses_each_samples_resolved_load():
         stochastic=True,
         samples=4,
         seed=8,
+        constrained_dof=(1, 2, 3, 4, 5),
     )
     frequency = 5.0
     result = Solver(model).solve(
         "frequency_response",
-        fixed_dofs=[1, 2, 3, 4, 5],
         frequencies=[frequency],
         load_ids=[1],
     )
@@ -411,6 +421,9 @@ def test_unbalance_response_matches_signed_synchronous_dynamic_stiffness():
     definition = ModelDefinition(
         grids=[Grid(10)],
         loads=[Unbalance(8, 10, mass_eccentricity, phase=phase)],
+        boundary_conditions=[
+            SinglePointConstraint(10, dof=(2, 3, 4, 5))
+        ],
     )
     model = BuiltModel(
         stiffness=stiffness[None, :, :],
@@ -427,7 +440,6 @@ def test_unbalance_response_matches_signed_synchronous_dynamic_stiffness():
 
     result = Solver(model).solve(
         "unbalance_response",
-        fixed_dofs=[2, 3, 4, 5],
         speeds=speeds,
         load_ids=[8],
     )
@@ -495,11 +507,11 @@ def test_response_load_selection_is_validated():
             HarmonicLoad(1, grid=10, force=(1.0, 0.0, 0.0)),
             RotatingLoad(2, grid=10, force_magnitude=1.0),
             Unbalance(3, grid=10, mass_eccentricity=1.0e-3),
-        ]
+        ],
+        constrained_dof=(2, 3, 4, 5),
     )
     solver = Solver(model)
     frequency_options = {
-        "fixed_dofs": [2, 3, 4, 5],
         "frequencies": [5.0],
     }
 
@@ -539,7 +551,6 @@ def test_response_load_selection_is_validated():
     with pytest.raises(ValueError, match="not HarmonicLoad"):
         solver.solve(
             "unbalance_response",
-            fixed_dofs=[2, 3, 4, 5],
             speeds=[10.0],
             load_ids=[1],
         )
@@ -548,12 +559,10 @@ def test_response_load_selection_is_validated():
             "frequency_response",
             frequencies=[-1.0],
             load_ids=[1],
-            fixed_dofs=[2, 3, 4, 5],
         )
     with pytest.raises(ValueError, match="speeds must"):
         solver.solve(
             "unbalance_response",
-            fixed_dofs=[2, 3, 4, 5],
             speeds=np.nan,
             load_ids=[3],
         )

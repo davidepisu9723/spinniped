@@ -15,6 +15,7 @@ from spinniped import (
     RandomDistribution,
     ShaftElement,
     ShaftProperty,
+    SinglePointConstraint,
     Solver,
     Unbalance,
     plot_frequency_response,
@@ -118,6 +119,7 @@ definition = ModelDefinition(
             parameters={"low": 0.5e-4, "high": 5e-4},
         )
     ],
+    boundary_conditions=[SinglePointConstraint(1, dof=(2, 5))],
 )
 
 # The fixed seed makes the Monte Carlo ensemble reproducible. One residual-
@@ -138,7 +140,6 @@ speeds_rpm = np.linspace(0.0, maximum_speed_rpm, 401)
 speeds = speeds_rpm * 2.0 * np.pi / 60.0
 result = Solver(model).solve(
     "unbalance_response",
-    fixed_dofs=[2, 5],
     speeds=speeds,
     load_ids=[1],
 )

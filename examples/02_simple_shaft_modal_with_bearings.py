@@ -9,6 +9,7 @@ from spinniped import (
     ModelDefinition,
     ShaftElement,
     ShaftProperty,
+    SinglePointConstraint,
     Solver,
 )
 
@@ -67,15 +68,14 @@ definition = ModelDefinition(
             property=2,
         ),
     ],
+    boundary_conditions=[SinglePointConstraint(1, dof=(2, 5))],
 )
 
 # Assemble one deterministic numerical model.
 model = ModelBuilder().build(definition)
 
-# Remove only the unsupported axial and torsional rigid-body motion.
 result = Solver(model).solve(
     "modal",
-    fixed_dofs=[2, 5],
     modes=18,
 )
 

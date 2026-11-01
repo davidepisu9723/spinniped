@@ -8,7 +8,6 @@ from spinniped import Solver
 from conftest import (
     build_uniform_beam,
     one_frequency_per_bending_pair,
-    simply_supported_fixed_dofs,
     simply_supported_frequencies,
 )
 
@@ -32,7 +31,6 @@ def _first_mode_error(properties, elements):
     model = build_uniform_beam(properties, elements, theory="euler")
     result = Solver(model).solve(
         "modal",
-        fixed_dofs=simply_supported_fixed_dofs(elements),
         modes=2,
     )
     numerical = one_frequency_per_bending_pair(result["frequencies"][0], 1)[0]

@@ -456,8 +456,8 @@ def plot_frequency_response(
             "result response must have shape (samples, points, free_dofs)"
         )
 
-    # Interpret requested DOFs as global indices, matching fixed_dofs and the
-    # free_dofs metadata returned by Solver.solve.
+    # Interpret requested DOFs as active-basis indices matching the free_dofs
+    # metadata returned by Solver.solve.
     if dofs is None:
         selected_dofs = [int(dof) for dof in free_dofs]
     else:

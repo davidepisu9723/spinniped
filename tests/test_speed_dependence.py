@@ -19,6 +19,7 @@ from spinniped import (
     RandomDistribution,
     RotatingLoad,
     ShaftProperty,
+    SinglePointConstraint,
     Solver,
     SpeedDependentValue,
     SynchronousLoad,
@@ -54,6 +55,7 @@ def _one_dof_definition(
         elements=[BearingElement(1, 1, 1), DiskElement(2, 1, 2)],
         distributions=list(distributions),
         loads=list(loads),
+        boundary_conditions=[SinglePointConstraint(1, dof=tuple(FIXED_TO_X))],
     )
 
 
@@ -78,6 +80,7 @@ def _two_dof_unbalance_model(stiffness, damping):
         ],
         elements=[BearingElement(1, 1, 1), DiskElement(2, 1, 2)],
         loads=[Unbalance(1, 1, mass_eccentricity=2.0e-3, phase=0.2)],
+        boundary_conditions=[SinglePointConstraint(1, dof=tuple(FIXED_TO_XY))],
     )
     return ModelBuilder().build(definition)
 
@@ -242,7 +245,6 @@ def test_builder_keeps_base_matrices_three_dimensional_and_adds_deltas():
 
     result = Solver(model).solve(
         "modal",
-        fixed_dofs=FIXED_TO_X,
         speed=50.0,
     )
     assert result["eigenvalues"][0, 0] == pytest.approx((25.0 + 650.0) / 2.0)
@@ -323,7 +325,6 @@ def test_deterministic_build_resolves_random_speed_ordinates_to_means():
 
     result = Solver(model).solve(
         "modal",
-        fixed_dofs=FIXED_TO_X,
         speed=50.0,
     )
     assert result["eigenvalues"][0, 0] == pytest.approx(650.0 / 2.0)
@@ -397,7 +398,6 @@ def test_repeated_random_reference_reuses_one_draw_at_every_speed_knot():
 
     result = Solver(model).solve(
         "campbell",
-        fixed_dofs=FIXED_TO_X,
         speeds=[0.0, 100.0],
         modes=1,
     )
@@ -415,7 +415,6 @@ def test_campbell_uses_interpolated_stiffness_and_damping_at_every_speed():
 
     result = Solver(model).solve(
         "campbell",
-        fixed_dofs=FIXED_TO_X,
         speeds=speeds,
         modes=1,
     )
@@ -441,7 +440,6 @@ def test_frequency_response_uses_rotor_speed_not_forcing_frequency():
 
     result = Solver(model).solve(
         "frequency_response",
-        fixed_dofs=FIXED_TO_X,
         frequencies=frequencies,
         force=force,
         speed=50.0,
@@ -465,7 +463,6 @@ def test_time_response_uses_one_interpolated_operating_point():
         _one_dof_definition(stiffness=10.0, damping=0.4, mass=1.0)
     )
     options = {
-        "fixed_dofs": FIXED_TO_X,
         "times": np.linspace(0.0, 0.5, 8),
         "force": np.zeros(6),
         "initial_state": [1.0, 0.0],
@@ -494,7 +491,6 @@ def test_unbalance_response_uses_literal_signed_speed_for_bearing_tables():
 
     result = Solver(model).solve(
         "unbalance_response",
-        fixed_dofs=FIXED_TO_XY,
         speeds=speeds,
         load_ids=[1],
     )
@@ -539,7 +535,6 @@ def test_campbell_preflights_complete_speed_grid_before_first_solve(monkeypatch)
     with pytest.raises(ValueError, match="outside its speed range"):
         Solver(model).solve(
             "campbell",
-            fixed_dofs=FIXED_TO_X,
             speeds=[50.0, 101.0],
             modes=1,
         )
@@ -605,13 +600,15 @@ def test_frequency_response_interpolates_rotating_load_at_rotor_speed():
         ],
         elements=[BearingElement(1, 1, 1), DiskElement(2, 1, 2)],
         loads=[load],
+        boundary_conditions=[
+            SinglePointConstraint(1, dof=tuple(FIXED_TO_XY))
+        ],
     )
     model = ModelBuilder().build(definition)
     frequency = 2.0
 
     result = Solver(model).solve(
         "frequency_response",
-        fixed_dofs=FIXED_TO_XY,
         frequencies=[frequency],
         speed=50.0,
         load_ids=[4],
@@ -639,7 +636,6 @@ def test_synchronous_load_interpolates_amplitude_over_speed_sweep():
 
     result = Solver(model).solve(
         "frequency_response",
-        fixed_dofs=FIXED_TO_X,
         speeds=speeds,
         load_ids=[5],
     )
@@ -673,7 +669,6 @@ def test_selected_load_is_preflighted_but_unselected_tables_are_ignored(
     # An unselected table must not constrain an otherwise valid analysis.
     valid = Solver(model).solve(
         "frequency_response",
-        fixed_dofs=FIXED_TO_X,
         frequencies=[1.0],
         speed=50.0,
         load_ids=[2],
@@ -691,7 +686,6 @@ def test_selected_load_is_preflighted_but_unselected_tables_are_ignored(
     with pytest.raises(ValueError, match="outside its speed range"):
         Solver(model).solve(
             "frequency_response",
-            fixed_dofs=FIXED_TO_X,
             frequencies=[1.0],
             speed=50.0,
             load_ids=[1],

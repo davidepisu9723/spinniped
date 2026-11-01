@@ -54,7 +54,7 @@ class Solver:
         # Store the model without performing an analysis during construction.
         self.model = model
 
-    def solve(self, analysis="modal", *, model=None, fixed_dofs=None, **options):
+    def solve(self, analysis="modal", *, model=None, **options):
         """Run one selected analysis for every model realization.
 
         Parameters
@@ -64,8 +64,6 @@ class Solver:
             ``unbalance_response``, or ``time_response``.
         model : BuiltModel or None, optional
             Per-call model override. By default, use the constructor model.
-        fixed_dofs : sequence of int or None, optional
-            Global degrees of freedom removed before solution.
         **options
             Analysis-specific keyword arguments.
 
@@ -86,10 +84,10 @@ class Solver:
         if not isinstance(numerical_model, BuiltModel):
             raise TypeError("model must be a model returned by ModelBuilder")
 
-        # Rotate constrained grids into their requested frames, then combine
-        # declarative SPCs with the legacy global-index constraint route.
+        # Rotate constrained grids into their CP frames and reduce the
+        # declarative single-point constraints.
         numerical_model, free_dofs, dof_transform = (
-            self._apply_boundary_conditions(numerical_model, fixed_dofs)
+            self._apply_boundary_conditions(numerical_model)
         )
 
         # Normalize the public name before selecting an analysis strategy.
@@ -143,22 +141,8 @@ class Solver:
         return result
 
     @classmethod
-    def _apply_boundary_conditions(cls, model, fixed_dofs):
+    def _apply_boundary_conditions(cls, model):
         """Return a working model expressed in each constrained grid's frame."""
-        if fixed_dofs is None:
-            legacy_fixed = []
-        else:
-            try:
-                legacy_fixed = list(fixed_dofs)
-            except TypeError:
-                raise TypeError(
-                    "fixed_dofs must be a sequence of integers"
-                ) from None
-
-        # Validate the legacy route independently so its established error
-        # contract remains unchanged.
-        cls._free_dofs(model.ndof, legacy_fixed)
-
         definition = model.definitions[0]
         rotations = cls._load_coordinate_systems(definition)
         grid_positions = {
@@ -194,16 +178,6 @@ class Solver:
                 offset + dof for dof in boundary_condition.dof
             )
 
-        uses_local_frame = any(
-            grid_coordinate_systems[grid_id] != 0
-            for grid_id in constrained_grids
-        )
-        if uses_local_frame and legacy_fixed:
-            raise ValueError(
-                "fixed_dofs cannot be combined with local-coordinate "
-                "boundary conditions"
-            )
-
         dof_transform = np.eye(model.ndof)
         for grid_id in constrained_grids:
             coordinate_system = grid_coordinate_systems[grid_id]
@@ -214,10 +188,7 @@ class Solver:
                 rotation
             )
 
-        free_dofs = cls._free_dofs(
-            model.ndof,
-            legacy_fixed + boundary_fixed,
-        )
+        free_dofs = cls._free_dofs(model.ndof, boundary_fixed)
         if not constrained_grids:
             return model, free_dofs, dof_transform
 
@@ -240,15 +211,15 @@ class Solver:
         return working_model, free_dofs, dof_transform
 
     @staticmethod
-    def _free_dofs(number_of_dofs, fixed_dofs):
+    def _free_dofs(number_of_dofs, constrained_dofs):
         """Validate constraints and return complementary free DOFs.
 
         Parameters
         ----------
         number_of_dofs : int
             Total number of global degrees of freedom.
-        fixed_dofs : sequence of int or None
-            Global indices to remove.
+        constrained_dofs : sequence of int
+            Active-basis indices to remove.
 
         Returns
         -------
@@ -256,14 +227,14 @@ class Solver:
             Sorted unique free-DOF indices.
         """
         # Treat a missing constraint sequence as an empty sequence.
-        if fixed_dofs is None:
+        if constrained_dofs is None:
             fixed_values = []
         else:
             try:
-                fixed_values = list(fixed_dofs)
+                fixed_values = list(constrained_dofs)
             except TypeError:
                 raise TypeError(
-                    "fixed_dofs must be a sequence of integers"
+                    "constrained DOFs must be a sequence of integers"
                 ) from None
 
         # Reject floats and Booleans instead of silently converting them.
@@ -273,17 +244,21 @@ class Solver:
             for value in fixed_values
         )
         if invalid_type:
-            raise TypeError("fixed_dofs must contain only integers")
+            raise TypeError("constrained DOFs must contain only integers")
 
         # Convert validated values to an integer NumPy array.
         fixed_array = np.asarray(fixed_values, dtype=int)
         if fixed_array.ndim != 1:
-            raise ValueError("fixed_dofs must be a one-dimensional sequence")
+            raise ValueError(
+                "constrained DOFs must be a one-dimensional sequence"
+            )
 
         # All indices must address existing global DOFs.
         if fixed_array.size:
             if fixed_array.min() < 0 or fixed_array.max() >= number_of_dofs:
-                raise ValueError("fixed_dofs contains an out-of-range index")
+                raise ValueError(
+                    "constrained DOFs contain an out-of-range index"
+                )
 
         # Remove duplicates before computing the set difference.
         unique_fixed = np.unique(fixed_array)

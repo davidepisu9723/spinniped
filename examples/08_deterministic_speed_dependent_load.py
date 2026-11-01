@@ -12,6 +12,7 @@ from spinniped import (
     HarmonicLoad,
     ModelBuilder,
     ModelDefinition,
+    SinglePointConstraint,
     Solver,
     SpeedDependentValue,
     plot_frequency_response,
@@ -63,15 +64,16 @@ definition = ModelDefinition(
             force=(fluid_force_x, 0.0, 0.0),
         )
     ],
+    boundary_conditions=[
+        SinglePointConstraint(1, dof=(2, 3, 4, 5))
+    ],
 )
-
 model = ModelBuilder().build(definition)
 solver = Solver(model)
 
 # Frequency response accepts one scalar rotor speed per call. Solve one full
 # forcing-frequency sweep at each CFD table knot to compare the response
 # curves produced by the three tabulated load amplitudes.
-fixed_dofs = [2, 3, 4, 5]
 forcing_frequencies = np.linspace(0.0, 80.0, 321)
 figure, response_axes = plt.subplots()
 
@@ -83,7 +85,6 @@ for speed_rpm, speed, force_value in zip(
 ):
     result = solver.solve(
         "frequency_response",
-        fixed_dofs=fixed_dofs,
         frequencies=forcing_frequencies,
         speed=speed,
         load_ids=[1],

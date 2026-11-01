@@ -7,7 +7,6 @@ from spinniped import Solver
 from conftest import (
     build_uniform_beam,
     one_frequency_per_bending_pair,
-    simply_supported_fixed_dofs,
     simply_supported_frequencies,
 )
 
@@ -20,7 +19,6 @@ def test_simply_supported_beam_first_four_bending_frequencies(shaft_properties):
     model = build_uniform_beam(shaft_properties, elements, theory="euler")
     result = Solver(model).solve(
         "modal",
-        fixed_dofs=simply_supported_fixed_dofs(elements),
         modes=2 * modes,
     )
 

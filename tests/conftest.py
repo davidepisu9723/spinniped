@@ -12,6 +12,7 @@ from spinniped import (
     ModelDefinition,
     ShaftElement,
     ShaftProperty,
+    SinglePointConstraint,
 )
 from spinniped.gyroscopic import shaft_gyroscopic
 from spinniped.mass import shaft_mass
@@ -177,14 +178,12 @@ def build_uniform_beam(properties, elements, theory="euler"):
             )
             for index in range(elements)
         ],
+        boundary_conditions=[
+            SinglePointConstraint(1, dof=(0, 1, 2, 5)),
+            SinglePointConstraint(elements + 1, dof=(0, 1)),
+        ],
     )
     return ModelBuilder().build(definition)
-
-
-def simply_supported_fixed_dofs(elements):
-    """Return global support DOFs for the six-DOF grid ordering."""
-    final_grid_offset = 6 * elements
-    return [0, 1, 2, 5, final_grid_offset, final_grid_offset + 1]
 
 
 def simply_supported_frequencies(properties, modes):

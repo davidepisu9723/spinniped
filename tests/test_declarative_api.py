@@ -21,6 +21,7 @@ from spinniped import (
     RotatingLoad,
     ShaftElement,
     ShaftProperty,
+    SinglePointConstraint,
     Solver,
     SynchronousLoad,
     Unbalance,
@@ -106,6 +107,7 @@ def _rotor_definition(*, random=False):
             DiskElement(5, 2, 3),
         ],
         distributions=distributions,
+        boundary_conditions=[SinglePointConstraint(1, dof=(2, 5))],
     )
 
 
@@ -585,7 +587,7 @@ def test_modal_solver_returns_real_modes_for_each_sample():
         samples=3,
         seed=12,
     )
-    result = Solver(model).solve("modal", fixed_dofs=[2, 5], modes=4)
+    result = Solver(model).solve("modal", modes=4)
 
     assert result["analysis"] == "modal"
     assert result["samples"] == 3
@@ -608,7 +610,6 @@ def test_campbell_solver_returns_modes_at_every_speed():
     result = Solver().solve(
         "campbell",
         model=model,
-        fixed_dofs=[2, 5],
         speeds=[0.0, 100.0, 200.0],
         modes=4,
     )
@@ -633,7 +634,6 @@ def test_campbell_warns_only_when_tracking_starts_at_zero_speed():
     with pytest.warns(UserWarning, match="starts at exactly zero"):
         solver.solve(
             "campbell",
-            fixed_dofs=[2, 5],
             speeds=[0.0, 1.0],
             modes=2,
         )
@@ -642,19 +642,16 @@ def test_campbell_warns_only_when_tracking_starts_at_zero_speed():
         warnings.simplefilter("error")
         solver.solve(
             "campbell",
-            fixed_dofs=[2, 5],
             speeds=[1.0, 2.0],
             modes=2,
         )
         solver.solve(
             "campbell",
-            fixed_dofs=[2, 5],
             speeds=[1.0, 0.0],
             modes=2,
         )
         solver.solve(
             "campbell",
-            fixed_dofs=[2, 5],
             speeds=[0.0, 1.0],
             modes=2,
             track_modes=False,
@@ -672,11 +669,11 @@ def test_campbell_calculates_sampled_speed_interpolated_critical_speeds():
             DiskProperty(2, mass=1.0, diametral_inertia=1.0),
         ],
         elements=[BearingElement(1, 1, 1), DiskElement(2, 1, 2)],
+        boundary_conditions=[SinglePointConstraint(1, dof=(2, 3, 4, 5))],
     )
     model = ModelBuilder().build(definition)
     result = Solver(model).solve(
         "campbell",
-        fixed_dofs=[2, 3, 4, 5],
         speeds=2.0 * np.pi * np.array([0.0, 12.0, 20.0]),
         modes=2,
         harmonics=[1.0, 2.0],
@@ -730,13 +727,13 @@ def test_campbell_preserves_stochastic_critical_speed_correspondence():
                 },
             ),
         ],
+        boundary_conditions=[SinglePointConstraint(1, dof=(2, 3, 4, 5))],
     )
     model = ModelBuilder().build(
         definition, stochastic=True, samples=4, seed=9
     )
     result = Solver(model).solve(
         "campbell",
-        fixed_dofs=[2, 3, 4, 5],
         speeds=2.0 * np.pi * np.array([0.0, 15.0]),
         modes=2,
         harmonics=[1.0],
@@ -798,7 +795,7 @@ def test_campbell_validates_critical_speed_options(options, exception, message):
 
     with pytest.raises(exception, match=message):
         Solver(model).solve(
-            "campbell", fixed_dofs=[2, 5], **solve_options
+            "campbell", **solve_options
         )
 
 
@@ -809,7 +806,7 @@ def test_campbell_solver_rejects_invalid_mode_counts(modes):
 
     with pytest.raises(ValueError, match="modes must be a positive integer"):
         Solver(model).solve(
-            "campbell", fixed_dofs=[2, 5], speeds=[0.0], modes=modes
+            "campbell", speeds=[0.0], modes=modes
         )
 
 
@@ -819,7 +816,7 @@ def test_campbell_solver_rejects_more_modes_than_are_available():
 
     with pytest.raises(ValueError, match="Requested 100 modes"):
         Solver(model).solve(
-            "campbell", fixed_dofs=[2, 5], speeds=[0.0], modes=100
+            "campbell", speeds=[0.0], modes=100
         )
 
 
@@ -830,7 +827,6 @@ def test_frequency_response_accepts_a_full_model_force():
     force[6] = 1.0
     result = Solver(model).solve(
         "frequency_response",
-        fixed_dofs=[2, 5],
         frequencies=[10.0, 20.0],
         force=force,
         speed=50.0,
@@ -850,7 +846,6 @@ def test_time_response_returns_displacement_and_velocity():
     times = np.linspace(0.0, 0.002, 5)
     result = Solver(model).solve(
         "time_response",
-        fixed_dofs=[2, 5],
         times=times,
         force=force,
     )
@@ -866,15 +861,13 @@ def test_time_response_returns_displacement_and_velocity():
 def test_time_response_reduces_a_full_model_initial_state():
     """Verify time response reduces full-model initial conditions."""
     model = ModelBuilder().build(_rotor_definition())
-    fixed = [2, 5]
-    free = np.setdiff1d(np.arange(model.ndof), fixed)
+    free = np.setdiff1d(np.arange(model.ndof), [2, 5])
     full_displacement = np.linspace(1.0e-7, 1.8e-6, model.ndof)
     full_velocity = np.linspace(-1.8e-4, -1.0e-5, model.ndof)
     full_initial_state = np.concatenate((full_displacement, full_velocity))
 
     result = Solver(model).solve(
         "time_response",
-        fixed_dofs=fixed,
         times=[0.0, 1.0e-8],
         force=np.zeros(model.ndof),
         initial_state=full_initial_state,
@@ -894,14 +887,8 @@ def test_solver_validates_entry_point_arguments():
         Solver().solve("modal", model=object())
     with pytest.raises(ValueError, match="Unknown analysis"):
         Solver(model).solve("static")
-    with pytest.raises(ValueError, match="out-of-range"):
-        Solver(model).solve("modal", fixed_dofs=[model.ndof])
-    with pytest.raises(TypeError, match="only integers"):
-        Solver(model).solve("modal", fixed_dofs=[True])
-    with pytest.raises(TypeError, match="only integers"):
-        Solver(model).solve("modal", fixed_dofs=[1.5])
     with pytest.raises(TypeError, match="unexpected keyword"):
-        Solver(model).solve("modal", fixed_dofs=[2, 5], modse=3)
+        Solver(model).solve("modal", modse=3)
 
 
 def test_modal_rejects_cross_coupled_nonsymmetric_stiffness():
@@ -913,7 +900,7 @@ def test_modal_rejects_cross_coupled_nonsymmetric_stiffness():
     model = ModelBuilder().build(definition)
 
     with pytest.raises(ValueError, match="requires symmetric stiffness"):
-        Solver(model).solve("modal", fixed_dofs=[2, 5])
+        Solver(model).solve("modal")
 
 
 def test_modal_keeps_small_physical_modes_in_a_wide_spectrum():
@@ -927,9 +914,10 @@ def test_modal_keeps_small_physical_modes_in_a_wide_spectrum():
             ),
         ],
         elements=[BearingElement(1, 1, 1), DiskElement(2, 1, 2)],
+        boundary_conditions=[SinglePointConstraint(1, dof=(2, 3, 4, 5))],
     )
     model = ModelBuilder().build(definition)
-    result = Solver(model).solve("modal", fixed_dofs=[2, 3, 4, 5])
+    result = Solver(model).solve("modal")
 
     assert result["eigenvalues"].shape == (1, 2)
     assert np.allclose(result["eigenvalues"][0], [1.0e-4, 1.0e8])
@@ -943,14 +931,12 @@ def test_response_solvers_validate_load_and_time_shapes():
     with pytest.raises(ValueError, match="force must"):
         solver.solve(
             "frequency_response",
-            fixed_dofs=[2, 5],
             frequencies=[10.0],
             force=[1.0, 2.0],
         )
     with pytest.raises(ValueError, match="times must"):
         solver.solve(
             "time_response",
-            fixed_dofs=[2, 5],
             times=[0.0],
             force=np.zeros(model.ndof),
         )

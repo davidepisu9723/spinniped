@@ -7,6 +7,7 @@ from spinniped import (
     ModelDefinition,
     ShaftElement,
     ShaftProperty,
+    SinglePointConstraint,
     Solver,
 )
 
@@ -48,26 +49,18 @@ definition = ModelDefinition(
         )
         for element_index in range(number_of_elements)
     ],
+    boundary_conditions=[
+        SinglePointConstraint(1, dof=(0, 1, 2, 5)),
+        SinglePointConstraint(number_of_elements + 1, dof=(0, 1)),
+    ],
 )
 
 # Resolve records and assemble one deterministic set of global matrices.
 model = ModelBuilder().build(definition)
 
-# Constrain transverse end translations and remove axial/torsional rigid motion.
-last_grid_first_dof = 6 * number_of_elements
-fixed_dofs = [
-    0,
-    1,
-    2,
-    5,
-    last_grid_first_dof,
-    last_grid_first_dof + 1,
-]
-
 # Request the first eighteen positive real modes.
 result = Solver(model).solve(
     "modal",
-    fixed_dofs=fixed_dofs,
     modes=18,
 )
 
