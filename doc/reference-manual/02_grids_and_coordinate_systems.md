@@ -115,4 +115,9 @@ $$
 \end{bmatrix}.
 $$
 
-Solver boundary conditions use these global integer DOF indices.
+Global integer indices remain the assembly convention, but public boundary
+conditions do not require callers to calculate them. A
+`SinglePointConstraint` references a grid ID and local indices `0` through `5`.
+The selected translations and rotations use that grid's
+`Grid.coordinate_system`; the solver constructs the corresponding global
+reduction basis before solving.

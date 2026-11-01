@@ -53,6 +53,11 @@ result = Solver(model).solve("modal", modes=4)
 print(result["frequencies"][0])
 ```
 
+`SinglePointConstraint` uses Python DOF indices `0` through `5` for
+translations x-y-z and rotations x-y-z. The components are expressed in the
+coordinate system selected by the referenced grid, so constraints remain
+grid-based even when that frame is rotated relative to global coordinates.
+
 ## Documentation
 
 - [Spinniped user manual](doc/user-manual/00_user_manual.md) explains how to

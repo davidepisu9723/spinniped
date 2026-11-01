@@ -2,14 +2,17 @@
 
 ## Table of contents
 
+- [Boundary conditions](#boundary-conditions)
 - [Modal analysis](#modal-analysis)
 - [Campbell analysis](#campbell-analysis)
 - [Frequency response](#frequency-response)
 - [Unbalance response](#unbalance-response)
 - [Time response](#time-response)
 
-`Solver.solve` is the single analysis entry point. Supply the built model to the
-constructor:
+`Solver.solve` is the single analysis entry point. Boundary conditions belong
+to the model definition rather than to an individual solver call.
+
+## Boundary conditions
 
 Boundary conditions are declarative model records. Add them before building:
 
@@ -41,11 +44,31 @@ result = solver.solve(
 )
 ```
 
-Each `SinglePointConstraint` identifies a grid and its local DOF indices. Those
-components use the grid's input coordinate system. The solver validates and
-combines the records, then solves on the remaining DOFs. Every result contains
-`analysis`, `free_dofs`, `reduction_basis`, `samples`, and `stochastic` in
-addition to analysis-specific values.
+Each `SinglePointConstraint` identifies a grid and zero or more local Python
+DOF indices: translations are `0`, `1`, `2`, and rotations are `3`, `4`, `5`.
+Omitting `dof` selects all six components; `dof=()` has no effect. Duplicate
+components across separate SPC records are harmless. At least one model DOF
+must remain free.
+
+The components use the coordinate system selected by
+`Grid.coordinate_system`. They are global only when that ID is `0`. For a
+rotated grid frame, the solver first expresses that grid's translational and
+rotational DOFs in its local frame and then removes the requested components.
+This makes, for example, `dof=(0,)` constrain motion along the grid frame's x
+axis without requiring the caller to calculate coupled global DOF indices.
+
+Every result contains `analysis`, `free_dofs`, `reduction_basis`, `samples`,
+and `stochastic` in addition to analysis-specific values. `reduction_basis`
+maps a reduced result back to global physical coordinates:
+
+```python
+global_displacement = result["reduction_basis"] @ reduced_displacement
+```
+
+Its shape is `(model.ndof, number_of_free_dofs)`. `free_dofs` identifies the
+retained positions in the solver's active nodal basis; at a constrained grid,
+that basis is the grid coordinate system rather than necessarily the global
+frame.
 
 Every `speed` and `speeds` input is signed rotor angular speed in rad/s. When
 the model contains `SpeedDependentValue` records, the solver interpolates all

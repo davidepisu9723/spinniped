@@ -3,6 +3,7 @@
 ## Table of contents
 
 - [Equation and matrix convention](#equation-and-matrix-convention)
+- [Boundary-condition reduction](#boundary-condition-reduction)
 - [Mode correspondence](#mode-correspondence)
   - [MAC matrix and one-to-one assignment](#mac-matrix-and-one-to-one-assignment)
   - [Tracking as array-column placement](#tracking-as-array-column-placement)
@@ -51,6 +52,43 @@ $$
 \qquad
 f^{(s)}=\frac{\sqrt{\lambda^{(s)}}}{2\pi}.
 $$
+
+## Boundary-condition reduction
+
+`ModelDefinition.boundary_conditions` contains `SinglePointConstraint`
+records. Each record selects a grid and unique component indices from `0`
+through `5`. The indices address translations followed by rotations in the
+coordinate system named by `Grid.coordinate_system`. An empty tuple is ignored;
+overlaps between records are deduplicated. An unknown grid or a selection that
+leaves no free component is rejected.
+
+For every grid with an active SPC, let $\mathbf{R}_g$ be the local-to-global
+rotation of its grid coordinate system. The solver inserts two copies into the
+full nodal transformation,
+
+$$
+\mathbf{T}_g=\mathop{\mathrm{diag}}(\mathbf{R}_g,\mathbf{R}_g),
+$$
+
+and uses identity blocks at unconstrained grids. If $\mathcal{F}$ is the set of
+retained active-basis components, the reported reduction basis is
+
+$$
+\mathbf{B}=\mathbf{T}_{[:,\mathcal{F}]}.
+$$
+
+Every structural matrix and full global load is reduced consistently:
+
+$$
+\mathbf{A}_r=\mathbf{B}^{T}\mathbf{A}\mathbf{B},
+\qquad
+\mathbf{f}_r=\mathbf{B}^{T}\mathbf{f},
+$$
+
+where $\mathbf{A}$ stands for mass, stiffness, damping, gyroscopic, or a
+speed-dependent matrix contribution. Consequently, multiplying a reduced
+displacement or mode by `result["reduction_basis"]` reconstructs its global
+physical components.
 
 ## Mode correspondence
 
@@ -252,8 +290,9 @@ shape through it.*
 ## Implemented analysis routes
 
 `Solver.solve` dispatches to modal, Campbell, frequency-response,
-unbalance-response, and time-response implementations. Fixed global DOFs are
-validated, deduplicated, and removed before solution.
+unbalance-response, and time-response implementations. Declarative SPCs are
+validated, combined, transformed from their grid frames, and removed before
+solution.
 
 The modal route evaluates $\mathbf{K}(\Omega)$ at one scalar `speed` (default
 zero), solves the real undamped generalized eigenproblem, and requires
@@ -325,9 +364,9 @@ returned forcing `frequencies` are nonnegative.
 
 Declarative load vectors are first assembled in full global DOF order. Force
 and moment triples are transformed with the load coordinate system's
-local-to-global rotation, contributions with the same grid are summed, and
-fixed DOFs are removed afterward. Selection preserves caller ID order for
-metadata but does not otherwise affect the commutative superposition.
+local-to-global rotation, contributions with the same grid are summed, and the
+SPC reduction basis is applied afterward. Selection preserves caller ID order
+for metadata but does not otherwise affect the commutative superposition.
 
 ## Critical-speed detection
 
