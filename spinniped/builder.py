@@ -19,6 +19,7 @@ from .records import (
     RotatingLoad,
     ShaftElement,
     ShaftProperty,
+    SinglePointConstraint,
     SpeedDependentValue,
     SynchronousLoad,
     Unbalance,
@@ -80,6 +81,7 @@ class BuiltModel:
     _damping_speed_contributions: tuple[
         tuple[_SpeedDependentMatrixContribution, ...], ...
     ] = field(default_factory=tuple, repr=False)
+    _dof_transform: np.ndarray | None = field(default=None, repr=False)
 
     def __post_init__(self):
         """Validate cross-field dimensions and finite numerical contents.
@@ -147,6 +149,23 @@ class BuiltModel:
             raise ValueError(
                 "BuiltModel requires one resolved definition per sample"
             )
+
+        # Solver-created working models may use a rotated nodal basis for
+        # local-coordinate constraints. Columns map that basis to global DOFs.
+        if self._dof_transform is not None:
+            if not isinstance(self._dof_transform, np.ndarray):
+                raise TypeError("BuiltModel DOF transform must be a NumPy array")
+            if self._dof_transform.shape != (row_count, row_count):
+                raise ValueError("BuiltModel DOF transform has an invalid shape")
+            if not np.isfinite(self._dof_transform).all():
+                raise ValueError("BuiltModel DOF transform must be finite")
+            if not np.allclose(
+                self._dof_transform.T @ self._dof_transform,
+                np.eye(row_count),
+                rtol=1.0e-10,
+                atol=1.0e-12,
+            ):
+                raise ValueError("BuiltModel DOF transform must be orthonormal")
 
         # Speed-dependent terms are stored per realization while the base
         # matrices retain their established sample-first three-dimensional
@@ -368,8 +387,12 @@ def _interpolate_speed_dependent_value(value, speeds, path):
 
 def _contains_speed_dependent_value(value):
     """Return whether an arbitrarily nested record value contains a table."""
+
+    # Congrats, you found the base case. What did you expect? A seal? :)
     if isinstance(value, SpeedDependentValue):
         return True
+
+    # Check nested containers recursively.
     if isinstance(value, (tuple, list)):
         return any(_contains_speed_dependent_value(item) for item in value)
     if isinstance(value, dict):
@@ -601,6 +624,10 @@ def _resolve(value, sampled_distributions, path="model"):
     """
     # Distribution records define the registry and must remain unchanged.
     if isinstance(value, RandomDistribution):
+        return value
+
+    # SPC tuples are structural DOF selections, never random references.
+    if isinstance(value, SinglePointConstraint):
         return value
 
     # A speed table owns two structural tuples. Resolve only its ordinates so
@@ -925,6 +952,12 @@ def _assemble(definition):
         ),
     )
 
+    for boundary_condition in definition.boundary_conditions:
+        if not isinstance(boundary_condition, SinglePointConstraint):
+            raise TypeError(
+                "boundary_conditions must contain SinglePointConstraint records"
+            )
+
     # Record insertion order determines global grid and DOF order.
     grid_ids = tuple(grids)
     grid_index = {grid_id: index for index, grid_id in enumerate(grid_ids)}
@@ -1010,6 +1043,15 @@ def _assemble(definition):
                     f"Unbalance {load.id} coordinate-system z-axis must be "
                     "parallel to spin_axis"
                 )
+
+    # Check whether each SPC references a known grid. Its component frame is
+    # the grid's already-validated input coordinate system.
+    for boundary_condition in definition.boundary_conditions:
+        if boundary_condition.grid not in grid_index:
+            raise ValueError(
+                "Single-point constraint references unknown grid "
+                f"{boundary_condition.grid}"
+            )
 
     # Assemble each declarative element record.
     for element in definition.elements:

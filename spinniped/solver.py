@@ -1,5 +1,6 @@
 """Unified analyses for deterministic models and stochastic ensembles."""
 
+from dataclasses import replace
 import warnings
 
 import numpy as np
@@ -12,6 +13,7 @@ from .builder import (
 from .records import (
     HarmonicLoad,
     RotatingLoad,
+    SinglePointConstraint,
     SpeedDependentValue,
     SynchronousLoad,
     Unbalance,
@@ -84,8 +86,11 @@ class Solver:
         if not isinstance(numerical_model, BuiltModel):
             raise TypeError("model must be a model returned by ModelBuilder")
 
-        # Convert fixed global DOFs into a sorted free-DOF array.
-        free_dofs = self._free_dofs(numerical_model.ndof, fixed_dofs)
+        # Rotate constrained grids into their requested frames, then combine
+        # declarative SPCs with the legacy global-index constraint route.
+        numerical_model, free_dofs, dof_transform = (
+            self._apply_boundary_conditions(numerical_model, fixed_dofs)
+        )
 
         # Normalize the public name before selecting an analysis strategy.
         if not isinstance(analysis, str):
@@ -131,10 +136,108 @@ class Solver:
         result.update(
             analysis=normalized_analysis,
             free_dofs=free_dofs,
+            reduction_basis=dof_transform[:, free_dofs],
             samples=numerical_model.samples,
             stochastic=numerical_model.stochastic,
         )
         return result
+
+    @classmethod
+    def _apply_boundary_conditions(cls, model, fixed_dofs):
+        """Return a working model expressed in each constrained grid's frame."""
+        if fixed_dofs is None:
+            legacy_fixed = []
+        else:
+            try:
+                legacy_fixed = list(fixed_dofs)
+            except TypeError:
+                raise TypeError(
+                    "fixed_dofs must be a sequence of integers"
+                ) from None
+
+        # Validate the legacy route independently so its established error
+        # contract remains unchanged.
+        cls._free_dofs(model.ndof, legacy_fixed)
+
+        definition = model.definitions[0]
+        rotations = cls._load_coordinate_systems(definition)
+        grid_positions = {
+            grid_id: position
+            for position, grid_id in enumerate(model.grid_ids)
+        }
+        grid_coordinate_systems = {
+            grid.id: grid.coordinate_system
+            for grid in definition.grids
+        }
+        constrained_grids = set()
+        boundary_fixed = []
+
+        for boundary_condition in definition.boundary_conditions:
+            if not isinstance(boundary_condition, SinglePointConstraint):
+                raise TypeError(
+                    "boundary_conditions must contain "
+                    "SinglePointConstraint records"
+                )
+            if boundary_condition.grid not in grid_positions:
+                raise ValueError(
+                    "Single-point constraint references unknown grid "
+                    f"{boundary_condition.grid}"
+                )
+            # An empty tuple is intentionally a no-op, including with respect
+            # to selecting an active nodal coordinate frame.
+            if not boundary_condition.dof:
+                continue
+
+            constrained_grids.add(boundary_condition.grid)
+            offset = 6 * grid_positions[boundary_condition.grid]
+            boundary_fixed.extend(
+                offset + dof for dof in boundary_condition.dof
+            )
+
+        uses_local_frame = any(
+            grid_coordinate_systems[grid_id] != 0
+            for grid_id in constrained_grids
+        )
+        if uses_local_frame and legacy_fixed:
+            raise ValueError(
+                "fixed_dofs cannot be combined with local-coordinate "
+                "boundary conditions"
+            )
+
+        dof_transform = np.eye(model.ndof)
+        for grid_id in constrained_grids:
+            coordinate_system = grid_coordinate_systems[grid_id]
+            rotation = rotations[coordinate_system]
+            offset = 6 * grid_positions[grid_id]
+            dof_transform[offset : offset + 3, offset : offset + 3] = rotation
+            dof_transform[offset + 3 : offset + 6, offset + 3 : offset + 6] = (
+                rotation
+            )
+
+        free_dofs = cls._free_dofs(
+            model.ndof,
+            legacy_fixed + boundary_fixed,
+        )
+        if not constrained_grids:
+            return model, free_dofs, dof_transform
+
+        def transformed(matrices):
+            return np.stack(
+                [
+                    dof_transform.T @ matrix @ dof_transform
+                    for matrix in matrices
+                ]
+            )
+
+        working_model = replace(
+            model,
+            stiffness=transformed(model.stiffness),
+            mass=transformed(model.mass),
+            damping=transformed(model.damping),
+            gyroscopic=transformed(model.gyroscopic),
+            _dof_transform=dof_transform,
+        )
+        return working_model, free_dofs, dof_transform
 
     @staticmethod
     def _free_dofs(number_of_dofs, fixed_dofs):
@@ -260,6 +363,18 @@ class Solver:
                 deltas[sample, speed_index][matrix_indices] += (
                     coefficient * term.matrix
                 )
+
+        # Speed-dependent contributions are assembled in global coordinates.
+        # Match a solver working model's rotated nodal basis before reduction.
+        if model._dof_transform is not None:
+            transform = model._dof_transform
+            for sample in range(model.samples):
+                for speed_index in range(len(speeds)):
+                    deltas[sample, speed_index] = (
+                        transform.T
+                        @ deltas[sample, speed_index]
+                        @ transform
+                    )
         return deltas
 
     @classmethod
@@ -895,6 +1010,7 @@ class Solver:
                 free_dofs,
                 "force",
                 dtype=complex,
+                transform=model._dof_transform,
             )
         else:
             selected_load_ids = self._validate_load_ids(
@@ -1393,6 +1509,8 @@ class Solver:
                 local_load,
             )
 
+        if model._dof_transform is not None:
+            global_load = model._dof_transform.T @ global_load
         return global_load
 
     @classmethod
@@ -1434,6 +1552,8 @@ class Solver:
                 local_load,
             )
 
+        if model._dof_transform is not None:
+            global_load = model._dof_transform.T @ global_load
         return global_load
 
     @staticmethod
@@ -1516,6 +1636,11 @@ class Solver:
             if reduced_initial_state.shape == (2 * model.ndof,):
                 full_displacement = reduced_initial_state[: model.ndof]
                 full_velocity = reduced_initial_state[model.ndof :]
+                if model._dof_transform is not None:
+                    full_displacement = (
+                        model._dof_transform.T @ full_displacement
+                    )
+                    full_velocity = model._dof_transform.T @ full_velocity
                 reduced_initial_state = np.concatenate(
                     (
                         full_displacement[free_dofs],
@@ -1543,6 +1668,7 @@ class Solver:
                 free_dofs,
                 "force",
                 dtype=float,
+                transform=model._dof_transform,
             )
 
         # Reject any out-of-range structural interpolation before invoking the
@@ -1608,6 +1734,7 @@ class Solver:
                         free_dofs,
                         "force",
                         dtype=float,
+                        transform=model._dof_transform,
                     )
                 else:
                     load = constant_force
@@ -1651,7 +1778,15 @@ class Solver:
         }
 
     @staticmethod
-    def _free_vector(value, number_of_dofs, free_dofs, name, *, dtype):
+    def _free_vector(
+        value,
+        number_of_dofs,
+        free_dofs,
+        name,
+        *,
+        dtype,
+        transform=None,
+    ):
         """Validate and reduce a full or free-DOF vector.
 
         Parameters
@@ -1666,6 +1801,8 @@ class Solver:
             Field name used in validation messages.
         dtype : numpy dtype
             Required output data type.
+        transform : numpy.ndarray or None, optional
+            Local-to-global DOF basis used by the working model.
 
         Returns
         -------
@@ -1677,6 +1814,8 @@ class Solver:
 
         # Reduce a full global vector when necessary.
         if vector.shape == (number_of_dofs,):
+            if transform is not None:
+                vector = transform.T @ vector
             vector = vector[free_dofs]
 
         # Any other length is ambiguous and therefore rejected.

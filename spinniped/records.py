@@ -907,6 +907,48 @@ class Unbalance:
             )
 
 
+@dataclass(frozen=True, slots=True)
+class SinglePointConstraint:
+    """Define a single-point constraint (SPC) on one grid.
+
+    Parameters
+    ----------
+    grid : int
+        ID of the grid where the SPC is applied.
+    dof : tuple of int, optional
+        Degree-of-freedom index to constrain. Valid values are 0-5.
+
+    Notes
+    -----
+    The constrained components use the coordinate system selected by the
+    referenced grid's ``coordinate_system`` field.
+    """
+
+    grid: int
+    dof: tuple[int, ...] = (0, 1, 2, 3, 4, 5)
+
+    def __post_init__(self):
+        """Validate the complete local single-point-constraint specification."""
+        if isinstance(self.grid, bool) or not isinstance(self.grid, int):
+            raise TypeError("Single-point constraint grid must be an integer ID")
+        if self.grid <= 0:
+            raise ValueError("Single-point constraint grid must be positive")
+
+        # Validate that dof is a tuple of unique integers between 0 and 5
+        if not isinstance(self.dof, tuple):
+            raise TypeError("Single-point constraint dof must be a tuple")
+        if len(set(self.dof)) != len(self.dof):
+            raise ValueError("Single-point constraint dof values must be unique")
+        for index, dof_value in enumerate(self.dof):
+            if isinstance(dof_value, bool) or not isinstance(dof_value, int):
+                raise TypeError(
+                    f"Single-point constraint dof[{index}] must be an integer"
+                )
+            if dof_value < 0 or dof_value > 5:
+                raise ValueError(
+                    f"Single-point constraint dof[{index}] must be between 0 and 5"
+                )
+
 # These unions document valid contents of model record lists.
 Property: TypeAlias = ShaftProperty | BearingProperty | DiskProperty
 Element: TypeAlias = ShaftElement | BearingElement | DiskElement
@@ -936,6 +978,8 @@ class ModelDefinition:
     loads : list of load records, optional
         Harmonic, synchronous, rotating, and unbalance excitations associated
         with grids.
+    boundary_conditions : list of SinglePointConstraint, optional
+        Single-point constraints associated with grids.
     """
 
     # Default factories prevent model instances from sharing mutable lists.
@@ -948,6 +992,9 @@ class ModelDefinition:
     spin_axis: tuple[Parameter, Parameter, Parameter] = (0.0, 0.0, 1.0)
     # Appended to preserve the positional order of the pre-existing fields.
     loads: list[Load] = field(default_factory=list)
+    boundary_conditions: list[SinglePointConstraint] = field(
+        default_factory=list
+    )
 
     def __post_init__(self):
         """Validate the model container and its immutable spin-axis field."""
@@ -962,6 +1009,7 @@ class ModelDefinition:
             "elements",
             "distributions",
             "loads",
+            "boundary_conditions",
         ):
             if not isinstance(getattr(self, name), list):
                 raise TypeError(f"{name} must be a list")
