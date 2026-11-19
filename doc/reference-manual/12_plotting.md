@@ -102,11 +102,21 @@ confidence interval. Optional faint sample points show the underlying finite
 realizations. Every error bar lies along its harmonic because the two plotted
 critical-point coordinates are not independent random variables.
 
-Confidence fills and diagonal error bars use Matplotlib's `_nolegend_` label.
-Critical-point markers remain in the legend with their mode and harmonic,
-alongside the central modal branches and synchronous lines. Statistical mode
-and confidence metadata are rendered once in an axes-relative information box
-instead of being repeated for every branch.
+Only central modal branches appear in the legend, positioned outside the
+axes at the upper right. Harmonic lines, critical-point markers, confidence
+fills, and diagonal error bars use Matplotlib's `_nolegend_` label. Modal
+colors use `tab10` in branch order and repeat after ten modes; associated
+bands and markers reuse the branch color.
+
+Harmonic orders are labelled directly above their dashed lines with a white
+background at 75% opacity and no border. The private
+`_HarmonicLabel` text artist places each label within the visible line segment
+at draw time. A small display offset lifts it above the line, and Matplotlib
+transforms its data-space angle to the displayed angle. Labels therefore
+remain aligned when the axes limits, aspect ratio, or figure size change.
+New figures use tight layout to reserve space for the external legend;
+caller-supplied axes retain their figure layout. Statistical information
+remains in the axes-relative information box.
 
 When extrema are enabled, both the sample-minimum and sample-maximum curves use
 the same dashed style and their central branch color. Both carry the

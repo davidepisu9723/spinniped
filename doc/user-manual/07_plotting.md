@@ -202,9 +202,14 @@ error bar has perpendicular end caps. Supplying
 A median plot uses the median marker and shows an error bar only when a
 confidence level is requested.
 
-The legend identifies modal branches, synchronous harmonics, and critical-speed
-markers. Confidence bands and critical-speed error bars are intentionally
-excluded from it. A separate information box reports whether the displayed
+The legend contains only modal branches and sits outside the axes at the
+upper right. Branch colors follow the `tab10` palette, repeating after ten
+modes. Each mode's bands, extremes, and critical-speed markers share its color.
+Harmonic orders (`1x`, `2x`, and so on) are written just above their dashed
+lines, at the same angle as the line, with a semitransparent white background
+for readability. These labels follow changes to axis
+limits and figure size. Critical-speed markers are omitted from the legend.
+A separate information box reports whether the displayed
 central values are a sample, mean, or median and gives the confidence level
 when one is active.
 
