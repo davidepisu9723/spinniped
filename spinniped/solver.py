@@ -369,6 +369,112 @@ class Solver:
             ]
         return matrix
 
+    @staticmethod
+    def _modal_eigenpairs(stiffness, mass, modes, zero_tolerance=None):
+        """Extract the lowest positive modes, skipping zero roots."""
+        from scipy.linalg import cholesky, eigh, solve_triangular
+
+        # Transform once to a symmetric standard problem. Its infinity norm
+        # bounds the spectral scale without calculating the largest eigenvalue.
+        factor = cholesky(mass, lower=True)
+        standard = solve_triangular(factor, stiffness, lower=True)
+        standard = solve_triangular(factor, standard.T, lower=True).T
+        standard = (standard + standard.T) * 0.5
+        size = len(mass)
+        if zero_tolerance is None:
+            tolerance = (
+                10.0 * np.finfo(float).eps * size
+                * max(float(np.linalg.norm(standard, ord=np.inf)), 1.0)
+            )
+        else:
+            tolerance = float(zero_tolerance)
+            if not np.isfinite(tolerance) or tolerance < 0:
+                raise ValueError("zero_tolerance must be finite and nonnegative")
+
+        count = size if modes is None else min(modes, size)
+        while True:
+            values, vectors = eigh(
+                standard,
+                subset_by_index=None if count == size else (0, count - 1),
+                check_finite=False,
+            )
+            # The subset starts at the smallest root, so instability cannot be
+            # hidden outside the requested frequency range.
+            if np.any(values < -tolerance):
+                raise ValueError(
+                    "modal analysis found negative eigenvalues; the model "
+                    "is unstable or insufficiently constrained"
+                )
+            positive = values > tolerance
+            values = values[positive]
+            vectors = solve_triangular(
+                factor.T, vectors[:, positive], lower=False,
+                check_finite=False,
+            )
+            if count == size or len(values) >= modes:
+                return values, vectors
+            count = min(size, count + modes - len(values))
+
+    @staticmethod
+    def _campbell_eigenpairs(stiffness, mass, damping, modes):
+        """Extract low state roots using an n-by-n shift-invert factorization."""
+        from scipy.linalg import LinAlgWarning, eig, lu_factor, lu_solve
+        from scipy.sparse.linalg import LinearOperator, eigs
+
+        size = len(mass)
+        if modes is None or modes >= size:
+            # A full-spectrum request requires a dense eigensolver: ARPACK's
+            # root count must be strictly smaller than the state size minus 1.
+            lower = -np.linalg.solve(mass, np.hstack((stiffness, damping)))
+            state = np.block([
+                [np.zeros_like(mass), np.eye(size)],
+                [lower[:, :size], lower[:, size:]],
+            ])
+            values, vectors = eig(state, check_finite=False)
+            positive = np.imag(values) > 1.0e-8
+        else:
+            # For x = [u; v], solve (A - shift I) y = x by eliminating
+            # velocity. A small negative shift also permits free rigid DOFs.
+            shift = -1.0
+            shifted_damping = damping + shift * mass
+            with warnings.catch_warnings():
+                warnings.simplefilter("error", LinAlgWarning)
+                factor = lu_factor(
+                    stiffness + shift * shifted_damping,
+                    check_finite=False,
+                )
+
+            def inverse_action(vector):
+                displacement = -lu_solve(
+                    factor,
+                    mass @ vector[size:] + shifted_damping @ vector[:size],
+                    check_finite=False,
+                )
+                return np.concatenate((
+                    displacement, vector[:size] + shift * displacement,
+                ))
+
+            inverse = LinearOperator(
+                (2 * size, 2 * size), matvec=inverse_action, dtype=float
+            )
+            start = np.random.default_rng(0).standard_normal(2 * size)
+            # One extra pair accommodates real roots in the search region.
+            count = min(2 * (modes + 1), 2 * size - 2)
+            inverse_values, vectors = eigs(
+                inverse, k=count, which="LM", v0=start, tol=1.0e-10,
+                ncv=min(3 * count + 1, 2 * size),
+            )
+            values = shift + 1.0 / inverse_values
+            tolerance = np.sqrt(np.finfo(float).eps) * max(
+                float(np.max(np.abs(values))), 1.0,
+            )
+            positive = np.imag(values) > tolerance
+
+        # Keep one root per oscillating conjugate pair, in frequency order.
+        selected = np.flatnonzero(positive)
+        selected = selected[np.argsort(np.imag(values[selected]))]
+        return values[selected], vectors[:, selected]
+
     def _solve_modal(
         self,
         model,
@@ -402,9 +508,6 @@ class Solver:
         dict
             Eigenvalues, frequencies in hertz, and reduced eigenvectors.
         """
-        # Import SciPy lazily so model-definition workflows stay lightweight.
-        from scipy.linalg import eigh
-
         # Validate options shared by every realization.
         requested_modes = self._validate_modes(modes)
         if not isinstance(track_modes, bool):
@@ -456,39 +559,12 @@ class Solver:
             ):
                 raise ValueError("modal analysis requires symmetric mass")
 
-            # Solve K q = lambda M q with mass-normalized eigenvectors.
-            eigenvalues, eigenvectors = eigh(stiffness_matrix, mass_matrix)
-
-            # Derive a round-off-aware default rigid-mode threshold.
-            if zero_tolerance is None:
-                eigenvalue_scale = max(
-                    float(np.max(np.abs(eigenvalues))),
-                    1.0,
-                )
-                tolerance = (
-                    10.0
-                    * np.finfo(float).eps
-                    * max(len(eigenvalues), 1)
-                    * eigenvalue_scale
-                )
-            else:
-                tolerance = float(zero_tolerance)
-                if not np.isfinite(tolerance) or tolerance < 0:
-                    raise ValueError(
-                        "zero_tolerance must be finite and nonnegative"
-                    )
-
-            # Significant negative eigenvalues indicate an unstable model.
-            if np.any(eigenvalues < -tolerance):
-                raise ValueError(
-                    "modal analysis found negative eigenvalues; the model "
-                    "is unstable or insufficiently constrained"
-                )
-
-            # Remove zero and round-off-scale rigid-body eigenpairs.
-            positive_modes = eigenvalues > tolerance
-            eigenvalues = eigenvalues[positive_modes]
-            eigenvectors = eigenvectors[:, positive_modes]
+            eigenvalues, eigenvectors = self._modal_eigenpairs(
+                stiffness_matrix,
+                mass_matrix,
+                requested_modes,
+                zero_tolerance,
+            )
 
             # Later samples are matched against the first sample before slicing.
             if track_modes and sample_eigenvectors:
@@ -564,9 +640,6 @@ class Solver:
         dict
             Speeds, complex state eigenvalues, frequencies, and eigenvectors.
         """
-        # Import the general complex eigensolver only for Campbell analysis.
-        from scipy.linalg import eig
-
         # Convert and validate the requested speed grid.
         angular_speeds = np.asarray(speeds, dtype=float)
         if (
@@ -641,10 +714,7 @@ class Solver:
             mass_matrix = self._reduced(model.M, sample, free_dofs)
             gyroscopic_matrix = self._reduced(model.G, sample, free_dofs)
 
-            # Prepare constant state-space blocks.
             reduced_size = len(free_dofs)
-            zero_matrix = np.zeros_like(mass_matrix)
-            identity_matrix = np.eye(reduced_size)
 
             # Accumulate one eigensolution for every speed.
             speed_values = []
@@ -666,40 +736,14 @@ class Solver:
                     speed_index,
                     free_dofs,
                 )
-                # Form the first-order state matrix without explicitly inverting M.
-                lower_left = -np.linalg.solve(
-                    mass_matrix,
+                eigenvalues, eigenvectors = self._campbell_eigenpairs(
                     stiffness_matrix,
-                )
-                lower_right = -np.linalg.solve(
                     mass_matrix,
                     damping_matrix + angular_speed * gyroscopic_matrix,
-                )
-                state_matrix = np.block(
-                    [
-                        [zero_matrix, identity_matrix],
-                        [lower_left, lower_right],
-                    ]
+                    requested_modes,
                 )
 
-                # Solve for complex state eigenvalues and right eigenvectors.
-                eigenvalues, eigenvectors = eig(
-                    state_matrix,
-                    check_finite=False,
-                    right=True,
-                )
-
-                # Retain one eigenvalue from each complex-conjugate pair.
-                positive_imaginary = np.imag(eigenvalues) > 1.0e-8
-                eigenvalues = eigenvalues[positive_imaginary]
-                eigenvectors = eigenvectors[:, positive_imaginary]
-
-                # Frequency ordering defines the initial reference branches.
-                frequency_order = np.argsort(np.imag(eigenvalues))
-                eigenvalues = eigenvalues[frequency_order]
-                eigenvectors = eigenvectors[:, frequency_order]
-
-                # Track later speeds against displacement components at prior speed.
+                # Track modes within the roots extracted at the current speed.
                 if track_modes and speed_vectors:
                     mode_order = self._mode_order(
                         speed_vectors[-1][:reduced_size],
@@ -716,8 +760,8 @@ class Solver:
                     if len(eigenvalues) < requested_modes:
                         raise ValueError(
                             f"Requested {requested_modes} modes but only "
-                            f"{len(eigenvalues)} are available at speed "
-                            f"{angular_speed}"
+                            f"{len(eigenvalues)} oscillating roots were extracted "
+                            f"at speed {angular_speed}"
                         )
                     eigenvalues = eigenvalues[:requested_modes]
                     eigenvectors = eigenvectors[:, :requested_modes]
