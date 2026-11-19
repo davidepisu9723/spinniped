@@ -201,12 +201,16 @@ def test_plot_campbell_draws_deterministic_harmonics_and_critical_speeds():
     )
 
     labels = [line.get_label() for line in axes.lines]
-    assert "1x synchronous" in labels
-    assert "2x synchronous" in labels
-    assert "Mode 1 1x critical" in labels
-    assert "Mode 1 2x critical" in labels
-    assert "Mode 2 2x critical" in labels
-    assert "Mode 2 1x critical" not in labels
+    assert [label for label in labels if not label.startswith("_")] == [
+        "Mode 1", "Mode 2",
+    ]
+    assert [text.get_text() for text in axes.get_legend().get_texts()] == [
+        "Mode 1", "Mode 2",
+    ]
+    assert [text.get_text() for text in axes.texts] == ["1x", "2x"]
+    figure.canvas.draw()
+    assert axes.get_legend().get_window_extent().x0 > axes.get_window_extent().x1
+    assert axes.get_legend().get_window_extent().x1 <= figure.bbox.x1
 
     marker = next(
         line for line in axes.lines
@@ -247,9 +251,67 @@ def test_plot_campbell_draws_stochastic_critical_speed_statistics():
     assert len(axes.collections) == 3
     assert axes.get_legend() is None
     assert [text.get_text() for text in axes.texts] == [
-        "Displayed statistic: mean\n"
+        "1x", "2x", "Displayed statistic: mean\n"
         "Critical-speed error bars: ±1 std. dev."
     ]
+    plt.close(figure)
+
+
+@pytest.mark.parametrize("speed_unit", ["rpm", "rad/s", "hz"])
+def test_campbell_harmonic_labels_follow_visible_line(speed_unit):
+    """Keep labels aligned and above the lines after limits and size change."""
+    import matplotlib.pyplot as plt
+
+    figure, axes = plot_campbell(
+        _critical_campbell_result(), speed_unit=speed_unit,
+        show_harmonics=True, legend=False,
+    )
+    axes.set_xlim(0, np.max(axes.lines[0].get_xdata()) * 0.75)
+    axes.set_ylim(0, 18)
+    for size in ((10, 4), (6, 6)):
+        figure.set_size_inches(*size)
+        figure.canvas.draw()
+        for index in range(2):
+            line = next(a for a in axes.lines if a.get_gid() == f"harmonic-h{index}")
+            label = next(a for a in axes.texts if a.get_gid() == f"harmonic-label-h{index}")
+            points = axes.transData.transform(np.column_stack((
+                line.get_xdata(), line.get_ydata(),
+            )))
+            dx, dy = points[-1] - points[0]
+            angle = np.degrees(np.arctan2(dy, dx)) % 360
+            assert label.get_rotation() == pytest.approx(angle, abs=1e-6)
+            x, y = label.get_position()
+            assert 0 < x < axes.get_xlim()[1]
+            assert 0 < y < axes.get_ylim()[1]
+            baseline = label.get_transform().transform((x, y))
+            on_line = axes.transData.transform((x, y))
+            assert baseline[1] - on_line[1] == pytest.approx(3 * figure.dpi / 72)
+    plt.close(figure)
+
+
+def test_campbell_uses_tab10_for_all_branch_artists():
+    """Keep branch, envelope, and critical marker colors consistent."""
+    import matplotlib.pyplot as plt
+    from matplotlib.colors import to_rgba
+
+    figure, axes = plot_campbell(
+        _critical_campbell_result(), show_harmonics=True,
+        statistic="mean", confidence=0.5, show_extremes=True,
+    )
+    palette = plt.get_cmap("tab10").colors
+    for mode in range(2):
+        color = to_rgba(palette[mode])
+        for line in axes.lines[3 * mode:3 * mode + 3]:
+            np.testing.assert_allclose(to_rgba(line.get_color()), color)
+        np.testing.assert_allclose(axes.collections[mode].get_facecolor()[0, :3], color[:3])
+        marker = next(a for a in axes.lines if a.get_gid() == f"critical-h1-m{mode}-c0")
+        np.testing.assert_allclose(to_rgba(marker.get_markerfacecolor()), color)
+    plt.close(figure)
+
+    result = _campbell_result()
+    result["frequencies"] = np.repeat(result["frequencies"][:, :, :1], 11, axis=2)
+    figure, axes = plot_campbell(result, legend=False)
+    assert axes.lines[0].get_color() == axes.lines[10].get_color()
     plt.close(figure)
 
 
