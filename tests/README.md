@@ -68,7 +68,7 @@ parametrized functions run once for every listed case.
 | [`test_eigenvalue_extraction.py`](#test_eigenvalue_extractionpy) | 14 | Partial eigenpairs, root budgets, normalization, tracking, and error propagation |
 | [`test_speed_dependence.py`](#test_speed_dependencepy) | 20 | Tabulated rotor-speed interpolation, stochastic curves, matrix deltas, and load deltas |
 | [`test_load_response.py`](#test_load_responsepy) | 11 | Declarative load phasors and steady-response routes |
-| [`test_plotting.py`](#test_plottingpy) | 13 | Rotor-section, frequency-response, and Campbell rendering and input validation |
+| [`test_plotting.py`](#test_plottingpy) | 15 | Rotor-section, frequency-response, and Campbell rendering and input validation |
 | [`test_analytical_benchmarks.py`](#test_analytical_benchmarkspy) | 1 | Comparison with the Euler--Bernoulli beam solution |
 | [`test_jeffcott_benchmark.py`](#test_jeffcott_benchmarkpy) | 2 | Jeffcott frequency and critical-speed comparison |
 | [`test_convergence.py`](#test_convergencepy) | 2 | Accuracy under mesh refinement |
@@ -848,12 +848,26 @@ critical markers by harmonic and tracked mode. A mode without a 1x crossing
 must not receive a marker, while marker coordinates must satisfy both the
 stored critical speed and its synchronous-frequency relation.
 
+The legend must contain only modal branches, outside the axes at the upper
+right. Harmonic orders are shown as text on the diagram.
+
 #### `test_plot_campbell_draws_stochastic_critical_speed_statistics`
 
 Plots three realizations through the mean-statistic route. It checks the mean
 critical point, the capped diagonal one-sample-standard-deviation error bar,
 the optional underlying sample scatter, and legend suppression. Missing
 crossings remain excluded from the finite statistics.
+
+#### `test_campbell_harmonic_labels_follow_visible_line`
+
+Checks rpm, rad/s, and Hz axes after changing the plot limits and figure size.
+Harmonic labels must stay within the visible line segment, share its displayed
+angle, and retain their offset above the line.
+
+#### `test_campbell_uses_tab10_for_all_branch_artists`
+
+Checks that modal branches, extrema, confidence bands, and critical markers
+share their mode's `tab10` color, and that colors repeat after ten modes.
 
 #### `test_plot_frequency_response_selects_global_dofs_and_frequency_axis`
 

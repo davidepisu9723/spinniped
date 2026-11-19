@@ -4,6 +4,8 @@ from collections.abc import Mapping
 
 import matplotlib.pyplot as plt
 from matplotlib.patches import FancyArrowPatch, Rectangle
+from matplotlib.text import Text
+from matplotlib.transforms import ScaledTranslation
 import numpy as np
 
 from .builder import BuiltModel
@@ -15,6 +17,41 @@ _SPEED_CONVERSIONS = {
     "rad/s": (lambda speeds: speeds, "Speed [rad/s]"),
     "hz": (lambda speeds: speeds / (2.0 * np.pi), "Speed [Hz]"),
 }
+
+
+class _HarmonicLabel(Text):
+    """Keep a harmonic label above its visible line as the axes change."""
+
+    def __init__(self, axes, speeds, slope, label):
+        self._speed_limits = (float(np.min(speeds)), float(np.max(speeds)))
+        self._slope = slope
+        super().__init__(
+            text=label, color="#303030", fontsize="small",
+            horizontalalignment="right", verticalalignment="bottom",
+            rotation=np.degrees(np.arctan(slope)),
+            rotation_mode="anchor", transform_rotates_text=True,
+            bbox={
+                "facecolor": "white", "edgecolor": "none",
+                "alpha": 0.75, "boxstyle": "round,pad=0.15",
+            },
+            transform=axes.transData + ScaledTranslation(
+                0, 3 / 72, axes.figure.dpi_scale_trans,
+            ),
+            clip_on=True,
+        )
+        self.set_in_layout(False)
+
+    def draw(self, renderer):
+        # Clip the line to the current view, including limits set after plotting.
+        xmin, xmax = sorted(self.axes.get_xlim())
+        ymin, ymax = sorted(self.axes.get_ylim())
+        left = max(xmin, self._speed_limits[0], ymin / self._slope)
+        right = min(xmax, self._speed_limits[1], ymax / self._slope)
+        if right <= left:
+            return
+        x = left + 0.85 * (right - left)
+        self.set_position((x, self._slope * x))
+        super().draw(renderer)
 
 
 def _finite_sample_reduction(values, reducer):
@@ -706,11 +743,12 @@ def plot_campbell(
     title : str or None, optional
         Axes title. Use ``None`` to leave an existing title unchanged.
     legend : bool, optional
-        Draw a legend containing one label per modal branch.
+        Draw modal branch labels outside the axes at the upper right.
     show_harmonics : bool, optional
         Plot the synchronous harmonic indices requested during the Campbell
         solution. For index ``h``, the plotted frequency is
-        ``h * speed / (2*pi)``. The result must contain critical-speed data.
+        ``h * speed / (2*pi)``. Orders are labelled above their dashed lines.
+        The result must contain critical-speed data.
     show_critical_speeds : bool, optional
         Mark critical speeds when synchronous harmonics are shown. Sample mode
         marks the selected realization. Mean mode also draws capped diagonal
@@ -866,12 +904,14 @@ def plot_campbell(
     # Plot every tracked mode separately. Confidence fills and extrema reuse
     # the central line's color so all representations of a mode stay grouped.
     mode_colors = []
+    palette = plt.get_cmap("tab10").colors
     for mode_index in range(frequencies.shape[2]):
         label = f"Mode {mode_index + 1}"
         line = axes.plot(
             plotted_speeds,
             central_frequencies[:, mode_index],
             label=label,
+            color=palette[mode_index % len(palette)],
         )[0]
         color = line.get_color()
         mode_colors.append(color)
@@ -906,15 +946,22 @@ def plot_campbell(
 
     if show_harmonics:
         for harmonic_position, h in enumerate(harmonic_indices):
-            axes.plot(
+            harmonic_line = axes.plot(
                 plotted_speeds,
                 h * speeds / (2.0 * np.pi),
                 color="#303030",
                 linestyle=(0, (5, 2 + harmonic_position % 3)),
                 linewidth=1.0,
-                label=f"{h:g}x synchronous",
+                label="_nolegend_",
                 zorder=1,
+            )[0]
+            harmonic_line.set_gid(f"harmonic-h{harmonic_position}")
+            annotation = _HarmonicLabel(
+                axes, plotted_speeds,
+                h / (2.0 * np.pi * convert_speed(1.0)), f"{h:g}x",
             )
+            annotation.set_gid(f"harmonic-label-h{harmonic_position}")
+            axes.add_artist(annotation)
 
         if show_critical_speeds:
             critical_statistics = _sample_statistics(
@@ -933,12 +980,6 @@ def plot_campbell(
                         if not np.isfinite(critical_speed):
                             continue
 
-                        crossing_label = (
-                            f"Mode {mode_index + 1} {h:g}x critical"
-                        )
-                        if critical_speeds.shape[3] > 1:
-                            crossing_label += f" #{crossing_index + 1}"
-
                         critical_artist = axes.plot(
                             convert_speed(critical_speed),
                             h * critical_speed / (2.0 * np.pi),
@@ -947,7 +988,7 @@ def plot_campbell(
                             markersize=6.0,
                             markerfacecolor=color,
                             markeredgecolor="#202020",
-                            label=crossing_label,
+                            label="_nolegend_",
                             zorder=6,
                         )[0]
                         critical_artist.set_gid(
@@ -1057,7 +1098,9 @@ def plot_campbell(
             zorder=10,
         )
     if legend:
-        axes.legend(loc="upper right")
+        axes.legend(loc="upper left", bbox_to_anchor=(1.02, 1.0), borderaxespad=0)
+    if ax is None:
+        figure.tight_layout()
 
     # Returning both objects lets callers further customize, save, or display
     # the plot without this utility imposing an output workflow.
