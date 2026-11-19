@@ -41,6 +41,9 @@ python -m pytest -q
 # One test module
 python -m pytest tests/test_declarative_api.py
 
+# Eigenvalue extraction test class
+python -m pytest tests/test_eigenvalue_extraction.py::TestEigenvalueExtraction
+
 # One test
 python -m pytest tests/test_declarative_api.py::test_modal_solver_returns_real_modes_for_each_sample
 
@@ -62,6 +65,7 @@ parametrized functions run once for every listed case.
 | [`test_element_matrices.py`](#test_element_matricespy) | 10 | Stateless shaft, bearing, and disk matrix kernels |
 | [`test_assembly.py`](#test_assemblypy) | 18 | Record validation, coordinate transforms, and global assembly |
 | [`test_declarative_api.py`](#test_declarative_apipy) | 33 | Distribution resolution and core public solver routes |
+| [`test_eigenvalue_extraction.py`](#test_eigenvalue_extractionpy) | 14 | Partial eigenpairs, root budgets, normalization, tracking, and error propagation |
 | [`test_speed_dependence.py`](#test_speed_dependencepy) | 20 | Tabulated rotor-speed interpolation, stochastic curves, matrix deltas, and load deltas |
 | [`test_load_response.py`](#test_load_responsepy) | 11 | Declarative load phasors and steady-response routes |
 | [`test_plotting.py`](#test_plottingpy) | 13 | Rotor-section, frequency-response, and Campbell rendering and input validation |
@@ -580,6 +584,19 @@ Passes a force vector whose length matches neither the full nor reduced model,
 then supplies only one time point to the transient solver. Both malformed
 inputs must raise focused errors before numerical solution.
 
+### `test_eigenvalue_extraction.py`
+
+`TestEigenvalueExtraction` has 14 test methods and 25 parametrized cases. It
+compares partial modal and damped gyroscopic roots with independent dense
+solutions and checks physical equation residuals and mass normalization.
+
+The root-budget checks verify that a six-mode modal request extracts six
+eigenpairs and a six-mode Campbell request makes one ARPACK call for 14 state
+roots, including conjugate partners and one extra pair. Other cases cover
+rigid coordinates, repeated roots, negative stiffness, small systems, and
+tracking within the extracted candidates. Singular factorizations and ARPACK
+nonconvergence must propagate directly without a recovery solve.
+
 ### `test_speed_dependence.py`
 
 This module verifies that tabulated coefficients remain declarative model data,
@@ -1050,6 +1067,6 @@ confidence.
 
 The suite verifies the current dense, linear rotor model and plain Monte Carlo
 sampling. It does not yet constitute validation for spatial random fields,
-nonlinear dynamics, Campbell branch tracking through mode crossings, sparse
+nonlinear dynamics, general Campbell branch identity through crossings, sparse
 assembly, or every possible bearing and coordinate-system orientation. Add
 focused verification before relying on a new formulation in those regimes.
